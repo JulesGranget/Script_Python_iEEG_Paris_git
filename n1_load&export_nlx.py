@@ -7,6 +7,8 @@ import mne
 import scipy.signal
 import pandas as pd
 import neo
+import scipy.io
+import xarray as xr
 
 from n0_config import *
 
@@ -16,29 +18,6 @@ debug = False
 ################################
 ######## EXTRACT NLX ########
 ################################
-
-#sujet_i = 'pat_03083_1527'
-def open_raw_neuralynx(sujet_i):
-
-    os.chdir(os.path.join(path_data, sujet_i, 'eeg'))
-    folder_to_open = [file_i for file_i in os.listdir() if file_i.find('unused') == -1]
-    os.chdir(os.path.join(path_data, sujet_i, 'eeg', folder_to_open[0]))
-
-    reader = neo.io.NeuralynxIO(dirname=os.path.join(path_data, sujet_i, 'eeg', folder_to_open[0]))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def organize_raw(raw):
@@ -53,11 +32,9 @@ def organize_raw(raw):
     data = raw.get_data()
 
     #### identify aux chan
-    nasal_i = chan_list_clean.index(aux_chan.get('nasal'))
-    ventral_i = chan_list_clean.index(aux_chan.get('ventral'))
-    ecg_i = chan_list_clean.index(aux_chan.get('ECG'))
-
-    aux_i_list = [nasal_i, ventral_i, ecg_i]
+    nasal_i = chan_list_clean.index(aux_chan[sujet]['nasal'])
+    ventral_i = chan_list_clean.index(aux_chan[sujet]['ventral'])
+    ecg_i = chan_list_clean.index(aux_chan[sujet]['ECG'])
 
     data_aux = np.vstack((data[nasal_i,:], data[ventral_i,:], data[ecg_i,:]))
 
@@ -68,32 +45,109 @@ def organize_raw(raw):
         plt.show()
 
     #### remove from data
-    chan_list_ieeg = chan_list_clean.copy()
     data_ieeg = data.copy()
 
-    #remove PRES1
-    aux_i = chan_list_ieeg.index('PRES1')
-    data_ieeg = np.delete(data_ieeg, aux_i, axis=0)
-    chan_list_ieeg.remove('PRES1')    
-
     # remove other aux
-    for aux_name in aux_chan.keys():
+    for aux_name in aux_chan[sujet].keys():
 
-        aux_i = chan_list_ieeg.index(aux_chan.get(aux_name))
+        aux_i = chan_list_clean.index(aux_chan[sujet][aux_name])
         data_ieeg = np.delete(data_ieeg, aux_i, axis=0)
-        chan_list_ieeg.remove(aux_chan.get(aux_name))        
+        chan_list_clean.remove(aux_chan[sujet][aux_name])
 
-    chan_list_aux = list(aux_chan.keys())
+    chan_list_aux = [aux_i for aux_i in list(aux_chan[sujet]) if aux_i != 'EMG']
+    chan_list_ieeg = chan_list_clean
 
 
     return data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate
 
 
 
+def get_events(sujet):
+
+    #### get to events
+    os.chdir(os.path.join(path_data))
+    os.chdir('./..')
+    os.chdir('./events')
+    os.chdir(f'./{sujet}')
+    
+    #### load from matlab
+    events_mat = scipy.io.loadmat(f'{sujet}_events.mat')['ts']
+
+    #### generate trigger df
+    mask = events_mat[:,-2] >= 0
+    mask_i = np.where(mask == True)[0]
+    events_mat = events_mat[mask_i, 1:3]
+    trig_name = events_mat[:,0]
+    trig_time = events_mat[:,1]
+
+    mask = events_mat[:,0] != 0
+    trig_name = trig_name[mask]
+    trig_time = trig_time[mask]
+
+    #### clean name
+    trig_name_clean = []
+    trig_clean_i = []
+    for trig_i, trig_name_i in enumerate(trig_name):
+        for cond in conditions_trig.keys():
+            if str(int(trig_name_i)) in conditions_trig[cond]:
+                trig_name_clean.append(str(int(trig_name_i)))
+                trig_clean_i.append(trig_i)
+
+
+    trig_time = trig_time[trig_clean_i]
+
+    #### clean time
+    trig_start = [i for i, trig_i in enumerate(trig_name_clean) if trig_i[-1] == '1']
+    trig_time_clean_i = []
+    for start_i in trig_start:
+        diff_i = trig_time[start_i + 1] - trig_time[start_i]
+        if diff_i > 10 :
+            trig_time_clean_i.append(start_i)
+            trig_time_clean_i.append(start_i + 1)
+            
+    mask = np.array(trig_time_clean_i)
+    
+    trig_time_clean = trig_time[mask]
+    trig_name_clean = np.array(trig_name_clean)[mask]
+
+    #### concert from sec to 
+
+    data_dict = {'name': trig_name_clean, 'time': trig_time_clean}
+    trigger = pd.DataFrame(data_dict)
+
+    return trigger
+    
+
+
+
+
+
+
+
+
+
+
 
 ################################
-######## COMPARISON ########
+######## MONITORING ########
 ################################
+
+
+
+def verif_trig(raw_aux, trigger):
+
+    _chan_list_aux = raw_aux.info['ch_names']
+    _data_aux = raw_aux.get_data()
+    srate = raw_aux.info['sfreq']
+
+    respi_i = _chan_list_aux.index('nasal')
+    respi = _data_aux[respi_i,:]
+    times = np.arange(respi.shape[0])/srate
+    plt.plot(times, respi)
+    plt.vlines(trigger, ymin=np.min(respi), ymax=np.max(respi), colors='r')
+    plt.show()
+
+
 
 
 # to compare during preprocessing
@@ -126,11 +180,18 @@ def compare_pre_post(pre, post, nchan):
 
 
 
+
+
+
+
+
+
+
 ################################
 ######## PREPROCESSING ########
 ################################
 
-#raw, srate = raw_egg, srate
+#raw, prep_step = raw_ieeg, prep_step_lf
 def preprocessing_ieeg(raw, prep_step):
 
 
@@ -307,7 +368,7 @@ def ecg_detection(data_aux, chan_list_aux, srate):
 ######## CHOP & SAVE ########
 ################################
 
-def chop_save_trc(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, conditions_trig, trig, srate, ecg_events_time, band_preproc, export_info):
+def generate_final_raw(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time):
 
     #### save alldata + stim chan
     data_all = np.vstack(( data_ieeg, data_aux, np.zeros(( len(data_ieeg[0,:]) )) ))
@@ -326,6 +387,11 @@ def chop_save_trc(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, conditions
     raw_all.add_events(event_cR, stim_channel='ECG_cR', replace=True)
     raw_all.info['ch_names']
 
+    return raw_all
+
+
+
+def export_raw(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, conditions_trig, trig, srate, ecg_events_time, band_preproc, export_info):
 
     #### save chunk
     count_session = {
@@ -334,6 +400,7 @@ def chop_save_trc(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, conditions
     'AL' : 0,
     'AC' : 0,
     }
+
 
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
 
@@ -401,59 +468,25 @@ if __name__ == '__main__':
     ################################
 
     #### load data
-    os.chdir(os.path.join(path_data, sujet))
-    raw = mne.io.read_raw_eeglab(os.path.join(path_data, sujet, (sujet + '_complete_iEEG_clean.set')), preload=True)
-    data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw(raw)
+    os.chdir(os.path.join(path_raw, sujet))
+    raw = mne.io.read_raw_eeglab(os.path.join(path_raw, sujet, f'{sujet}_allchan.set'), preload=True)
     
+    data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw(raw)
+
+    info = mne.create_info(ch_names=chan_list_ieeg, ch_types=['eeg']*data_ieeg.shape[0], sfreq=srate)
+    raw_ieeg = mne.io.RawArray(data_ieeg, info)
+
     #### load trig
-    os.chdir(os.path.join(path_trig, sujet))
-
-    trig_file = open(sujet + '_trig_delay.txt', "r")
-    trig_list = trig_file.read()
-    trig_file.close()
-
-    trig_list = trig_list.split("\n")[:-1]
-    trig_name = []
-    trig_time = []
-    for i, el in enumerate(trig_list):
-        if i == 0:
-            continue
-        else:
-            split = el.split('\t')
-            trig_name.append(split[0])
-            trig_time.append(float(split[1]))
+    trig = get_events(sujet)
 
     #### verify trig
     if debug:
         respi_i = chan_list_aux.index('nasal')
         respi = data_aux[respi_i,:]
-        plt.plot(respi)
-        plt.vlines( (np.array(trig_time) / 2 ) - 270780, ymin=min(respi), ymax=max(respi), colors='r')
+        times = np.arange(respi.shape[0])/srate
+        plt.plot(times, respi)
+        plt.vlines(trig['time'].values, ymin=np.min(respi), ymax=np.max(respi), colors='r')
         plt.show()
-
-
-    #### adjust
-    if sujet == 'pat_02459_0912':
-        trig_time = list(((np.array(trig_time) / 2) - 829489 ).astype(int))
-    if sujet == 'pat_02476_0929':
-        trig_time = list(((np.array(trig_time) / 2) - 1395911 ).astype(int))
-    if sujet == 'pat_02495_0949':
-        trig_time = list(((np.array(trig_time) / 2) - 971115.875 ).astype(int))
-    if sujet == 'pat_02718_1201':
-        trig_time = list(((np.array(trig_time) / 2) - 270780 ).astype(int))
-
-    #### generate df
-    trig_dict = {'name' : trig_name, 'time' : trig_time}
-    trig = pd.DataFrame(trig_dict, columns=['name', 'time'])
-
-    #### verify trig
-    if debug:
-        respi_i = chan_list_aux.index('nasal')
-        respi = data_aux[respi_i,:]
-        plt.plot(respi)
-        plt.vlines(trig['time'].values, ymin=min(respi), ymax=max(respi), colors='r')
-        plt.show()
-
 
     ################################
     ######## AUX PROCESSING ########
@@ -465,8 +498,9 @@ if __name__ == '__main__':
         #### verif ECG
         ecg_i = chan_list_aux.index('ECG')
         ecg = raw_aux.get_data()[ecg_i,:]
-        plt.plot(ecg)
-        plt.vlines(ecg_events_time, ymin=min(ecg), ymax=max(ecg), colors='k')
+        times = np.arange(ecg.shape[0])/srate
+        plt.plot(times, ecg)
+        plt.vlines([int(i)/srate for i in ecg_events_time], ymin=min(ecg), ymax=max(ecg), colors='k')
         plt.vlines(trig['time'].values, ymin=min(ecg), ymax=max(ecg), colors='r', linewidth=3)
         plt.show()
 
@@ -505,6 +539,12 @@ if __name__ == '__main__':
         ecg_events_time += ecg_events_corrected
         ecg_events_time.sort()
 
+    if sujet == 'pat_03083_1527':
+        ecg_events_corrected = [] # OK
+        ecg_events_time += ecg_events_corrected
+        ecg_events_time.sort()
+
+
 
 
 
@@ -513,20 +553,185 @@ if __name__ == '__main__':
     ######## PREPROCESSING ########
     ################################
 
-    data_preproc_lf  = preprocessing_ieeg(data_ieeg, chan_list_ieeg, srate, prep_step_lf)
-    data_preproc_hf = preprocessing_ieeg(data_ieeg, chan_list_ieeg, srate, prep_step_hf)
-    
+    data_preproc_lf  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+
+    del data_preproc_lf
+
+    data_preproc_hf = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+
     #### verif
     if debug == True:
         compare_pre_post(data_ieeg, data_preproc_lf, 0)
 
 
 
+
+
+
+
+
     ################################
-    ######## CHOP AND SAVE ########
+    ######## EXPORTATION ########
     ################################
 
-    chop_save_trc(data_preproc_lf, chan_list_ieeg, raw_aux.get_data(), chan_list_aux, conditions_trig, trig, srate, ecg_events_time, band_preproc='lf', export_info=True)
-    chop_save_trc(data_preproc_hf, chan_list_ieeg, raw_aux.get_data(), chan_list_aux, conditions_trig, trig, srate, ecg_events_time, band_preproc='hf', export_info=False)
+    #### generate raw_all
+    raw_all = generate_final_raw(data_preproc_lf, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
 
+    #### adjust trig
+    if debug:
+        #### all trig
+        verif_trig(raw_aux, trig['time'].values)
+        
+        #### sniff trig
+        sniff_allsession = [1400.029144, 2205.759889]
+        verif_trig(raw_aux, sniff_allsession)
+
+        raw_sniff = raw_aux.copy()
+        raw_sniff.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+
+        respi_i = chan_list_aux.index('nasal')
+        respi = raw_sniff.get_data()[respi_i,:]
+        height = np.max(respi)*0.6
+
+        sniff_peaks = scipy.signal.find_peaks(respi, height=height, threshold=None, distance=srate, rel_height=0.5)[0]
+
+        verif_trig(raw_sniff, sniff_peaks/srate)
+
+        #### all trig
+        verif_trig(raw_aux, trig['time'].values)
+        
+        #### AC trig
+        ac_allsession = [3232, 4548]
+        ac_starts = [4.07e3, 3.142e4, 4.434e4, 5.679e4, 6.97e4, 8.361e4, 9.837e4, 1.1359e5, 1.2613e5, 1.3871e5, 1.5168e5, 1.6726e5, 2.5769e5, 2.7151e5, 2.8864e5, 3.0265e5, 3.1646e5, 3.2968e5, 3.4421e5, 3.5808e5, 3.7203e5, 3.8770e5, 4.0169e5, 4.9019e5, 5.0365e5, 5.1919e5, 5.3497e5, 5.5291e5, 5.6671e5, 5.8028e5, 5.9466e5, 6.1395e5, 6.2994e5]
+
+        verif_trig(raw_aux, ac_allsession)
+
+        raw_ac = raw_aux.copy()
+        raw_ac.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
+
+        respi_i = chan_list_aux.index('nasal')
+        respi = raw_ac.get_data()[respi_i,:]
+        plt.plot(respi)
+        plt.show()
+
+        verif_trig(raw_ac, [int(i)/srate for i in ac_starts])
+
+        #### all trig
+        verif_trig(raw_aux, trig['time'].values)
+        
+        #### AL trig
+        al_allsession = [2480, 2954]
+        al_starts = [1.186e4, 9.708e4, 1.8708e5]
+        al_stops = [4.312e4, 1.3547e5, 2.3087e5]
+
+        verif_trig(raw_aux, al_allsession)
+
+        raw_al = raw_aux.copy()
+        raw_al.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
+
+        respi_i = chan_list_aux.index('nasal')
+        respi = raw_al.get_data()[respi_i,:]
+        plt.plot(respi)
+        plt.show()
+
+        verif_trig(raw_al, [int(i)/srate for i in al_starts])
+        verif_trig(raw_al, [int(i)/srate for i in al_stops])
+
+
+    #### correct values
+    if sujet == 'pat_03083_1527':
+        vs_starts = [768.008963, 1070.280570]
+        
+        sniff_allsession = [1400.029144, 2205.759889]
+        sniff_peaks = [  3559,   9828,  16200,  22645,  29088,  35963,  42842,  49681, 56832,  63841,  69952,  76961,  84099,  91550,  98626, 105185, 111154, 117757, 124988, 132417, 139805, 147169, 154513, 161800, 253317, 259769, 265514, 269723, 275731, 282273, 288594, 295222, 303245, 309441, 316047, 322543, 328905, 334985, 341225, 349783, 356360, 362542, 367246, 374052, 380279, 387166, 393506, 399891]
+        
+        ac_allsession = [3232, 4548]
+        ac_starts = [4.07e3, 3.142e4, 4.434e4, 5.679e4, 6.97e4, 8.361e4, 9.837e4, 1.1359e5, 1.2613e5, 1.3871e5, 1.5168e5, 1.6726e5, 2.5769e5, 2.7151e5, 2.8864e5, 3.0265e5, 3.1646e5, 3.2968e5, 3.4421e5, 3.5808e5, 3.7203e5, 3.8770e5, 4.0169e5, 4.9019e5, 5.0365e5, 5.1919e5, 5.3497e5, 5.5291e5, 5.6671e5, 5.8028e5, 5.9466e5, 6.1395e5, 6.2994e5]
+        ac_starts = [int(i) for i in ac_starts]
+
+        al_allsession = [2480, 2954]
+        al_starts = [1.186e4, 9.708e4, 1.8708e5]
+        al_stops = [4.312e4, 1.3547e5, 2.3087e5]
+
+
+    #### generate VS
+    raw_vs_ieeg = raw_all.copy()
+    raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
+
+    #### generate AL
+    raw_list_al = []
+    raw_al_ieeg = raw_all.copy()
+    raw_al_ieeg.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
+    for trig_i in range(len(al_starts)):
+        raw_al_ieeg_i = raw_al_ieeg.copy()
+        raw_list_al.append(raw_al_ieeg_i.crop( tmin = int(al_starts[trig_i]/srate) , tmax= int(al_stops[trig_i]/srate) ))
+
+
+    #### generate xr SNIFF
+    raw_sniff_ieeg = raw_all.copy()
+    raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+
+    data = raw_sniff_ieeg.get_data()
+    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
+    data_epoch = np.zeros((len(chan_list_ieeg), len(sniff_peaks), len(times)))
+    for nchan in range(len(chan_list_ieeg)):
+        for sniff_i, sniff_time in enumerate(sniff_peaks):
+            _t_start = sniff_time + int(t_start_SNIFF*srate) 
+            _t_stop = sniff_time + int(t_stop_SNIFF*srate)
+
+            data_epoch[nchan, sniff_i, :] = data[nchan, _t_start:_t_stop]
+
+    dims = ['chan_list', 'sniffs', 'times']
+    coords = [chan_list_ieeg, range(len(sniff_peaks)), times]
+    xr_epoch_SNIFF = xr.DataArray(data_epoch, coords=coords, dims=dims)
+
+    if debug:
+        maxs = []
+        mins = []
+        for nchan in chan_list_ieeg:
+            plt.title(nchan)
+            plt.plot(xr_epoch_SNIFF['times'], xr_epoch_SNIFF.mean('sniffs').loc[nchan, :])
+            mins.append(np.min(xr_epoch_SNIFF.mean('sniffs').loc[nchan, :]))
+            maxs.append(np.max(xr_epoch_SNIFF.mean('sniffs').loc[nchan, :]))
+            plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
+            plt.show()
+
+
+
+
+    #### generate xr AC
+    raw_ac_ieeg = raw_all.copy()
+    raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
+    
+    data = raw_ac_ieeg.get_data()
+    times = np.arange(t_start_AC, t_stop_AC, 1/srate)
+    data_epoch = np.zeros((len(chan_list_ieeg), len(ac_starts), len(times)))
+    for nchan in range(len(chan_list_ieeg)):
+        for ac_i, ac_time in enumerate(ac_starts):
+            _t_start = ac_time + int(t_start_AC*srate) 
+            _t_stop = ac_time + int(t_stop_AC*srate)
+
+            data_epoch[nchan, ac_i, :] = data[nchan, _t_start:_t_stop]
+
+    dims = ['chan_list', 'acs', 'times']
+    coords = [chan_list_ieeg, range(len(ac_starts)), times]
+    xr_epoch_AC = xr.DataArray(data_epoch, coords=coords, dims=dims)
+
+    if debug:
+        maxs = []
+        mins = []
+        for nchan in chan_list_ieeg:
+            plt.title(nchan)
+            plt.plot(xr_epoch_AC['times'], xr_epoch_AC.mean('acs').loc[nchan, :])
+            mins.append(np.min(xr_epoch_AC.mean('acs').loc[nchan, :]))
+            maxs.append(np.max(xr_epoch_AC.mean('acs').loc[nchan, :]))
+            plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
+            plt.show()
+
+
+    #### to save
+    raw_vs_ieeg
+    raw_list_al
+    xr_epoch_SNIFF
+    xr_epoch_AC
 

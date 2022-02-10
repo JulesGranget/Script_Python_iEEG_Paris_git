@@ -20,7 +20,7 @@ import scipy.signal
 
 #### whole protocole
 sujet = 'pat_03083_1527'
-sujet = 'pat_03105_1551'
+#sujet = 'pat_03105_1551'
 
 #### FR_CV only
 #sujet = 'pat_02459_0912'
@@ -95,7 +95,7 @@ if PC_ID == 'nodeGPU':
     n_core = 40
 
 
-
+path_raw = os.path.join(path_general, 'Analyses', 'data_for_analysis')
 path_data = os.path.join(path_general, 'Data', 'signals_iEEG')
 path_prep = os.path.join(path_general, 'iEEG_project', 'Analyses', 'preprocessing')
 path_precompute = os.path.join(path_general, 'iEEG_project', 'Analyses', 'precompute') 
@@ -124,7 +124,7 @@ electrodes_to_remove = {
 
 
 conditions_trig = {
-'FR_CV' : ['CV_start', 'CV_stop'], # FreeVentilation Comfort Ventilation
+'FR_CV' : ['31', '32'], # FreeVentilation Comfort Ventilation
 'SNIFF' : ['51', '52'], # RespiDriver Comfort Ventilation
 'AC' : ['11', '12'], # RespiDriver Fast Ventilation  
 'AL' : ['61', '62'], # RespiDriver Slow Ventilation
@@ -132,7 +132,7 @@ conditions_trig = {
 
 
 aux_chan = {
-'pat_03083_1527' : {'nasal': 'p7+', 'ventral' : 'p8+', 'ECG' : 'ECG'}, # OK
+'pat_03083_1527' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
 'pat_03105_1551' : {'nasal': 'p7+', 'ventral' : 'p8+', 'ECG' : 'ECG'}, # OK
 
 'DEBUG' : {'nasal': 'p20+', 'ventral' : 'p19+', 'ECG' : 'ECG'}, # OK
@@ -173,6 +173,24 @@ prep_step_hf = {
 'low_pass' : {'execute': False, 'params' : {'l_freq' : 0, 'h_freq': 45}},
 'average_reref' : {'execute': False},
 }
+
+
+
+
+
+
+########################################
+######## PARAMS ERP ########
+########################################
+
+t_start_SNIFF = -1.5
+t_stop_SNIFF = 2
+
+
+t_start_AC = -1.5
+t_stop_AC = 12
+
+
 
 
 
