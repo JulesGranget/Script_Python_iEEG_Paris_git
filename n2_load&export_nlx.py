@@ -65,10 +65,7 @@ def organize_raw(raw):
 def get_events(sujet):
 
     #### get to events
-    os.chdir(os.path.join(path_data))
-    os.chdir('./..')
-    os.chdir('./events')
-    os.chdir(f'./{sujet}')
+    os.chdir(os.path.join(path_raw, sujet, 'events', 'mat'))
     
     #### load from matlab
     events_mat = scipy.io.loadmat(f'{sujet}_events.mat')['ts']
@@ -333,6 +330,15 @@ def preprocessing_ieeg(raw, prep_step):
 
 
 
+
+
+
+
+
+
+
+
+
 ################################
 ######## ECG DETECTION ########
 ################################
@@ -368,9 +374,11 @@ def ecg_detection(data_aux, chan_list_aux, srate):
 ######## CHOP & SAVE ########
 ################################
 
-def generate_final_raw(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time):
+#raw, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time = raw_preproc_lf, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time
+def generate_final_raw(raw, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time):
 
     #### save alldata + stim chan
+    data_ieeg = raw.get_data()
     data_all = np.vstack(( data_ieeg, data_aux, np.zeros(( len(data_ieeg[0,:]) )) ))
     chan_list_all = chan_list_ieeg + chan_list_aux + ['ECG_cR']
 
@@ -388,61 +396,6 @@ def generate_final_raw(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate
     raw_all.info['ch_names']
 
     return raw_all
-
-
-
-def export_raw(data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, conditions_trig, trig, srate, ecg_events_time, band_preproc, export_info):
-
-    #### save chunk
-    count_session = {
-    'FR_CV' : 0,
-    'SNIFF' : 0,
-    'AL' : 0,
-    'AC' : 0,
-    }
-
-
-    os.chdir(os.path.join(path_prep, sujet, 'sections'))
-
-    # condition, trig_cond = list(conditions_trig.items())[0]
-    for condition, trig_cond in conditions_trig.items():
-
-        cond_i_start = np.where(trig.name.values == trig_cond[0])[0]
-        cond_i_stop = np.where(trig.name.values == trig_cond[1])[0]
-
-        for i, trig_start in enumerate(cond_i_start):
-
-            trig_stop = cond_i_stop[i]
-
-            count_session[condition] = count_session[condition] + 1 
-
-            raw_chunk = raw_all.copy()
-            raw_chunk.crop( tmin = (trig.iloc[trig_start,:].time)/srate , tmax= (trig.iloc[trig_stop,:].time/srate)-0.2 )
-            
-            raw_chunk.save(sujet + '_' + condition + '_' + str(i+1) + '_' + band_preproc + '.fif')
-
-
-
-
-    df = {'condition' : list(count_session.keys()), 'count' : list(count_session.values())}
-    count_session = pd.DataFrame(df, columns=['condition', 'count'])
-
-    if export_info == True :
-    
-        #### export trig, count_session, cR
-        os.chdir(os.path.join(path_prep, sujet, 'info'))
-        
-        trig.to_excel(sujet + '_trig.xlsx')
-
-        count_session.to_excel(sujet + '_count_session.xlsx')
-
-        cR = pd.DataFrame(ecg_events_time, columns=['cR_time'])
-        cR.to_excel(sujet +'_cR_time.xlsx')
-
-
-    return 
-
-
 
 
 
@@ -468,8 +421,8 @@ if __name__ == '__main__':
     ################################
 
     #### load data
-    os.chdir(os.path.join(path_raw, sujet))
-    raw = mne.io.read_raw_eeglab(os.path.join(path_raw, sujet, f'{sujet}_allchan.set'), preload=True)
+    os.chdir(os.path.join(path_raw, sujet, 'raw_data', 'mat'))
+    raw = mne.io.read_raw_eeglab(f'{sujet}_allchan.set', preload=True)
     
     data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw(raw)
 
@@ -553,15 +506,13 @@ if __name__ == '__main__':
     ######## PREPROCESSING ########
     ################################
 
-    data_preproc_lf  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
-
-    del data_preproc_lf
-
-    data_preproc_hf = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+    #### choose preproc
+    raw_preproc_lf  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+    #data_preproc_hf = preprocessing_ieeg(raw_ieeg, prep_step_hf)
 
     #### verif
     if debug == True:
-        compare_pre_post(data_ieeg, data_preproc_lf, 0)
+        compare_pre_post(data_ieeg, raw_preproc_lf.get_data(), 0)
 
 
 
@@ -571,11 +522,15 @@ if __name__ == '__main__':
 
 
     ################################
-    ######## EXPORTATION ########
+    ######## IDENTIFY TRIG ########
     ################################
 
     #### generate raw_all
-    raw_all = generate_final_raw(data_preproc_lf, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
+    raw_all = generate_final_raw(raw_preproc_lf, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
+
+    #### make RAM space
+    del raw_ieeg
+    del raw_preproc_lf
 
     #### adjust trig
     if debug:
@@ -654,36 +609,78 @@ if __name__ == '__main__':
         al_stops = [4.312e4, 1.3547e5, 2.3087e5]
 
 
-    #### generate VS
-    raw_vs_ieeg = raw_all.copy()
-    raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
+
+
+
+    ################################
+    ######## EXPORT DATA ########
+    ################################
+
+    #### initiate count session :
+
+    count_session = {
+        'FR_CV' : [],
+        'SNIFF' : [],
+        'AC' : [],
+        }
+
+    for al_i in range(len(al_starts)):
+        count_session[f'AL_{al_i+1}'] = []
+
+    #### save folder
+    os.chdir(os.path.join(path_prep, sujet, 'sections'))
+    
+    
+    #### Export VS
+    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_VS_lf.fif')) != 1:
+        raw_vs_ieeg = raw_all.copy()
+        raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
+
+        count_session['FR_CV'].append(raw_vs_ieeg.get_data().shape[1]/srate)
+        
+        raw_vs_ieeg.save(f'{sujet}_VS_lf.fif')
+        del raw_vs_ieeg
+
 
     #### generate AL
-    raw_list_al = []
-    raw_al_ieeg = raw_all.copy()
-    raw_al_ieeg.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
-    for trig_i in range(len(al_starts)):
-        raw_al_ieeg_i = raw_al_ieeg.copy()
-        raw_list_al.append(raw_al_ieeg_i.crop( tmin = int(al_starts[trig_i]/srate) , tmax= int(al_stops[trig_i]/srate) ))
+    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_lf.fif')) != 1:
+        raw_al_ieeg = raw_all.copy()
+        raw_al_ieeg.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
+        for trig_i in range(len(al_starts)):
+            raw_al_ieeg_i = raw_al_ieeg.copy()
+            raw_al_ieeg_i.crop( tmin = int(al_starts[trig_i]/srate) , tmax= int(al_stops[trig_i]/srate) )
+            raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_lf.fif')
+            count_session[f'AL_{trig_i+1}'].append(raw_al_ieeg_i.get_data().shape[1]/srate)
+            del raw_al_ieeg_i
 
 
     #### generate xr SNIFF
-    raw_sniff_ieeg = raw_all.copy()
-    raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF.nc")) != 1:
+        raw_sniff_ieeg = raw_all.copy()
+        raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
 
-    data = raw_sniff_ieeg.get_data()
-    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
-    data_epoch = np.zeros((len(chan_list_ieeg), len(sniff_peaks), len(times)))
-    for nchan in range(len(chan_list_ieeg)):
-        for sniff_i, sniff_time in enumerate(sniff_peaks):
-            _t_start = sniff_time + int(t_start_SNIFF*srate) 
-            _t_stop = sniff_time + int(t_stop_SNIFF*srate)
+        data = raw_sniff_ieeg.get_data()
+        times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
+        data_epoch = np.zeros((len(chan_list_ieeg), len(sniff_peaks), len(times)))
+        for nchan in range(len(chan_list_ieeg)):
+            for sniff_i, sniff_time in enumerate(sniff_peaks):
+                _t_start = sniff_time + int(t_start_SNIFF*srate) 
+                _t_stop = sniff_time + int(t_stop_SNIFF*srate)
 
-            data_epoch[nchan, sniff_i, :] = data[nchan, _t_start:_t_stop]
+                data_epoch[nchan, sniff_i, :] = data[nchan, _t_start:_t_stop]
 
-    dims = ['chan_list', 'sniffs', 'times']
-    coords = [chan_list_ieeg, range(len(sniff_peaks)), times]
-    xr_epoch_SNIFF = xr.DataArray(data_epoch, coords=coords, dims=dims)
+        count_session['SNIFF'].append(data_epoch.shape[1])
+
+        dims = ['chan_list', 'sniffs', 'times']
+        coords = [chan_list_ieeg, range(len(sniff_peaks)), times]
+        xr_epoch_SNIFF = xr.DataArray(data_epoch, coords=coords, dims=dims)
+
+        xr_epoch_SNIFF.to_netcdf(f"{sujet}_SNIFF.nc")
+
+        #### make space
+        del xr_epoch_SNIFF
+        del raw_sniff_ieeg
+
 
     if debug:
         maxs = []
@@ -698,40 +695,53 @@ if __name__ == '__main__':
 
 
 
-
     #### generate xr AC
-    raw_ac_ieeg = raw_all.copy()
-    raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
-    
-    data = raw_ac_ieeg.get_data()
-    times = np.arange(t_start_AC, t_stop_AC, 1/srate)
-    data_epoch = np.zeros((len(chan_list_ieeg), len(ac_starts), len(times)))
-    for nchan in range(len(chan_list_ieeg)):
-        for ac_i, ac_time in enumerate(ac_starts):
-            _t_start = ac_time + int(t_start_AC*srate) 
-            _t_stop = ac_time + int(t_stop_AC*srate)
+    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC.nc")) != 1:
+        raw_ac_ieeg = raw_all.copy()
+        raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
+        
+        data = raw_ac_ieeg.get_data()
+        times = np.arange(t_start_AC, t_stop_AC, 1/srate)
+        data_epoch = np.zeros((len(chan_list_ieeg), len(ac_starts), len(times)))
+        for nchan in range(len(chan_list_ieeg)):
+            for ac_i, ac_time in enumerate(ac_starts):
+                _t_start = ac_time + int(t_start_AC*srate) 
+                _t_stop = ac_time + int(t_stop_AC*srate)
 
-            data_epoch[nchan, ac_i, :] = data[nchan, _t_start:_t_stop]
+                data_epoch[nchan, ac_i, :] = data[nchan, _t_start:_t_stop]
 
-    dims = ['chan_list', 'acs', 'times']
-    coords = [chan_list_ieeg, range(len(ac_starts)), times]
-    xr_epoch_AC = xr.DataArray(data_epoch, coords=coords, dims=dims)
+        dims = ['chan_list', 'acs', 'times']
+        coords = [chan_list_ieeg, range(len(ac_starts)), times]
+        xr_epoch_AC = xr.DataArray(data_epoch, coords=coords, dims=dims)
 
-    if debug:
-        maxs = []
-        mins = []
-        for nchan in chan_list_ieeg:
-            plt.title(nchan)
-            plt.plot(xr_epoch_AC['times'], xr_epoch_AC.mean('acs').loc[nchan, :])
-            mins.append(np.min(xr_epoch_AC.mean('acs').loc[nchan, :]))
-            maxs.append(np.max(xr_epoch_AC.mean('acs').loc[nchan, :]))
-            plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
-            plt.show()
+        count_session['AC'].append(data_epoch.shape[1])
+
+        xr_epoch_AC.to_netcdf(f"{sujet}_AC.nc")
+
+        #### make space
+        del xr_epoch_AC
+        del raw_ac_ieeg
+
+        if debug:
+            maxs = []
+            mins = []
+            for nchan in chan_list_ieeg:
+                plt.title(nchan)
+                plt.plot(xr_epoch_AC['times'], xr_epoch_AC.mean('acs').loc[nchan, :])
+                mins.append(np.min(xr_epoch_AC.mean('acs').loc[nchan, :]))
+                maxs.append(np.max(xr_epoch_AC.mean('acs').loc[nchan, :]))
+                plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
+                plt.show()
 
 
-    #### to save
-    raw_vs_ieeg
-    raw_list_al
-    xr_epoch_SNIFF
-    xr_epoch_AC
+    #### export count session
+    os.chdir(os.path.join(path_prep, sujet, 'info'))
+    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_protocol.xlsx")) != 1:
 
+        df = pd.DataFrame(count_session)
+        df.to_excel(f'{sujet}_count_session.xlsx')
+
+
+
+
+ 

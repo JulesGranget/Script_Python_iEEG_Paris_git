@@ -73,9 +73,9 @@ if PC_ID == 'DESKTOP-3IJUK7R':
 if PC_ID == 'pc-jules':
 
     PC_working = 'Jules_Labo_Linux'
-    path_main_workdir = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/Script_Python_iEEG_Lyon/'
-    path_general = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/'
-    path_memmap = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/Mmap'
+    path_main_workdir = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Script_Python_iEEG_Paris_git/'
+    path_general = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/'
+    path_memmap = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Mmap'
     n_core = 6
 
 if PC_ID == 'pc-valentin':
@@ -95,13 +95,12 @@ if PC_ID == 'nodeGPU':
     n_core = 40
 
 
-path_raw = os.path.join(path_general, 'Analyses', 'data_for_analysis')
-path_data = os.path.join(path_general, 'Data', 'signals_iEEG')
-path_prep = os.path.join(path_general, 'iEEG_project', 'Analyses', 'preprocessing')
-path_precompute = os.path.join(path_general, 'iEEG_project', 'Analyses', 'precompute') 
-path_results = os.path.join(path_general, 'iEEG_project', 'Analyses', 'results') 
-path_respfeatures = os.path.join(path_general, 'iEEG_project', 'Analyses', 'results') 
-path_anatomy = os.path.join(path_general, 'iEEG_project', 'Analyses', 'anatomy') 
+path_raw = os.path.join(path_general, 'Data')
+path_prep = os.path.join(path_general, 'Analyses', 'preprocessing')
+path_precompute = os.path.join(path_general, 'Analyses', 'precompute') 
+path_results = os.path.join(path_general, 'Analyses', 'results') 
+path_respfeatures = os.path.join(path_general, 'Analyses', 'results') 
+path_anatomy = os.path.join(path_general, 'Analyses', 'anatomy') 
 
 
 
@@ -139,25 +138,6 @@ aux_chan = {
 }
 
 
-################################
-######## ECG PARAMS ########
-################################ 
-
-sujet_ecg_adjust = {
-'pat_03083_1527' : 'inverse',
-'pat_03105_1551' : 'normal',
-}
-
-
-hrv_metrics_short_name = ['HRV_RMSSD', 'HRV_MeanNN', 'HRV_SDNN', 'HRV_pNN50', 'HRV_LF', 'HRV_HF', 'HRV_SD1', 'HRV_SD2']
-
-
-
-
-################################
-######## PREP PARAMS ########
-################################ 
-
 prep_step_lf = {
 'mean_centered' : {'execute': True},
 'line_noise_removing' : {'execute': True},
@@ -173,6 +153,24 @@ prep_step_hf = {
 'low_pass' : {'execute': False, 'params' : {'l_freq' : 0, 'h_freq': 45}},
 'average_reref' : {'execute': False},
 }
+
+
+
+
+
+################################
+######## ECG PARAMS ########
+################################ 
+
+sujet_ecg_adjust = {
+'pat_03083_1527' : 'inverse',
+'pat_03105_1551' : 'normal',
+}
+
+
+hrv_metrics_short_name = ['HRV_RMSSD', 'HRV_MeanNN', 'HRV_SDNN', 'HRV_pNN50', 'HRV_LF', 'HRV_HF', 'HRV_SD1', 'HRV_SD2']
+
+
 
 
 
