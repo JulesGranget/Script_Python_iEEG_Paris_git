@@ -507,12 +507,15 @@ if __name__ == '__main__':
     ################################
 
     #### choose preproc
-    raw_preproc_lf  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
-    #data_preproc_hf = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+    #band_prep = 'lf'
+    #raw_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+
+    band_prep = 'hf'
+    data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
 
     #### verif
     if debug == True:
-        compare_pre_post(data_ieeg, raw_preproc_lf.get_data(), 0)
+        compare_pre_post(data_ieeg, data_preproc.get_data(), 0)
 
 
 
@@ -526,11 +529,11 @@ if __name__ == '__main__':
     ################################
 
     #### generate raw_all
-    raw_all = generate_final_raw(raw_preproc_lf, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
+    raw_all = generate_final_raw(data_preproc, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
 
     #### make RAM space
     del raw_ieeg
-    del raw_preproc_lf
+    del data_preproc
 
     #### adjust trig
     if debug:
@@ -602,7 +605,8 @@ if __name__ == '__main__':
         
         ac_allsession = [3232, 4548]
         ac_starts = [4.07e3, 3.142e4, 4.434e4, 5.679e4, 6.97e4, 8.361e4, 9.837e4, 1.1359e5, 1.2613e5, 1.3871e5, 1.5168e5, 1.6726e5, 2.5769e5, 2.7151e5, 2.8864e5, 3.0265e5, 3.1646e5, 3.2968e5, 3.4421e5, 3.5808e5, 3.7203e5, 3.8770e5, 4.0169e5, 4.9019e5, 5.0365e5, 5.1919e5, 5.3497e5, 5.5291e5, 5.6671e5, 5.8028e5, 5.9466e5, 6.1395e5, 6.2994e5]
-        ac_starts = [int(i) for i in ac_starts]
+        ac_starts = [int(i) for i in ac_starts] 
+
 
         al_allsession = [2480, 2954]
         al_starts = [1.186e4, 9.708e4, 1.8708e5]
@@ -632,24 +636,24 @@ if __name__ == '__main__':
     
     
     #### Export VS
-    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_VS_lf.fif')) != 1:
+    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_VS_{band_prep}.fif')) != 1:
         raw_vs_ieeg = raw_all.copy()
         raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
 
         count_session['FR_CV'].append(raw_vs_ieeg.get_data().shape[1]/srate)
         
-        raw_vs_ieeg.save(f'{sujet}_VS_lf.fif')
+        raw_vs_ieeg.save(f'{sujet}_FR_CV_{band_prep}.fif')
         del raw_vs_ieeg
 
 
     #### generate AL
-    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_lf.fif')) != 1:
+    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_{band_prep}.fif')) != 1:
         raw_al_ieeg = raw_all.copy()
         raw_al_ieeg.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
         for trig_i in range(len(al_starts)):
             raw_al_ieeg_i = raw_al_ieeg.copy()
             raw_al_ieeg_i.crop( tmin = int(al_starts[trig_i]/srate) , tmax= int(al_stops[trig_i]/srate) )
-            raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_lf.fif')
+            raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_{band_prep}.fif')
             count_session[f'AL_{trig_i+1}'].append(raw_al_ieeg_i.get_data().shape[1]/srate)
             del raw_al_ieeg_i
 
@@ -696,42 +700,15 @@ if __name__ == '__main__':
 
 
     #### generate xr AC
-    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC.nc")) != 1:
+    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}.nc")) != 1:
         raw_ac_ieeg = raw_all.copy()
         raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
-        
-        data = raw_ac_ieeg.get_data()
-        times = np.arange(t_start_AC, t_stop_AC, 1/srate)
-        data_epoch = np.zeros((len(chan_list_ieeg), len(ac_starts), len(times)))
-        for nchan in range(len(chan_list_ieeg)):
-            for ac_i, ac_time in enumerate(ac_starts):
-                _t_start = ac_time + int(t_start_AC*srate) 
-                _t_stop = ac_time + int(t_stop_AC*srate)
+        raw_ac_ieeg.save(f'{sujet}_AC_session_{band_prep}.fif')
 
-                data_epoch[nchan, ac_i, :] = data[nchan, _t_start:_t_stop]
+        count_session['AC'].append(len(ac_starts))
 
-        dims = ['chan_list', 'acs', 'times']
-        coords = [chan_list_ieeg, range(len(ac_starts)), times]
-        xr_epoch_AC = xr.DataArray(data_epoch, coords=coords, dims=dims)
-
-        count_session['AC'].append(data_epoch.shape[1])
-
-        xr_epoch_AC.to_netcdf(f"{sujet}_AC.nc")
-
-        #### make space
-        del xr_epoch_AC
         del raw_ac_ieeg
 
-        if debug:
-            maxs = []
-            mins = []
-            for nchan in chan_list_ieeg:
-                plt.title(nchan)
-                plt.plot(xr_epoch_AC['times'], xr_epoch_AC.mean('acs').loc[nchan, :])
-                mins.append(np.min(xr_epoch_AC.mean('acs').loc[nchan, :]))
-                maxs.append(np.max(xr_epoch_AC.mean('acs').loc[nchan, :]))
-                plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
-                plt.show()
 
 
     #### export count session
@@ -741,7 +718,21 @@ if __name__ == '__main__':
         df = pd.DataFrame(count_session)
         df.to_excel(f'{sujet}_count_session.xlsx')
 
+    #### export AC starts
 
+    
+    len_ac_session = (ac_allsession[1] - ac_allsession[0])*srate
+
+    if ac_starts[-1]+t_stop_AC*srate >= len_ac_session:
+        ac_starts = ac_starts[:-1]
+
+    if ac_starts[0]+t_start_AC*srate <= 0:
+        ac_starts = ac_starts[1:]
+
+    ac_starts = [str(i) for i in ac_starts]
+    with open(f'{sujet}_AC_starts.txt', 'w') as f:
+        f.write('\n'.join(ac_starts))
+        f.close()
 
 
  

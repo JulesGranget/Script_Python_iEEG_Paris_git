@@ -71,7 +71,7 @@ def load_resp_features():
     os.chdir(os.path.join(path_respfeatures, sujet, 'RESPI'))
 
     respi_allcond = {}
-    for cond in cond_respi_features:
+    for cond in 'FR_CV':
 
         load_i = []
         for session_i, session_name in enumerate(os.listdir()):
@@ -314,16 +314,21 @@ if __name__ == '__main__':
     ######## PARAMETERS ########
     ############################
 
+    
+    #### whole protocole
+    sujet = 'pat_03083_1527'
+    #sujet = 'pat_03105_1551'
+
+    #### FR_CV only
     #sujet = 'pat_02459_0912'
     #sujet = 'pat_02476_0929'
     #sujet = 'pat_02495_0949'
-    sujet = 'pat_02718_1201'
 
     ############################
     ######## LOAD DATA ########
     ############################
 
-    conditions = ['VS', 'AC_session', 'hyperventilation', 'sniff', 'AL']
+    conditions = ['FR_CV']
     raw_allcond, conditions, srate, chan_list_all = load_raw_allcond(conditions)
 
     ########################################
@@ -332,16 +337,16 @@ if __name__ == '__main__':
 
     respi_allcond = {}
     band_prep = band_prep_list[0]
-    for cond in cond_respi_features:
-        
-        data = []
-        for session_i in range(len(raw_allcond.get(band_prep)[cond])):
+    cond = 'FR_CV'
 
-            respi_i = chan_list_all.index('nasal')
+    data = []
+    for session_i in range(len(raw_allcond.get(band_prep)[cond])):
 
-            data.append(analyse_resp(raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :], srate, 0, cond))
+        respi_i = chan_list_all.index('nasal')
 
-        respi_allcond[cond] = data
+        data.append(analyse_resp(raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :], srate, 0, cond))
+
+    respi_allcond[cond] = data
 
 
     ########################################
@@ -349,16 +354,8 @@ if __name__ == '__main__':
     ########################################
     
     #### info to debug
-    cond_len = {}
-    for cond in cond_respi_features:
-        cond_len[cond] = len(respi_allcond[cond])
-    
-    cond_len
-    #cond = 'VS'
-    #cond = 'hyperventilation'
-    cond = 'sniff'
-    
-    session_i = 0
+
+    cond = 'FR_CV'
 
     respi_allcond[cond][session_i][1].show()
     respi_allcond[cond][session_i][2].show()
@@ -389,7 +386,7 @@ if __name__ == '__main__':
     fig1.show()
 
     #### changes
-    # pat_02495_0949 : 'smooth' = True
+    # pat_03083_1527 : 'smooth' = True
 
     #### replace
     respi_allcond[cond][session_i] = [resp_features, fig0, fig1]
@@ -404,11 +401,7 @@ if __name__ == '__main__':
     #### when everything ok
     os.chdir(os.path.join(path_results, sujet, 'RESPI'))
 
-    for cond_i in cond_respi_features:
-
-        for i in range(len(respi_allcond[cond_i])):
-
-            respi_allcond[cond_i][i][0].to_excel(sujet + '_' + cond_i + '_' + str(i+1) + '_respfeatures.xlsx')
-            respi_allcond[cond_i][i][1].savefig(sujet + '_' + cond_i + '_' + str(i+1) + '_fig0.jpeg')
-            respi_allcond[cond_i][i][2].savefig(sujet + '_' + cond_i + '_' + str(i+1) + '_fig1.jpeg')
+    respi_allcond['FR_CV'][0][0].to_excel(sujet + '_FR_CV_respfeatures.xlsx')
+    respi_allcond['FR_CV'][0][1].savefig(sujet + '_FR_CV_fig0.jpeg')
+    respi_allcond['FR_CV'][0][2].savefig(sujet + '_FR_CV_fig1.jpeg')
 

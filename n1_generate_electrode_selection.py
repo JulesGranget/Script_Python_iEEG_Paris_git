@@ -66,8 +66,8 @@ def extract_chanlist():
 
     print('#### EXTRACT ####')
 
-    os.chdir(os.path.join(path_raw, sujet))
-    raw = mne.io.read_raw_eeglab(os.path.join(path_raw, sujet, f'{sujet}_allchan.set'), preload=True)
+    os.chdir(os.path.join(path_raw, sujet, 'raw_data', 'mat'))
+    raw = mne.io.read_raw_eeglab(f'{sujet}_allchan.set', preload=True)
     
     data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw(raw)
 
@@ -77,15 +77,11 @@ def extract_chanlist():
 
 def generate_plot_loca(chan_list_trc):
 
-    #### get the patient date
-    os.chdir(os.path.join(path_data, sujet))
-    trc_file_names = glob.glob('*.TRC')
-    header_trc = trc_file_names[0][:14]
 
     #### open loca file
-    os.chdir(os.path.join(path_data, sujet, 'anatomy'))
+    os.chdir(os.path.join(path_raw, sujet, 'anatomy'))
 
-    parcellisation = pd.read_excel(header_trc + '_' + sujet + '.xlsx')
+    parcellisation = pd.read_excel('_' + sujet + '.xlsx')
 
     new_cols = parcellisation.iloc[1,:].values.tolist()
     parcellisation.columns = new_cols

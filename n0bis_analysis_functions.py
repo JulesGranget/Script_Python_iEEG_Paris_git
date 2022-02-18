@@ -7,6 +7,10 @@ import scipy.signal
 import mne
 import pandas as pd
 import respirationtools
+import subprocess
+import sys
+import stat
+import xarray as xr
 
 from n0_config import *
 
@@ -76,6 +80,13 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('FC', construct_token)
     construct_token = create_folder('HRV', construct_token)
+    construct_token = create_folder('ERP', construct_token)
+
+            #### TF
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'ERP'))
+    construct_token = create_folder('summary', construct_token)
+    construct_token = create_folder('allcond', construct_token)
+    
 
             #### TF
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'TF'))
@@ -109,17 +120,181 @@ def generate_folder_structure(sujet):
 
     #### Data
     os.chdir(os.path.join(path_general, 'Data'))
-    construct_token = create_folder('raw_data', construct_token)
-
-        #### raw_data
-    os.chdir(os.path.join(path_general, 'Data', 'raw_data'))    
     construct_token = create_folder(sujet, construct_token)
-    
-            #### anatomy
-    os.chdir(os.path.join(path_general, 'Data', 'raw_data', sujet))    
+
+        #### sujet
+    os.chdir(os.path.join(path_general, 'Data', sujet))    
     construct_token = create_folder('anatomy', construct_token)
+    construct_token = create_folder('events', construct_token)
+    construct_token = create_folder('raw_data', construct_token)
+    
+            #### events
+    os.chdir(os.path.join(path_general, 'Data', sujet, 'events'))    
+    construct_token = create_folder('mat', construct_token)
+    construct_token = create_folder('ncs', construct_token)
+
+            #### raw_data
+    os.chdir(os.path.join(path_general, 'Data', sujet, 'raw_data'))    
+    construct_token = create_folder('mat', construct_token)
+    construct_token = create_folder('ncs', construct_token)
 
     return construct_token
+
+
+################################
+######## SLURM EXECUTE ########
+################################
+
+
+#name_script, name_function, params = 'test', 'slurm_test',  ['Pilote', 2]
+def execute_function_in_slurm(name_script, name_function, params):
+
+    python = sys.executable
+
+    #### params to print in script
+    params_str = ""
+    for params_i in params:
+        if isinstance(params_i, str):
+            str_i = f"'{params_i}'"
+        else:
+            str_i = str(params_i)
+
+        if params_i == params[0] :
+            params_str = params_str + str_i
+        else:
+            params_str = params_str + ' , ' + str_i
+
+    #### params to print in script name
+    params_str_name = ''
+    for params_i in params:
+
+        str_i = str(params_i)
+
+        if params_i == params[0] :
+            params_str_name = params_str_name + str_i
+        else:
+            params_str_name = params_str_name + '_' + str_i
+    
+    #### script text
+    lines = [f'#! {python}']
+    lines += ['import sys']
+    lines += [f"sys.path.append('{path_main_workdir}')"]
+    lines += [f'from {name_script} import {name_function}']
+    lines += [f'{name_function}({params_str})']
+
+    cpus_per_task = n_core_slurms
+    mem = mem_crnl_cluster
+        
+    #### write script and execute
+    os.chdir(path_slurm)
+    slurm_script_name =  f"run_function_{name_function}_{params_str_name}.py" #add params
+        
+    with open(slurm_script_name, 'w') as f:
+        f.writelines('\n'.join(lines))
+        os.fchmod(f.fileno(), mode = stat.S_IRWXU)
+        f.close()
+        
+    subprocess.Popen(['sbatch', f'{slurm_script_name}', f'-cpus-per-task={n_core_slurms}', f'-mem={mem_crnl_cluster}']) 
+
+    # wait subprocess to lauch before removing
+    #time.sleep(3)
+    #os.remove(slurm_script_name)
+
+    print(f'#### slurm submission : from {name_script} execute {name_function}({params})')
+
+
+
+
+
+
+#name_script, name_function, params = 'n9_fc_analysis', 'compute_pli_ispc_allband', [sujet]
+def execute_function_in_slurm_bash(name_script, name_function, params):
+
+    scritp_path = os.getcwd()
+    
+    python = sys.executable
+
+    #### params to print in script
+    params_str = ""
+    for i, params_i in enumerate(params):
+        if isinstance(params_i, str):
+            str_i = f"'{params_i}'"
+        else:
+            str_i = str(params_i)
+
+        if i == 0 :
+            params_str = params_str + str_i
+        else:
+            params_str = params_str + ' , ' + str_i
+
+    #### params to print in script name
+    params_str_name = ''
+    for i, params_i in enumerate(params):
+
+        str_i = str(params_i)
+
+        if i == 0 :
+            params_str_name = params_str_name + str_i
+        else:
+            params_str_name = params_str_name + '_' + str_i
+
+    #### remove all txt that block name save
+    for txt_remove_i in ["'", "[", "]", "{", "}", ":", " ", ","]:
+        if txt_remove_i == " " or txt_remove_i == ",":
+            params_str_name = params_str_name.replace(txt_remove_i, '_')
+        else:
+            params_str_name = params_str_name.replace(txt_remove_i, '')
+    
+    #### script text
+    lines = [f'#! {python}']
+    lines += ['import sys']
+    lines += [f"sys.path.append('{path_main_workdir}')"]
+    lines += [f'from {name_script} import {name_function}']
+    lines += [f'{name_function}({params_str})']
+
+    cpus_per_task = n_core_slurms
+    mem = mem_crnl_cluster
+        
+    #### write script and execute
+    os.chdir(path_slurm)
+    slurm_script_name =  f"run__{name_function}__{params_str_name}.py" #add params
+        
+    with open(slurm_script_name, 'w') as f:
+        f.writelines('\n'.join(lines))
+        os.fchmod(f.fileno(), mode = stat.S_IRWXU)
+        f.close()
+    
+    #### script text
+    lines = ['#!/bin/bash']
+    lines += [f'#SBATCH --job-name={name_function}']
+    lines += [f'#SBATCH --output=%slurm_{name_function}_{params_str_name}.log']
+    lines += [f'#SBATCH --cpus-per-task={n_core_slurms}']
+    lines += [f'#SBATCH --mem={mem_crnl_cluster}']
+    lines += [f'srun {python} {os.path.join(path_slurm, slurm_script_name)}']
+        
+    #### write script and execute
+    slurm_bash_script_name =  f"bash__{name_function}__{params_str_name}.batch" #add params
+        
+    with open(slurm_bash_script_name, 'w') as f:
+        f.writelines('\n'.join(lines))
+        os.fchmod(f.fileno(), mode = stat.S_IRWXU)
+        f.close()
+
+    #### execute bash
+    print(f'#### slurm submission : from {name_script} execute {name_function}({params})')
+    subprocess.Popen(['sbatch', f'{slurm_bash_script_name}']) 
+
+    # wait subprocess to lauch before removing
+    #time.sleep(4)
+    #os.remove(slurm_script_name)
+    #os.remove(slurm_bash_script_name)
+
+    #### get back to original path
+    os.chdir(scritp_path)
+
+
+
+
 
 
 
@@ -127,26 +302,18 @@ def generate_folder_structure(sujet):
 ######## LOAD DATA ########
 ############################
 
-def extract_chanlist_srate_conditions(conditions_allsubjects):
+def extract_chanlist_srate_conditions():
 
     path_source = os.getcwd()
     
     #### select conditions to keep
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
-    dirlist_subject = os.listdir()
 
-    conditions = []
-    for cond in conditions_allsubjects:
-
-        for file in dirlist_subject:
-
-            if file.find(cond) != -1 : 
-                conditions.append(cond)
-                break
+    conditions = conditions_allsubjects
 
     #### extract data
     band_prep = band_prep_list[0]
-    cond = conditions[0]
+    cond = 'FR_CV'
 
     load_i = []
     for session_i, session_name in enumerate(os.listdir()):
@@ -212,31 +379,82 @@ def extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubject
 
 
 
-def load_data(band_prep, cond, session_i):
+def load_data(cond, band_prep=None):
 
     path_source = os.getcwd()
     
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
 
-    load_i = []
-    for i, session_name in enumerate(os.listdir()):
-        if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
-            load_i.append(i)
-        else:
-            continue
+    if cond == 'FR_CV' :
 
-    load_list = [os.listdir()[i] for i in load_i]
-    load_name = load_list[session_i]
+        load_i = []
+        for i, session_name in enumerate(os.listdir()):
+            if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
+                load_i.append(i)
+            else:
+                continue
 
-    raw = mne.io.read_raw_fif(load_name, preload=True, verbose='critical')
+        load_list = [os.listdir()[i] for i in load_i]
 
-    data = raw.get_data() 
+        raw = mne.io.read_raw_fif(load_list[0], preload=True, verbose='critical')
 
+        data = raw.get_data()
+
+        del raw
+
+    elif cond == 'SNIFF' :
+
+        load_i = []
+        for i, session_name in enumerate(os.listdir()):
+            if session_name.find(cond) != -1 :
+                load_i.append(i)
+            else:
+                continue
+
+        load_list = [os.listdir()[i] for i in load_i]
+
+        data = xr.open_dataset(load_list[0])
+
+
+    elif cond == 'AL' :
+    
+        load_i = []
+        for i, session_name in enumerate(os.listdir()):
+            if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
+                load_i.append(i)
+            else:
+                continue
+
+        load_list = [os.listdir()[i] for i in load_i]
+
+        data = []
+        for load_i in load_list:
+            raw = mne.io.read_raw_fif(load_i, preload=True, verbose='critical')
+            
+            data.append(raw.get_data())
+
+        del raw
+    
+    
+    elif cond == 'AC' :
+    
+        load_i = []
+        for i, session_name in enumerate(os.listdir()):
+            if session_name.find(cond) != -1 :
+                load_i.append(i)
+            else:
+                continue
+
+        load_list = [os.listdir()[i] for i in load_i]
+
+        raw = mne.io.read_raw_fif(load_list[0], preload=True, verbose='critical')
+
+        data = raw.get_data()
+
+        del raw
+    
     #### go back to path source
     os.chdir(path_source)
-
-    #### free memory
-    del raw
 
     return data
 
@@ -289,11 +507,32 @@ def get_srate(sujet):
 
 
 
+def get_ac_starts(sujet):
+
+    path_source = os.getcwd()
+
+    os.chdir(os.path.join(path_prep, sujet, 'info'))
+
+    with open(f'{sujet}_AC_starts.txt') as f:
+        ac_starts_txt = f.readlines()
+        f.close()
+
+    ac_starts = [int(i.replace('\n', '')) for i in ac_starts_txt]
+
+    os.chdir(path_source)
+
+    return ac_starts
+
+
+
+
+
+
 ########################################
 ######## LOAD RESPI FEATURES ########
 ########################################
 
-def load_respfeatures(conditions):
+def load_respfeatures(sujet):
 
     path_source = os.getcwd()
     
@@ -309,7 +548,7 @@ def load_respfeatures(conditions):
     #### get respi features
     respfeatures_allcond = {}
 
-    for cond in conditions:
+    for cond in ['FR_CV']:
 
         load_i = []
         for session_i, session_name in enumerate(respfeatures_listdir_clean):
@@ -379,7 +618,7 @@ def get_all_respi_ratio(conditions, respfeatures_allcond):
 ################################
 
 
-#resp_features, stretch_point_surrogates, data = resp_features_CV, srate*2, data_CV[0,:]
+#resp_features, nb_point_by_cycle, data, srate = respfeatures_i, stretch_point_surrogates, x_shift, srate
 def stretch_data(resp_features, nb_point_by_cycle, data, srate):
 
     # params
