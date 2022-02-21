@@ -118,7 +118,10 @@ def compute_stretch_tf_dB_AC(tf, cond, ac_starts, stretch_point_TF, band, band_p
         if n_chan/np.size(tf,0) % .2 <= .01:
             print('{:.2f}'.format(n_chan/np.size(tf,0)))
 
-        tf_mean = np.zeros((np.size(tf,1),int(stretch_point_TF)))
+        stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
+
+        tf_mean = np.zeros((np.size(tf,1),int(stretch_point_TF_ac)))
+
         for fi in range(np.size(tf,1)):
 
             x = tf[n_chan,fi,:]
@@ -137,7 +140,8 @@ def compute_stretch_tf_dB_AC(tf, cond, ac_starts, stretch_point_TF, band, band_p
 
     stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(np.size(tf,0)))
 
-    tf_mean_allchan = np.zeros((np.size(tf,0), np.size(tf,1), stretch_point_TF))
+    stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
+    tf_mean_allchan = np.zeros((np.size(tf,0), np.size(tf,1), stretch_point_TF_ac))
 
     for n_chan in range(np.size(tf,0)):
         tf_mean_allchan[n_chan,:,:] = stretch_tf_db_nchan_res[n_chan]
@@ -181,7 +185,7 @@ def compute_stretch_tf_itpc_ac(tf, cond, ac_starts, srate):
     for fi in range(np.size(tf,0)):
 
         x = tf[fi,:]
-        data_chunk = np.zeros(( len(ac_starts), stretch_point_TF_ac ))
+        data_chunk = np.zeros(( len(ac_starts), stretch_point_TF_ac ), dtype='complex')
 
         for start_i, start_time in enumerate(ac_starts):
 
@@ -411,7 +415,7 @@ def precompute_tf_itpc(cond, band_prep_list):
                 if cond == 'FR_CV':
                     tf_stretch = compute_stretch_tf_itpc(tf, cond, respfeatures_allcond, stretch_point_TF, srate)
 
-                if cond == 'AC':
+                elif cond == 'AC':
                     ac_starts = get_ac_starts(sujet)
                     tf_stretch = compute_stretch_tf_itpc_ac(tf, cond, ac_starts, srate)
 
@@ -430,7 +434,12 @@ def precompute_tf_itpc(cond, band_prep_list):
 
             compute_itpc_n_chan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_itpc_n_chan)(n_chan) for n_chan in range(np.size(data,0)))
             
-            itpc_allchan = np.zeros((np.size(data,0),nfrex,stretch_point_TF))
+            if cond == 'FR_CV':
+                itpc_allchan = np.zeros((np.size(data,0),nfrex,stretch_point_TF))
+
+            elif cond == 'AC':
+                stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
+                itpc_allchan = np.zeros((np.size(data,0),nfrex,stretch_point_TF_ac))
 
             for n_chan in range(np.size(data,0)):
 

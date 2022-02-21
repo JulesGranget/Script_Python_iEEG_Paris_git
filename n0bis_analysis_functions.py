@@ -302,6 +302,25 @@ def execute_function_in_slurm_bash(name_script, name_function, params):
 ######## LOAD DATA ########
 ############################
 
+
+
+
+def get_params(sujet):
+
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    respi_ratio_allcond = get_all_respi_ratio(sujet)
+    nwind, nfft, noverlap, hannw = get_params_spectral_analysis(srate)
+
+    params = {'conditions' : conditions, 'chan_list' : chan_list, 'chan_list_ieeg' : chan_list_ieeg, 'srate' : srate, 
+    'nwind' : nwind, 'nfft' : nfft, 'noverlap' : noverlap, 'hannw' : hannw, 'respi_ratio_allcond' : respi_ratio_allcond}
+
+    return params
+
+
+
+
+
+
 def extract_chanlist_srate_conditions():
 
     path_source = os.getcwd()
@@ -573,42 +592,49 @@ def load_respfeatures(sujet):
 
 
 
-def get_all_respi_ratio(conditions, respfeatures_allcond):
+
+def get_all_respi_ratio(sujet):
+    
+    respfeatures_allcond = load_respfeatures(sujet)
     
     respi_ratio_allcond = {}
 
-    for cond in conditions:
+    for session_eeg in range(3):
 
-        if len(respfeatures_allcond.get(cond)) == 1:
+        respi_ratio_allcond = {}
 
-            mean_cycle_duration = np.mean(respfeatures_allcond.get(cond)[0][['insp_duration', 'exp_duration']].values, axis=0)
-            mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
+        for cond in ['FR_CV']:
 
-            respi_ratio_allcond[cond] = [ mean_inspi_ratio ]
+            if len(respfeatures_allcond[cond]) == 1:
 
-        elif len(respfeatures_allcond.get(cond)) > 1:
+                mean_cycle_duration = np.mean(respfeatures_allcond[cond][0][['insp_duration', 'exp_duration']].values, axis=0)
+                mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
 
-            data_to_short = []
+                respi_ratio_allcond[cond] = [ mean_inspi_ratio ]
 
-            for session_i in range(len(respfeatures_allcond.get(cond))):   
+            elif len(respfeatures_allcond[cond]) > 1:
+
+                data_to_short = []
+
+                for session_i in range(len(respfeatures_allcond[cond])):   
+                    
+                    if session_i == 0 :
+
+                        mean_cycle_duration = np.mean(respfeatures_allcond[cond][session_i][['insp_duration', 'exp_duration']].values, axis=0)
+                        mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
+                        data_to_short = [ mean_inspi_ratio ]
+
+                    elif session_i > 0 :
+
+                        mean_cycle_duration = np.mean(respfeatures_allcond[cond][session_i][['insp_duration', 'exp_duration']].values, axis=0)
+                        mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
+
+                        data_replace = [(data_to_short[0] + mean_inspi_ratio) / 2]
+
+                        data_to_short = data_replace.copy()
                 
-                if session_i == 0 :
-
-                    mean_cycle_duration = np.mean(respfeatures_allcond.get(cond)[session_i][['insp_duration', 'exp_duration']].values, axis=0)
-                    mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
-                    data_to_short = [ mean_inspi_ratio ]
-
-                elif session_i > 0 :
-
-                    mean_cycle_duration = np.mean(respfeatures_allcond.get(cond)[session_i][['insp_duration', 'exp_duration']].values, axis=0)
-                    mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
-
-                    data_replace = [(data_to_short[0] + mean_inspi_ratio) / 2]
-
-                    data_to_short = data_replace.copy()
-            
-            # to put in list
-            respi_ratio_allcond[cond] = data_to_short 
+                # to put in list
+                respi_ratio_allcond[cond] = data_to_short 
 
     return respi_ratio_allcond
 
