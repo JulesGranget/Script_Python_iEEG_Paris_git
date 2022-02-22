@@ -1,0 +1,275 @@
+
+
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.signal
+import mne
+import pandas as pd
+import respirationtools
+import joblib
+
+from n0_config import *
+from n0bis_analysis_functions import *
+
+debug = False
+
+
+
+
+
+
+
+
+################################
+######## COMPUTE TF ########
+################################
+
+
+def precompute_tf(cond, band_prep_list, tf_mode):
+
+    print('TF PRECOMPUTE')
+
+    respfeatures_allcond = load_respfeatures(sujet)
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+
+    #### select prep to load
+    #band_prep = 'lf'
+    for band_prep in band_prep_list:
+
+        #### select data without aux chan
+        data_allsession = load_data(cond, band_prep=band_prep)
+
+        #### remove aux chan
+        for session_i in range(len(data_allsession)):
+            data_allsession[session_i] = data_allsession[session_i][:-4,:]
+
+        #session_i = 0
+        for session_i in range(len(data_allsession)):
+
+            data = data_allsession[session_i]
+            
+            freq_band = freq_band_dict[band_prep]
+
+            tf_allband = {}
+
+            #band, freq = list(freq_band.items())[0]
+            for band, freq in freq_band.items():
+
+                #os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+
+                print(band, ' : ', freq)
+            
+                print('COMPUTE')
+
+                #### select wavelet parameters
+                if band_prep == 'lf':
+                    wavetime = np.arange(-2,2,1/srate)
+                    nfrex = nfrex_lf
+                    ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
+
+                elif band_prep == 'hf':
+                    wavetime = np.arange(-.5,.5,1/srate)
+                    nfrex = nfrex_hf
+                    ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
+
+                elif band_prep == 'wb':
+                    wavetime = np.arange(-2,2,1/srate)
+                    nfrex = nfrex_wb
+                    ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
+
+
+                #### compute wavelets
+                frex  = np.linspace(freq[0],freq[1],nfrex)
+                wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
+
+                # create Morlet wavelet family
+                for fi in range(0,nfrex):
+                    
+                    s = ncycle_list[fi] / (2*np.pi*frex[fi])
+                    gw = np.exp(-wavetime**2/ (2*s**2)) 
+                    sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
+                    mw =  gw * sw
+
+                    wavelets[fi,:] = mw
+                    
+                # plot all the wavelets
+                if debug == True:
+                    plt.pcolormesh(wavetime,frex,np.real(wavelets))
+                    plt.xlabel('Time (s)')
+                    plt.ylabel('Frequency (Hz)')
+                    plt.title('Real part of wavelets')
+                    plt.show()
+
+                os.chdir(path_memmap)
+                tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{session_i+1}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(np.size(data,0), nfrex, np.size(data,1)))
+
+                def compute_tf_convolution_nchan(n_chan):
+
+                    if n_chan/np.size(data,0) % .2 <= .01:
+                        print("{:.2f}".format(n_chan/np.size(data,0)))
+                    x = data[n_chan,:]
+
+                    tf = np.zeros((nfrex,np.size(x)))
+
+                    for fi in range(nfrex):
+                        
+                        tf[fi,:] = abs(scipy.signal.fftconvolve(x, wavelets[fi,:], 'same'))**2 
+
+                    tf_allchan[n_chan,:,:] = tf
+
+                    return
+
+                joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(np.size(data,0)))
+
+
+                #### dB
+
+                #### load baseline
+                os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
+                
+                baselines = np.load(f'{sujet}_{band}_baselines.npy')
+
+                #### apply baseline
+                for n_chan in range(np.size(tf_allchan,0)):
+                    
+                    for fi in range(np.size(tf_allchan,1)):
+
+                        activity = tf_allchan[n_chan,fi,:]
+                        baseline_fi = baselines[n_chan, fi]
+
+                        #### verify baseline
+                        #plt.plot(activity)
+                        #plt.hlines(baseline_fi, xmin=0 , xmax=activity.shape[0], color='r')
+                        #plt.show()
+
+                        tf_allchan[n_chan,fi,:] = 10*np.log10(activity/baseline_fi)
+
+                
+                tf_allband[band] = tf_allchan
+
+                #### remove memmap
+                os.chdir(path_memmap)
+                os.remove(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{session_i+1}_precompute_convolutions.dat')
+
+            #### compute ITPC
+            if tf_mode == 'ITPC':
+
+                #do ITPC
+
+
+            #### compute scales
+            scales = {'vmin_val' : np.array(()), 'vmax_val' : np.array(()), 'median_val' : np.array(())}
+
+            for i, (band, freq) in enumerate(freq_band.items()) :
+
+                if band == 'whole' or band == 'l_gamma':
+                    continue
+
+                data = tf_allband[band][n_chan, :, :]
+
+                scales['vmin_val'] = np.append(scales['vmin_val'], np.min(data))
+                scales['vmax_val'] = np.append(scales['vmax_val'], np.max(data))
+                scales['median_val'] = np.append(scales['median_val'], np.median(data))
+
+            median_diff = np.max([np.abs(np.min(scales['vmin_val']) - np.median(scales['median_val'])), np.abs(np.max(scales['vmax_val']) - np.median(scales['median_val']))])
+
+            vmin = np.median(scales['median_val']) - median_diff
+            vmax = np.median(scales['median_val']) + median_diff
+
+            #### chdir
+            if tf_mode == 'TF':
+                os.chdir(os.path.join(path_results, sujet, 'TF', 'summary'))
+            elif tf_mode == 'ITPC':
+                os.chdir(os.path.join(path_results, sujet, 'ITPC', 'summary'))
+
+            #### plot and save all the tf for one session
+            nrows = len(freq_band)
+
+            #nchan = 0
+            for nchan in range(tf_allband[band].shape[0]):
+
+                fig, axs = plt.subplots(nrows=nrows)
+
+                chan_name = chan_list_ieeg[nchan]
+                
+                plt.suptitle(f'{sujet}_{chan_name}_AL{session_i+1}')
+
+                #### for plotting l_gamma down
+                if band_prep == 'hf':
+                    keys_list_reversed = list(freq_band.keys())
+                    keys_list_reversed.reverse()
+                    freq_band_reversed = {}
+                    for key_i in keys_list_reversed:
+                        freq_band_reversed[key_i] = freq_band[key_i]
+                    freq_band = freq_band_reversed
+
+                #### plot
+                for i, (band, freq) in enumerate(freq_band.items()):
+
+                    data = tf_allband[band][n_chan, :, :]
+                    frex = np.linspace(freq[0], freq[1], np.size(data,0))
+                
+                    ax = axs[i]
+
+                    time = np.arange(data.shape[1])/srate
+
+                    ax.pcolormesh(time, frex, data, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+                    ax.set_ylabel(band)
+
+                #plt.show()
+
+                #### save
+                fig.savefig(f'{sujet}_{chan_name}_AC{session_i+1}.jpeg', dpi=600)
+                plt.close()
+
+
+
+
+                
+                
+
+
+
+
+
+
+
+
+
+
+################################
+######## EXECUTE ########
+################################
+
+
+if __name__ == '__main__':
+
+
+    #### load data
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    respfeatures_allcond = load_respfeatures(sujet)
+
+    #### compute all
+    print('######## AL PRECOMPUTE TF & ITPC ########')
+
+    #### compute and save tf
+    #cond = 'AL'
+    for cond in ['AL']:
+
+        for tf_mode in ['TF', 'ITPC']:
+
+            print(cond)
+        
+            #precompute_tf(cond, band_prep_list)
+            execute_function_in_slurm_bash('n8_AL_analysis', 'precompute_tf', [cond, band_prep_list, tf_mode])
+        
+
+
+
+
+
+
+
+
+

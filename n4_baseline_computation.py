@@ -30,7 +30,7 @@ def compute_and_save_baseline(sujet_i, band_prep):
     #### verify if already computed
     verif_band_compute = []
     for band in list(freq_band_dict[band_prep].keys()):
-        if os.path.exists(os.path.join(path_prep, sujet_i, 'baseline', f'{sujet_i}_{band}_baselines_{band_prep}.npy')):
+        if os.path.exists(os.path.join(path_precompute, sujet_i, 'Baselines', f'{sujet_i}_{band}_baselines.npy')):
             verif_band_compute.append(True)
 
     if np.sum(verif_band_compute) > 0:
@@ -78,7 +78,7 @@ def compute_and_save_baseline(sujet_i, band_prep):
         ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
 
     if band_prep == 'wb':
-        wavetime = np.arange(-.5,.5,1/srate)
+        wavetime = np.arange(-2,2,1/srate)
         nfrex = nfrex_hf
         ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
 
@@ -148,11 +148,11 @@ def compute_and_save_baseline(sujet_i, band_prep):
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(baseline_convolutions)(n_chan) for n_chan in range(np.size(data,0)))
 
     #### save baseline
-    os.chdir(os.path.join(path_prep, sujet_i, 'baseline'))
+    os.chdir(os.path.join(path_precompute, sujet_i, 'Baselines'))
 
     for band_i, band in enumerate(list(freq_band_dict[band_prep].keys())):
     
-        np.save(f'{sujet_i}_{band}_baselines_{band_prep}.npy', baseline_allchan[band_i, :, :])
+        np.save(f'{sujet_i}_{band}_baselines.npy', baseline_allchan[band_i, :, :])
 
     #### remove memmap
     os.chdir(path_memmap)

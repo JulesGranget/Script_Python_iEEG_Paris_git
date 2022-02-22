@@ -56,7 +56,6 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'preprocessing', sujet))
     construct_token = create_folder('sections', construct_token)
     construct_token = create_folder('info', construct_token)
-    construct_token = create_folder('baseline', construct_token)
 
         #### precompute
     os.chdir(os.path.join(path_general, 'Analyses', 'precompute'))
@@ -65,6 +64,7 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('TF', construct_token)
     construct_token = create_folder('PSD_Coh', construct_token)
+    construct_token = create_folder('Baselines', construct_token)
 
         #### anatomy
     os.chdir(os.path.join(path_general, 'Analyses', 'anatomy'))
@@ -439,7 +439,7 @@ def load_data(cond, band_prep=None):
     
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
+            if ( session_name.find(cond) != -1 ) and ( session_name.find(band_prep) != -1 ) and ( session_name.find('session') == -1 ):
                 load_i.append(i)
             else:
                 continue

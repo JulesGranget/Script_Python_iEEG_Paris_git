@@ -35,7 +35,7 @@ def load_surrogates_session(prms):
         surrogates_allcond[f'cyclefreq_{band_prep}'] = {}
 
         #cond = 'FR_CV'
-        for cond in conditions_compute_TF:
+        for cond in ['FR_CV']:
 
             surrogates_allcond['Cxy'][cond] = [np.load(f'{sujet}_{cond}_Coh.npy')]
             surrogates_allcond[f'cyclefreq_{band_prep}'][cond] = [np.load(f'{sujet}_{cond}_cyclefreq_{band_prep}.npy')]
@@ -502,7 +502,7 @@ def get_tf_itpc_stretch_allcond(tf_mode):
 
 
 
-#n_chan, session_eeg, tf_mode, band_prep = 0, 0, 'TF', 'wb'
+#n_chan, tf_mode, band_prep = 0, 'TF', 'lf'
 def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
 
     #### load data

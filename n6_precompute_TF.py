@@ -45,9 +45,9 @@ def compute_stretch_tf(tf, session_eeg, cond, session_i, respfeatures_allcond, s
 def compute_stretch_tf_dB(tf, cond, respfeatures_allcond, stretch_point_TF, band, band_prep, nfrex, srate):
 
     #### load baseline
-    os.chdir(os.path.join(path_prep, sujet, 'baseline'))
+    os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
     
-    baselines = np.load(f'{sujet}_{band}_baselines_{band_prep}.npy')
+    baselines = np.load(f'{sujet}_{band}_baselines.npy')
 
     #### apply baseline
     for n_chan in range(np.size(tf,0)):
@@ -94,9 +94,9 @@ def compute_stretch_tf_dB(tf, cond, respfeatures_allcond, stretch_point_TF, band
 def compute_stretch_tf_dB_AC(tf, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate):
 
     #### load baseline
-    os.chdir(os.path.join(path_prep, sujet, 'baseline'))
+    os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
     
-    baselines = np.load(f'{sujet}_{band}_baselines_{band_prep}.npy')
+    baselines = np.load(f'{sujet}_{band}_baselines.npy')
 
     #### apply baseline
     for n_chan in range(np.size(tf,0)):
@@ -371,7 +371,7 @@ def precompute_tf_itpc(cond, band_prep_list):
                 ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
 
             elif band_prep == 'wb':
-                wavetime = np.arange(-.5,.5,1/srate)
+                wavetime = np.arange(-2,2,1/srate)
                 nfrex = nfrex_wb
                 ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
 

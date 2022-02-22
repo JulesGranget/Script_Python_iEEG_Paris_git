@@ -636,7 +636,7 @@ if __name__ == '__main__':
     
     
     #### Export VS
-    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_VS_{band_prep}.fif')) != 1:
+    if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_FR_CV_{band_prep}.fif')) != 1:
         raw_vs_ieeg = raw_all.copy()
         raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
 
