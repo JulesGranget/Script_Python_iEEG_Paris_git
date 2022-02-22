@@ -524,9 +524,11 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
     freq_band = freq_band_dict[band_prep]
 
     #### determine plot scale
-    scales = {'vmin_val' : np.array(()), 'vmax_val' : np.array(()), 'median_val' : np.array(())}
+    vmaxs = {}
+    vmins = {}
+    for cond in conditions_compute_TF:
 
-    for c, cond in enumerate(conditions_compute_TF):
+        scales = {'vmin_val' : np.array(()), 'vmax_val' : np.array(()), 'median_val' : np.array(())}
 
         for i, (band, freq) in enumerate(freq_band.items()) :
 
@@ -540,19 +542,19 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
             scales['vmax_val'] = np.append(scales['vmax_val'], np.max(data))
             scales['median_val'] = np.append(scales['median_val'], np.median(data))
 
-    median_diff = np.max([np.abs(np.min(scales['vmin_val']) - np.median(scales['median_val'])), np.abs(np.max(scales['vmax_val']) - np.median(scales['median_val']))])
+        median_diff = np.max([np.abs(np.min(scales['vmin_val']) - np.median(scales['median_val'])), np.abs(np.max(scales['vmax_val']) - np.median(scales['median_val']))])
 
-    vmin = np.median(scales['median_val']) - median_diff
-    vmax = np.median(scales['median_val']) + median_diff
+        vmin = np.median(scales['median_val']) - median_diff
+        vmax = np.median(scales['median_val']) + median_diff
+
+        vmaxs[cond] = vmax
+        vmins[cond] = vmin
+
 
     #### plot
-
     nrows = len(freq_band)
 
-    if band_prep == 'hf':
-        fig, axs = plt.subplots(nrows=nrows, ncols=len(conditions_compute_TF))
-    else:
-        fig, axs = plt.subplots(nrows=nrows, ncols=len(conditions_compute_TF))
+    fig, axs = plt.subplots(nrows=nrows, ncols=len(conditions_compute_TF))
     
     plt.suptitle(f'{sujet}_{chan_name}')
 
@@ -588,10 +590,15 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
                 stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
                 time = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
 
+            if cond == 'SNIFF':
+                stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
+                time = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
+
+
             if tf_mode == 'TF':
-                ax.pcolormesh(time, frex, data, shading='gouraud', cmap=plt.get_cmap('seismic'))
+                ax.pcolormesh(time, frex, data, vmin=vmins[cond], vmax=vmaxs[cond], shading='gouraud', cmap=plt.get_cmap('seismic'))
             if tf_mode == 'ITPC':
-                ax.pcolormesh(time, frex, data, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+                ax.pcolormesh(time, frex, data, vmin=vmins[cond], vmax=vmaxs[cond], shading='gouraud', cmap=plt.get_cmap('seismic'))
 
             if c == 0:
                 ax.set_ylabel(band)
@@ -602,7 +609,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
                 else:
                     ax.vlines(ratio_stretch_TF*stretch_point_TF, ymin=freq[0], ymax=freq[1], colors='g')
 
-            if cond == 'AC':
+            if cond == 'AC' or cond == 'SNIFF':
                 ax.vlines(0, ymin=freq[0], ymax=freq[1], colors='g')
     #plt.show()
 

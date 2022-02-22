@@ -508,7 +508,7 @@ if __name__ == '__main__':
 
     #### choose preproc
     #band_prep = 'lf'
-    #raw_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+    #data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
 
     band_prep = 'hf'
     data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
@@ -697,9 +697,17 @@ if __name__ == '__main__':
             plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
             plt.show()
 
+    #### generate SNIFF
+    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}.nc")) != 1:
+        raw_sniff_ieeg = raw_all.copy()
+        raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+        raw_sniff_ieeg.save(f'{sujet}_SNIFF_session_{band_prep}.fif')
 
 
-    #### generate xr AC
+        del raw_sniff_ieeg
+
+
+    #### generate AC
     if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}.nc")) != 1:
         raw_ac_ieeg = raw_all.copy()
         raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
@@ -719,8 +727,6 @@ if __name__ == '__main__':
         df.to_excel(f'{sujet}_count_session.xlsx')
 
     #### export AC starts
-
-    
     len_ac_session = (ac_allsession[1] - ac_allsession[0])*srate
 
     if ac_starts[-1]+t_stop_AC*srate >= len_ac_session:
@@ -732,6 +738,21 @@ if __name__ == '__main__':
     ac_starts = [str(i) for i in ac_starts]
     with open(f'{sujet}_AC_starts.txt', 'w') as f:
         f.write('\n'.join(ac_starts))
+        f.close()
+
+
+    #### export SNIFF starts
+    len_sniff_session = (sniff_allsession[1] - sniff_allsession[0])*srate
+
+    if sniff_peaks[-1]+t_stop_SNIFF*srate >= len_sniff_session:
+        sniff_peaks = sniff_peaks[:-1]
+
+    if sniff_peaks[0]+t_start_SNIFF*srate <= 0:
+        sniff_peaks = sniff_peaks[1:]
+
+    sniff_peaks = [str(i) for i in sniff_peaks]
+    with open(f'{sujet}_SNIFF_starts.txt', 'w') as f:
+        f.write('\n'.join(sniff_peaks))
         f.close()
 
 

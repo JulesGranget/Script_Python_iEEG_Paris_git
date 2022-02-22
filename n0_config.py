@@ -37,7 +37,7 @@ sujet_list_FR_CV = ['CHEe', 'GOBc', 'MAZm', 'TREt', 'MUGa', 'BANc', 'KOFs', 'LEM
 
 conditions_allsubjects = ['FR_CV', 'SNIFF', 'AL', 'AC']
 
-conditions_compute_TF = ['FR_CV', 'AC']
+conditions_compute_TF = ['FR_CV', 'AC', 'SNIFF']
 
 band_prep_list = ['lf', 'hf']
 freq_band_list = [{'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]}, {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}]

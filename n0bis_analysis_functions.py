@@ -82,7 +82,7 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('HRV', construct_token)
     construct_token = create_folder('ERP', construct_token)
 
-            #### TF
+            #### ERP
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'ERP'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
@@ -92,6 +92,10 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'TF'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
+
+                #### summary
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'TF', 'summary'))
+    construct_token = create_folder('AL', construct_token)
 
             #### PSD_Coh
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'PSD_Coh'))
@@ -425,14 +429,18 @@ def load_data(cond, band_prep=None):
 
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if session_name.find(cond) != -1 :
+            if (session_name.find(cond) != -1) and (session_name.find('session') != -1) and ( session_name.find(band_prep) != -1 ):
                 load_i.append(i)
             else:
                 continue
 
         load_list = [os.listdir()[i] for i in load_i]
 
-        data = xr.open_dataset(load_list[0])
+        raw = mne.io.read_raw_fif(load_list[0], preload=True, verbose='critical')
+
+        data = raw.get_data()
+        
+        #data = xr.open_dataset(load_list[0])
 
 
     elif cond == 'AL' :
@@ -544,6 +552,22 @@ def get_ac_starts(sujet):
 
 
 
+
+def get_sniff_starts(sujet):
+
+    path_source = os.getcwd()
+
+    os.chdir(os.path.join(path_prep, sujet, 'info'))
+
+    with open(f'{sujet}_SNIFF_starts.txt') as f:
+        ac_starts_txt = f.readlines()
+        f.close()
+
+    ac_starts = [int(i.replace('\n', '')) for i in ac_starts_txt]
+
+    os.chdir(path_source)
+
+    return ac_starts
 
 
 
