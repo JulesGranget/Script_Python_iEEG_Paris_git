@@ -150,6 +150,7 @@ def precompute_tf(cond, session_i, band_prep_list):
 
         #### plot and save all the tf for one session
         nrows = len(freq_band)
+        df_loca = get_loca_df(sujet)
 
         #nchan = 1
         for nchan in range(tf_allband[band].shape[0]):
@@ -179,8 +180,9 @@ def precompute_tf(cond, session_i, band_prep_list):
             fig, axs = plt.subplots(nrows=nrows)
 
             chan_name = chan_list_ieeg[nchan]
+            chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
             
-            plt.suptitle(f'{sujet}_{chan_name}_AL{session_i+1}')
+            plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}_AL{session_i+1}')
 
             #### for plotting l_gamma down
             if band_prep == 'hf':
@@ -209,7 +211,7 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             #### save
             os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
-            fig.savefig(f'{sujet}_{chan_name}_AC{session_i+1}.jpeg', dpi=600)
+            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}.jpeg', dpi=600)
             plt.close()
 
             
@@ -234,8 +236,9 @@ if __name__ == '__main__':
     n_session = len(load_data(cond, band_prep=band_prep_list[0]))
 
     #### compute and save tf
+    #session_i = 0
     for session_i in range(n_session):
-        #precompute_tf(cond, band_prep_list)
+        #precompute_tf(cond, session_i, band_prep_list)
         execute_function_in_slurm_bash('n8_AL_analysis', 'precompute_tf', [cond, session_i, band_prep_list])
         
 

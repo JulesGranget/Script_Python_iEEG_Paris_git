@@ -739,6 +739,8 @@ def get_electrode_loca():
 
 def get_loca_df(sujet):
 
+    path_source = os.getcwd()
+
     os.chdir(os.path.join(path_anatomy, sujet))
 
     file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
@@ -765,6 +767,8 @@ def get_loca_df(sujet):
                 }
 
     df_loca = pd.DataFrame(dict_loca, columns=dict_loca.keys())
+
+    os.chdir(path_source)
 
     return df_loca
 

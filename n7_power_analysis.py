@@ -329,6 +329,7 @@ def plot_save_PSD_Coh(n_chan):
     mask_hzCxy = (hzCxy>=freq_surrogates[0]) & (hzCxy<freq_surrogates[1])
     hzCxy = hzCxy[mask_hzCxy]
 
+    #band_prep = 'lf'
     for band_prep in band_prep_list:
 
         fig, axs = plt.subplots(nrows=4, ncols=len(['FR_CV']))
@@ -365,6 +366,7 @@ def plot_save_PSD_Coh(n_chan):
         #plt.show()
         
         #### save
+        os.chdir(os.path.join(path_results, sujet, 'PSD_Coh', 'summary'))
         fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
         plt.close()
 
@@ -639,8 +641,6 @@ def compilation_compute_Pxx_Cxy_Cyclefreq():
     compute_reduced_PxxCxyCyclefreqSurrogates(respfeatures_allcond, surrogates_allcond, prms)
     
     #### compute joblib
-
-    os.chdir(os.path.join(path_results, sujet, 'PSD_Coh', 'summary'))
 
     print('######## PLOT & SAVE PSD AND COH ########')
 
