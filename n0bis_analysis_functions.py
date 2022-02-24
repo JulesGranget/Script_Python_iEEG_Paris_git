@@ -467,7 +467,7 @@ def load_data(cond, band_prep=None):
     
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if session_name.find(cond) != -1 :
+            if (session_name.find(cond) != -1) and ( session_name.find(band_prep) != -1 ) :
                 load_i.append(i)
             else:
                 continue
@@ -737,7 +737,7 @@ def get_electrode_loca():
 
 
 
-def get_loca_df():
+def get_loca_df(sujet):
 
     os.chdir(os.path.join(path_anatomy, sujet))
 

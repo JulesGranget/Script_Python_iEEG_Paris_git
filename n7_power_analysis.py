@@ -315,9 +315,11 @@ def plot_save_PSD_Coh(n_chan):
     prms = get_params(sujet)
     respfeatures_allcond = load_respfeatures(sujet)
     respi_mean = np.mean(respfeatures_allcond['FR_CV'][0]['cycle_freq'].values)
+    df_loca = get_loca_df(sujet)
     
     #### compute
     chan_name = prms['chan_list_ieeg'][n_chan]
+    chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
 
     if n_chan/len(prms['chan_list_ieeg']) % .2 <= 0.01:
         print('{:.2f}'.format(n_chan/len(prms['chan_list_ieeg'])))
@@ -330,7 +332,7 @@ def plot_save_PSD_Coh(n_chan):
     for band_prep in band_prep_list:
 
         fig, axs = plt.subplots(nrows=4, ncols=len(['FR_CV']))
-        plt.suptitle(f'{sujet}_{chan_name}')
+        plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
         
         cond = 'FR_CV'
             
@@ -363,7 +365,7 @@ def plot_save_PSD_Coh(n_chan):
         #plt.show()
         
         #### save
-        fig.savefig(f'{sujet}_{chan_name}_{band_prep}.jpeg', dpi=600)
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
         plt.close()
 
     
@@ -508,6 +510,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
     #### load data
     prms = get_params(sujet)
     tf_stretch_allcond = get_tf_itpc_stretch_allcond(tf_mode)
+    df_loca = get_loca_df(sujet)
 
 
     if tf_mode == 'TF':
@@ -516,6 +519,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
         os.chdir(os.path.join(path_results, sujet, 'ITPC', 'summary'))
     
     chan_name = prms['chan_list_ieeg'][n_chan]
+    chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
 
     if n_chan/len(prms['chan_list_ieeg']) % .2 <= .01:
         print('{:.2f}'.format(n_chan/len(prms['chan_list_ieeg'])))
@@ -556,7 +560,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
 
     fig, axs = plt.subplots(nrows=nrows, ncols=len(conditions_compute_TF))
     
-    plt.suptitle(f'{sujet}_{chan_name}')
+    plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
 
     #### for plotting l_gamma down
     if band_prep == 'hf':
@@ -614,7 +618,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
     #plt.show()
 
     #### save
-    fig.savefig(f'{sujet}_{chan_name}_{band_prep}.jpeg', dpi=600)
+    fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
     plt.close()
 
 
