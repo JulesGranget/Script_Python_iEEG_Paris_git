@@ -5,12 +5,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal
 import mne
+from mne_connectivity import spectral_connectivity
+from mne_connectivity.viz import plot_sensors_connectivity
 import pandas as pd
 import respirationtools
 import joblib
 import xarray as xr
 from frites.dataset import SubjectEphy, DatasetEphy
-from frites.conn import conn_te, conn_covgc
+from frites.conn import conn_covgc
 from frites.workflow import WfMi
 
 
@@ -107,10 +109,16 @@ def process_sniff_connectivity():
 
     load_list = [os.listdir()[i] for i in load_i]
     
+
+
+
+
+
+    #### compute covgc
+
     xr_sniff = xr.open_dataarray(load_list[0])
     xr_sniff = xr_sniff.transpose('sniffs', 'chan_list', 'times')
 
-    #### compute covgc
 
     dt = SubjectEphy(xr_sniff, roi='chan_list', times='times')
     print(dt)
@@ -171,13 +179,34 @@ def process_sniff_connectivity():
         plt.show()
 
 
+
+
+
+
+
     #### MUTUAL INFORMATION
     # define an electrophysiological dataset
-    ds = DatasetEphy([xr_sniff], y='sniffs', times='times', roi='chan_list')
+    xr_sniff_MI = xr.open_dataarray(load_list[0])
+    xr_sniff_MI = xr_sniff_MI.transpose('sniffs', 'chan_list', 'times')
+
+    mne_sniff_info = mne.create_info(list(xr_sniff_MI['chan_list'].data), srate, ch_types=['seeg']*len(xr_sniff_MI['chan_list']))
+    mne_sniff = mne.EpochsArray(xr_sniff_MI.data, info=mne_sniff_info)
+
+
+
+    con = spectral_connectivity(mne_sniff, method='pli', mode='multitaper', sfreq=srate, fmin=8, fmax=12, faverage=True, tmin=0, mt_adaptive=False, n_jobs=1)
+
+    con.plot_circle()
+
+
+
+    xr_sniff_MI['sniffs'] = np.array(['free']*len(xr_sniff['sniffs'].data), dtype='object')
+    se = SubjectEphy(mne_sniff)
+    ds = DatasetEphy([xr_sniff_MI], y='sniffs', times='times', roi='chan_list')
     # define a workflow of mutual information
-    wf = WfMi(mi_type='cd', inference='rfx')
+    wf = WfMi(mi_type='cd', inference='ffx')
     # run the workflow
-    mi, pv = wf.fit(ds, n_perm=200, n_jobs=6, random_state=0)
+    mi, pv = wf.fit(ds, n_perm=200, n_jobs=10, random_state=0)
 
 
 

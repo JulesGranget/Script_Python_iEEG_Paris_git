@@ -1,5 +1,7 @@
 
 
+
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,247 +9,89 @@ import scipy.signal
 import mne
 import pandas as pd
 import respirationtools
-from n3_respi_analysis import analyse_resp
+import joblib
+
 
 from n0_config import *
+from n0bis_analysis_functions import *
+
 
 debug = False
 
 
-############################
-######## LOAD DATA ########
-############################
-
-#### adjust conditions
-os.chdir(os.path.join(path_prep, sujet, 'sections'))
-dirlist_subject = os.listdir()
-
-cond_keep = []
-for cond in conditions:
-
-    for file in dirlist_subject:
-
-        if file.find(cond) != -1 : 
-            cond_keep.append(cond)
-            break
-
-conditions = cond_keep
-
-#### load data lf hf
-raw_allcond = {}
-
-for band_prep_i in band_prep_list:
-
-    raw_tmp = {}
-    for cond in conditions:
-
-        load_i = []
-        for session_i, session_name in enumerate(os.listdir()):
-            if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep_i) != -1 ):
-                load_i.append(session_i)
-            else:
-                continue
-
-        load_list = [os.listdir()[i] for i in load_i]
-
-        data = []
-        for load_name in load_list:
-            data.append(mne.io.read_raw_fif(load_name, preload=True))
-
-        raw_tmp[cond] = data
-
-    raw_allcond[band_prep_i] = raw_tmp
-
-
-srate = int(raw_allcond.get(band_prep_list[0])[os.listdir()[0][5:10]][0].info['sfreq'])
-chan_list = raw_allcond.get(band_prep_list[0])[os.listdir()[0][5:10]][0].info['ch_names']
-chan_list_ieeg = chan_list[:-3]
-
-
-########################################
-######## LOAD RESPI FEATURES ########
-########################################
-
-os.chdir(os.path.join(path_respfeatures, sujet, 'RESPI'))
-respfeatures_listdir = os.listdir()
-
-#### remove fig0 and fig1 file
-respfeatures_listdir_clean = []
-for file in respfeatures_listdir :
-    if file.find('fig') == -1 :
-        respfeatures_listdir_clean.append(file)
-
-#### get respi features
-respfeatures_allcond = {}
-
-for cond in conditions:
-
-    load_i = []
-    for session_i, session_name in enumerate(respfeatures_listdir_clean):
-        if session_name.find(cond) > 0:
-            load_i.append(session_i)
-        else:
-            continue
-
-    load_list = [respfeatures_listdir_clean[i] for i in load_i]
-
-    data = []
-    for load_name in load_list:
-        data.append(pd.read_excel(load_name))
-
-    respfeatures_allcond[cond] = data
-
-#### get respi ratio for TF
-respi_ratio_allcond = {}
-
-for cond in conditions:
-
-    if len(respfeatures_allcond.get(cond)) == 1:
-
-        mean_cycle_duration = np.mean(respfeatures_allcond.get(cond)[0][['insp_duration', 'exp_duration']].values, axis=0)
-        mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
-
-        respi_ratio_allcond[cond] = [ mean_inspi_ratio ]
-
-    elif len(respfeatures_allcond.get(cond)) > 1:
-
-        data_to_short = []
-
-        for session_i in range(len(respfeatures_allcond.get(cond))):   
-            
-            if session_i == 0 :
-
-                mean_cycle_duration = np.mean(respfeatures_allcond.get(cond)[session_i][['insp_duration', 'exp_duration']].values, axis=0)
-                mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
-                data_to_short = [ mean_inspi_ratio ]
-
-            elif session_i > 0 :
-
-                mean_cycle_duration = np.mean(respfeatures_allcond.get(cond)[session_i][['insp_duration', 'exp_duration']].values, axis=0)
-                mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
-
-                data_replace = [(data_to_short[0] + mean_inspi_ratio) / 2]
-
-                data_to_short = data_replace.copy()
-        
-        # to put in list
-        respi_ratio_allcond[cond] = data_to_short 
-
-
-
-
-
-########################################
-######## LOAD LOCALIZATION ########
-########################################
-
-
-def get_loca_df():
-
-    os.chdir(os.path.join(path_anatomy, sujet))
-
-    file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
-
-    chan_list_ieeg = file_plot_select['Contact'].loc[file_plot_select['Select'] == 1].values.tolist()
-
-    nasal_name = aux_chan.get(sujet).get('nasal')
-    chan_list_ieeg.remove(nasal_name)
-
-    ventral_name = aux_chan.get(sujet).get('ventral')
-    chan_list_ieeg.remove(ventral_name)
-
-    ecg_name = aux_chan.get(sujet).get('ECG')
-    chan_list_ieeg.remove(ecg_name)
-
-    ROI_ieeg = []
-    lobes_ieeg = []
-    for chan_name in chan_list_ieeg:
-        ROI_ieeg.append( file_plot_select['Localisation_corrected'].loc[file_plot_select['Contact'] == chan_name].values.tolist()[0] )
-        lobes_ieeg.append( file_plot_select['Lobes_corrected'].loc[file_plot_select['Contact'] == chan_name].values.tolist()[0] )
-
-    dict_loca = {'name' : chan_list_ieeg,
-                'ROI' : ROI_ieeg,
-                'lobes' : lobes_ieeg
-                }
-
-    df_loca = pd.DataFrame(dict_loca, columns=dict_loca.keys())
-
-    return df_loca
-
-def get_mni_loca():
-
-    os.chdir(os.path.join(path_anatomy, sujet))
-
-    file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
-
-    chan_list_ieeg = file_plot_select['Contact'].loc[file_plot_select['Select'] == 1].values.tolist()
-
-    nasal_name = aux_chan.get(sujet).get('nasal')
-    chan_list_ieeg.remove(nasal_name)
-
-    ventral_name = aux_chan.get(sujet).get('ventral')
-    chan_list_ieeg.remove(ventral_name)
-
-    ecg_name = aux_chan.get(sujet).get('ECG')
-    chan_list_ieeg.remove(ecg_name)
-
-    mni_loc = file_plot_select['MNI']
-
-    dict_mni = {}
-    for chan_name in chan_list_ieeg:
-        mni_nchan = file_plot_select['MNI'].loc[file_plot_select['Contact'] == chan_name].values[0]
-        mni_nchan = mni_nchan[1:-1]
-        mni_nchan_convert = [float(mni_nchan.split(',')[0]), float(mni_nchan.split(',')[1]), float(mni_nchan.split(',')[2])]
-        dict_mni[chan_name] = mni_nchan_convert
-
-    return dict_mni
-
-
-df_loca = get_loca_df()
-dict_mni = get_mni_loca()
 
 
 #######################################
-############# ISPC #############
+############# ISPC & PLI #############
 #######################################
 
-#raw, freq = raw_allcond.get(band_prep).get(cond)[session_i], [2, 10]
-def compute_fc_metrics(raw, freq):
+#session_eeg, band_prep, freq, band, cond, session_i, prms = 0, 'wb', [2, 10], 'theta', 'FR_CV', 0, prms
+def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
     
-    #### wavelets computation
+    #### check if already computed
+    pli_mat = np.array([0])
+    ispc_mat = np.array([0])
+
+    os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+    if os.path.exists(f'{sujet}_ISPC_{band}_{cond}.npy'):
+        print(f'ALREADY COMPUTED : {sujet}_ISPC_{band}_{cond}')
+        ispc_mat = np.load(f'{sujet}_ISPC_{band}_{cond}.npy')
+
+    if os.path.exists(f'{sujet}_PLI_{band}_{cond}_.npy'):
+        print(f'ALREADY COMPUTED : {sujet}_PLI_{band}_{cond}')
+        pli_mat = np.load(f'{sujet}_PLI_{band}_{cond}.npy')
+
+    if len(ispc_mat) != 1 and len(pli_mat) != 1:
+        return pli_mat, ispc_mat 
+    
+    #### load_data
+    data = load_data(cond, band_prep=band_prep)
+
+    #### select wavelet parameters
+    if band_prep == 'wb':
+        wavetime = np.arange(-2,2,1/prms['srate'])
+        nfrex = nfrex_lf
+        ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex) 
+
+    if band_prep == 'lf':
+        wavetime = np.arange(-2,2,1/prms['srate'])
+        nfrex = nfrex_lf
+        ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
+
+    if band_prep == 'hf':
+        wavetime = np.arange(-.5,.5,1/prms['srate'])
+        nfrex = nfrex_hf
+        ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
+
+    #### compute wavelets
     frex  = np.linspace(freq[0],freq[1],nfrex)
-
-    if freq[0] == .05 :
-        wavetime = np.arange(-60,60,1/srate) 
-    elif freq[0] == 2 :
-        wavetime = np.arange(-2,2,1/srate)
-    else :
-        wavetime = np.arange(-.5,.5,1/srate)
-
     wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
 
+    # create Morlet wavelet family
     for fi in range(0,nfrex):
-    
-        s = ncycle / (2*np.pi*frex[fi])
+        
+        s = ncycle_list[fi] / (2*np.pi*frex[fi])
         gw = np.exp(-wavetime**2/ (2*s**2)) 
         sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
         mw =  gw * sw
 
         wavelets[fi,:] = mw
 
-    #### load data
-    #data = raw.get_data()[:-3,:]
-    data = raw.get_data()[:-3,:10]
+    #### get only EEG chan
+    data = data[:len(prms['chan_list_ieeg']),:]
 
     #### compute all convolution
-    convolutions = {}
+    os.chdir(path_memmap)
+    convolutions = np.memmap(f'{sujet}_{band_prep}_{band}_{cond}_fc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex, data.shape[1]))
 
     print('CONV')
 
-    for nchan in range(np.size(data,0)) :
+    def convolution_x_wavelets_nchan(nchan):
 
+        if nchan/np.size(data,0) % .25 <= .01:
+            print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+        
         nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
-        nchan_name = chan_list_ieeg[nchan]
 
         x = data[nchan,:]
 
@@ -255,7 +99,11 @@ def compute_fc_metrics(raw, freq):
 
             nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
 
-        convolutions[nchan_name] = nchan_conv
+        convolutions[nchan,:,:] = nchan_conv
+
+        return
+
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan) for nchan in range(np.size(data,0)))
 
     #### compute metrics
     pli_mat = np.zeros((np.size(data,0),np.size(data,0)))
@@ -265,14 +113,13 @@ def compute_fc_metrics(raw, freq):
 
     for seed in range(np.size(data,0)) :
 
-        seed_name = chan_list_ieeg[seed]
+        if seed/len(prms['chan_list_ieeg']) % .25 <= .01:
+            print("{:.2f}".format(seed/len(prms['chan_list_ieeg'])))
 
-        for nchan in range(np.size(data,0)) :
-
-            nchan_name = chan_list_ieeg[nchan]
+        def compute_ispc_pli(nchan):
 
             if nchan == seed : 
-                continue
+                return
                 
             else :
 
@@ -283,8 +130,8 @@ def compute_fc_metrics(raw, freq):
                 # compute metrics
                 for fi in range(nfrex):
                     
-                    as1 = convolutions.get(seed_name)[fi,:]
-                    as2 = convolutions.get(nchan_name)[fi,:]
+                    as1 = convolutions[seed][fi,:]
+                    as2 = convolutions[nchan][fi,:]
 
                     # collect "eulerized" phase angle differences
                     cdd = np.exp(1j*(np.angle(as1)-np.angle(as2)))
@@ -293,231 +140,377 @@ def compute_fc_metrics(raw, freq):
                     ispc[fi] = np.abs(np.mean(cdd))
                     pli[fi] = np.abs(np.mean(np.sign(np.imag(cdd))))
 
-                pli_mat[seed,nchan] = np.mean(ispc,0)
-                ispc_mat[seed,nchan] = np.mean(pli,0)
+            # compute mean
+            mean_ispc = np.mean(ispc,0)
+            mean_pli = np.mean(pli,0)
 
+            return mean_ispc, mean_pli
+
+        compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(nchan) for nchan in range(np.size(data,0)))
+        
+        for nchan in range(np.size(data,0)) :
+                
+            if nchan == seed:
+
+                continue
+
+            else:
+                    
+                ispc_mat[seed,nchan] = compute_ispc_pli_res[nchan][0]
+                pli_mat[seed,nchan] = compute_ispc_pli_res[nchan][1]
+
+    #### save matrix
+    os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+    np.save(f'{sujet}_ISPC_{band}_{cond}.npy', ispc_mat)
+
+    np.save(f'{sujet}_PLI_{band}_{cond}.npy', pli_mat)
+
+    #### supress mmap
+    os.chdir(path_memmap)
+    os.remove(f'{sujet}_{band_prep}_{band}_{cond}_fc_convolutions.dat')
+    
     return pli_mat, ispc_mat
 
 
 
-#### compute pli, itpc
 
-pli_allband = {}
-ispc_allband = {}
+#session_eeg=0
+def compute_pli_ispc_allband(sujet):
 
-for band_prep_i, band_prep in enumerate(band_prep_list):
+    #### get params
+    prms = get_params(sujet)
 
-    for band in freq_band_list[band_prep_i].keys():
+    #### compute
+    pli_allband = {}
+    ispc_allband = {}
 
-        if band == 'whole' :
+    #band_prep_i, band_prep = 0, 'lf'
+    for band_prep_i, band_prep in enumerate(band_prep_list):
 
-            continue
+        #band = 'theta'
+        for band, freq in freq_band_dict[band_prep].items():
 
-        else: 
+            if band == 'whole' :
 
-            freq = freq_band_fc_analysis.get(band)
+                continue
 
-            pli_allcond = {}
-            ispc_allcond = {}
+            else: 
 
-            for cond_i, cond in enumerate(conditions) :
+                pli_allcond = {}
+                ispc_allcond = {}
 
-                print(band, cond)
+                #cond_i, cond = 0, conditions[0]
+                #session_i = 0
+                for cond_i, cond in enumerate(conditions_compute_TF) :
 
-                if len(raw_allcond.get(band_prep).get(cond)) == 1:
+                    print(band, cond)
 
-                    pli_mat, ispc_mat = compute_fc_metrics(raw_allcond.get(band_prep).get(cond)[0], freq)
+                    pli_mat, ispc_mat = compute_fc_metrics_mat(band_prep, freq, band, cond, prms)
                     pli_allcond[cond] = [pli_mat]
                     ispc_allcond[cond] = [ispc_mat]
 
-                elif len(raw_allcond.get(band_prep).get(cond)) > 1:
 
-                    load_ispc = []
-                    load_pli = []
+                pli_allband[band] = pli_allcond
+                ispc_allband[band] = ispc_allcond
 
-                    for session_i in range(len(raw_allcond.get(band_prep).get(cond))):
+    #### verif
 
-                        pli_mat, ispc_mat = compute_fc_metrics(raw_allcond.get(band_prep).get(cond)[session_i], freq)
-                        load_ispc.append(ispc_mat)
-                        load_pli.append(pli_mat)
+    if debug == True:
+                
+        for band, freq in freq_band_fc_analysis.items():
 
-                    pli_allcond[cond] = load_pli
-                    ispc_allcond[cond] = load_ispc
+            for cond_i, cond in enumerate(conditions_compute_TF) :
 
-            pli_allband[band] = pli_allcond
-            ispc_allband[band] = ispc_allcond
-
-#### verif
-
-if debug == True:
-
-    for band, freq in freq_band_fc_analysis.items():
-
-        for cond_i, cond in enumerate(conditions) :
-
-            print(band, cond, len(pli_allband.get(band).get(cond)))
-            print(band, cond, len(ispc_allband.get(band).get(cond)))
-
-
-
-#### reduce to one cond
-
-#### generate dict to fill
-ispc_allband_reduced = {}
-pli_allband_reduced = {}
-
-for band, freq in freq_band_fc_analysis.items():
-
-    ispc_allband_reduced[band] = {}
-    pli_allband_reduced[band] = {}
-
-    for cond_i, cond in enumerate(conditions) :
-
-        ispc_allband_reduced.get(band)[cond] = []
-        pli_allband_reduced.get(band)[cond] = []
-
-#### fill
-for band_prep_i, band_prep in enumerate(band_prep_list):
-
-    for band, freq in freq_band_list[band_prep_i].items():
-
-        if band == 'whole' :
-
-            continue
-
-        else:
-
-            for cond_i, cond in enumerate(conditions) :
-
-                if len(raw_allcond.get(band_prep).get(cond)) == 1:
-
-                    ispc_allband_reduced.get(band)[cond] = ispc_allband.get(band).get(cond)[0]
-                    pli_allband_reduced.get(band)[cond] = pli_allband.get(band).get(cond)[0]
-
-                elif len(raw_allcond.get(band_prep).get(cond)) > 1:
-
-                    load_ispc = []
-                    load_pli = []
-
-                    for session_i in range(len(raw_allcond.get(band_prep).get(cond))):
-
-                        if session_i == 0 :
-
-                            load_ispc.append(ispc_allband.get(band).get(cond)[session_i])
-                            load_pli.append(pli_allband.get(band).get(cond)[session_i])
-
-                        else :
-                        
-                            load_ispc = (load_ispc[0] + ispc_allband.get(band).get(cond)[session_i]) / 2
-                            load_pli = (load_pli[0] + pli_allband.get(band).get(cond)[session_i]) / 2
-
-                    pli_allband_reduced.get(band)[cond] = load_pli
-                    ispc_allband_reduced.get(band)[cond] = load_ispc
+                print(band, cond, len(pli_allband[band][cond]))
+                print(band, cond, len(ispc_allband[band][cond]))
 
 
 
 
-########################
+
+
+
+def get_pli_ispc_allsession(sujet):
+
+    #### get params
+    prms = get_params(sujet)
+
+    #### compute
+    pli_allband = {}
+    ispc_allband = {}
+
+    #band_prep_i, band_prep = 0, 'lf'
+    for band_prep_i, band_prep in enumerate(band_prep_list):
+
+        #band = 'theta'
+        for band, freq in freq_band_dict[band_prep].items():
+
+            if band == 'whole' :
+
+                continue
+
+            else: 
+
+                pli_allcond = {}
+                ispc_allcond = {}
+
+                #cond_i, cond = 0, conditions[0]
+                #session_i = 0
+                for cond_i, cond in enumerate(conditions_compute_TF) :
+
+                    print(band, cond)
+
+                    pli_mat, ispc_mat = compute_fc_metrics_mat(band_prep, freq, band, cond, prms)
+                    pli_allcond[cond] = [pli_mat]
+                    ispc_allcond[cond] = [ispc_mat]
+
+                pli_allband[band] = pli_allcond
+                ispc_allband[band] = ispc_allcond
+
+    #### verif
+
+    if debug == True:
+                
+        for band_prep in band_prep_list:
+            
+            for band, freq in freq_band_dict[band_prep].items():
+
+                for cond_i, cond in enumerate(conditions_compute_TF) :
+
+                    print(band, cond, len(pli_allband[band][cond]))
+                    print(band, cond, len(ispc_allband[band][cond]))
+
+
+        #### reduce to one cond
+    #### generate dict to fill
+    ispc_allband_reduced = {}
+    pli_allband_reduced = {}
+
+    ispc_allband_reduced = {}
+    pli_allband_reduced = {}
+
+    for band_prep in band_prep_list:
+
+        for band, freq in freq_band_dict[band_prep].items():
+
+            ispc_allband_reduced[band] = {}
+            pli_allband_reduced[band] = {}
+
+            for cond_i, cond in enumerate(conditions_compute_TF) :
+
+                ispc_allband_reduced[band][cond] = []
+                pli_allband_reduced[band][cond] = []
+
+    #### fill
+    
+    for band_prep_i, band_prep in enumerate(band_prep_list):
+
+        for band, freq in freq_band_dict[band_prep].items():
+
+            if band == 'whole' :
+
+                continue
+
+            else:
+
+                for cond_i, cond in enumerate(conditions_compute_TF) :
+
+                    ispc_allband_reduced[band][cond] = ispc_allband[band][cond][0]
+                    pli_allband_reduced[band][cond] = pli_allband[band][cond][0]
+
+
+    return pli_allband_reduced, ispc_allband_reduced
+
+
+
+################################
 ######## SAVE FIG ########
-########################
+################################
 
-#### sort matrix
+def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
 
-def sort_ispc(mat):
+    print('######## SAVEFIG FC ########')
 
-    mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
-    #### for rows
-    for i_before_sort, i_sort in enumerate(df_sorted.index.values):
-        mat_sorted[i_before_sort,:] = mat[i_sort,:]
+    #### sort matrix
 
-    #### for columns
-    for i_before_sort, i_sort in enumerate(df_sorted.index.values):
-        mat_sorted[:,i_before_sort] = mat[:,i_sort]
+    #def sort_mat(mat):
 
-    return mat_sorted
+    #    mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
+    #    for i_before_sort_r, i_sort_r in enumerate(df_sorted.index.values):
+    #        for i_before_sort_c, i_sort_c in enumerate(df_sorted.index.values):
+    #            mat_sorted[i_sort_r,i_sort_c] = mat[i_before_sort_r,i_before_sort_c]
 
+    #    return mat_sorted
 
+    #### verify sorting
+    #mat = pli_allband_reduced.get(band).get(cond)
+    #mat_sorted = sort_mat(mat)
+    #plt.matshow(mat_sorted)
+    #plt.show()
 
-#### ISPC
-os.chdir(os.path.join(path_results, sujet, 'FC', 'ISPC'))
-
-df_sorted = df_loca.sort_values(['lobes', 'ROI'])
-chan_name_sorted = df_sorted['ROI'].values.tolist()
-
-    #### count for cond subpolt
-if len(conditions) == 1:
-    nrows, ncols = 1, 0
-elif len(conditions) == 2:
-    nrows, ncols = 1, 1
-elif len(conditions) == 3:
-    nrows, ncols = 2, 1
-elif len(conditions) == 4:
-    nrows, ncols = 2, 2
-elif len(conditions) == 5:
-    nrows, ncols = 3, 2
-elif len(conditions) == 6:
-    nrows, ncols = 3, 3
+    #### prepare sort
+    #df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+    #chan_name_sorted = df_sorted['ROI'].values.tolist()
 
 
+    #chan_name_sorted_mat = []
+    #rep_count = 0
+    #for i, name_i in enumerate(chan_name_sorted):
+    #    if i == 0:
+    #        chan_name_sorted_mat.append(name_i)
+    #        continue
+    #    else:
+    #        if name_i == chan_name_sorted[i-(rep_count+1)]:
+    #            chan_name_sorted_mat.append('')
+    #            rep_count += 1
+    #            continue
+    #        if name_i != chan_name_sorted[i-(rep_count+1)]:
+    #            chan_name_sorted_mat.append(name_i)
+    #            rep_count = 0
+    #            continue
+    #            
 
-#band_prep_i, band_prep, nchan, band, freq = 0, 'lf', 0, 'theta', [2, 10]
-for band, freq in freq_band_fc_analysis.items():
+    #### identify scale
+    scale = {}
 
-    fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(conditions):
-        mne.viz.plot_connectivity_circle(sort_ispc(ispc_allband_reduced.get(band).get(cond)), node_names=chan_name_sorted, n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
-    plt.suptitle('ISPC_' + band, color='w')
-    fig.set_figheight(10)
-    fig.set_figwidth(12)
-    #fig.show()
+    scale = {'ispc' : {'min' : {}, 'max' : {}}, 'pli' : {'min' : {}, 'max' : {}}}
 
-    fig.savefig(sujet + '_ISPC_' + band, dpi = 600)
+    scale['ispc']['max'] = {}
+    scale['ispc']['min'] = {}
+    scale['pli']['max'] = {}
+    scale['pli']['min'] = {}
 
+    for band_prep in band_prep_list:
 
-#### PLI
+        for band, freq in freq_band_dict[band_prep].items():
 
-os.chdir(os.path.join(path_results, sujet, 'FC', 'PLI'))
+            band_ispc = {'min' : [], 'max' : []}
+            band_pli = {'min' : [], 'max' : []}
 
-#band_prep_i, band_prep, nchan, band, freq = 0, 'lf', 0, 'theta', [2, 10]
-for band, freq in freq_band_fc_analysis.items():
+            for cond_i, cond in enumerate(conditions_compute_TF):
+                band_ispc['max'].append(np.max(ispc_allband_reduced[band][cond]))
+                band_ispc['min'].append(np.min(ispc_allband_reduced[band][cond]))
+                
+                band_pli['max'].append(np.max(pli_allband_reduced[band][cond]))
+                band_pli['min'].append(np.min(pli_allband_reduced[band][cond]))
 
-    fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(conditions):
-        mne.viz.plot_connectivity_circle(sort_ispc(pli_allband_reduced.get(band).get(cond)), node_names=chan_name_sorted, n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
-    plt.suptitle('PLI_' + band, color='w')
-    fig.set_figheight(10)
-    fig.set_figwidth(12)
-    #fig.show()
-
-    fig.savefig(sujet + '_PLI_' + band, dpi = 600)
-
-
-
-
-
-
-
-
-
-################################################################################################################################################
-################################################################################################################################################
-
-
-########################
-######## MNE ########
-########################
+            scale['ispc']['max'][band] = np.max(band_ispc['max'])
+            scale['ispc']['min'][band] = np.min(band_ispc['min'])
+            scale['pli']['max'][band] = np.max(band_pli['max'])
+            scale['pli']['min'][band] = np.min(band_pli['min'])
 
 
-if debug == True:
+    #### ISPC
+
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'ISPC'))
+
+    nrows, ncols = 1, len(conditions_compute_TF)
+
+    #band_prep, band, freq = 'wb', 'theta', [2, 10]
+    for band_prep in band_prep_list:
+
+        for band, freq in freq_band_dict[band_prep].items():
+
+            #### graph
+            fig = plt.figure(facecolor='black')
+            for cond_i, cond in enumerate(conditions_compute_TF):
+                mne.viz.plot_connectivity_circle(ispc_allband_reduced[band][cond], node_names=prms['chan_list_ieeg'], n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
+            plt.suptitle('ISPC_' + band, color='w')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            #fig.show()
+
+            fig.savefig(sujet + '_ISPC_' + band + '_graph.jpeg', dpi = 100)
+
         
-    montage = mne.channels.make_dig_montage(dict_mni)
-    trans = mne.channels.compute_native_head_t(montage)
+            #### matrix
+            fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(20,10))
+                
+            for c, cond_i in enumerate(conditions_compute_TF):
+                ax = axs[c]
+                ax.matshow(ispc_allband_reduced[band][cond], vmin=scale['ispc']['min'][band], vmax=scale['ispc']['max'][band])
+                ax.set_title(cond)
+                ax.set_yticks(range(len(prms['chan_list_ieeg'])))
+                ax.set_yticklabels(prms['chan_list_ieeg'])
+                        
+            plt.suptitle('ISPC_' + band)
+            #plt.show()
+                        
+            fig.savefig(sujet + '_ISPC_' + band + '_mat.jpeg', dpi = 100)
 
-    #### install pyvista, mayavi, 
-    raw = raw_allcond.get('lf').get('RD_CV')[0]
-    raw.set_montage(montage)
-    fig = mne.viz.plot_alignment(raw.info, show_axes=True, surfaces='auto')
+
+    #### PLI
+
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'PLI'))
+
+    nrows, ncols = 1, len(conditions_compute_TF)
+
+    #band_prep, band, freq = 'wb', 'theta', [2, 10]
+    for band_prep in band_prep_list:
+
+        for band, freq in freq_band_dict[band_prep].items():
+
+            #### graph
+            fig = plt.figure(facecolor='black')
+            for cond_i, cond in enumerate(conditions_compute_TF):
+                mne.viz.plot_connectivity_circle(pli_allband_reduced[band][cond], node_names=prms['chan_list_ieeg'], n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
+            plt.suptitle('PLI_' + band, color='w')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            #fig.show()
+
+            fig.savefig(sujet + '_PLI_' + band + '_graph.jpeg', dpi = 100)
+
+        
+            #### matrix
+            fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(20,10))
+
+            for c, cond_i in enumerate(conditions_compute_TF):
+                ax = axs[c]
+                ax.matshow(pli_allband_reduced[band][cond], vmin=scale['pli']['min'][band], vmax=scale['pli']['max'][band])
+                ax.set_title(cond)
+                ax.set_yticks(range(len(prms['chan_list_ieeg'])))
+                ax.set_yticklabels(prms['chan_list_ieeg'])
+                        
+            plt.suptitle('PLI_' + band)
+            #plt.show()
+                        
+            fig.savefig(sujet + '_PLI_' + band + '_mat.jpeg', dpi = 100)
 
 
-    mne.sys_info()
 
+
+
+
+def save_fig_for_allsession(sujet):
+
+    prms = get_params(sujet)
+
+    pli_allband_reduced, ispc_allband_reduced = get_pli_ispc_allsession(sujet)
+
+    save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms)
+
+
+
+
+################################
+######## EXECUTE ########
+################################
+
+
+
+if __name__ == '__main__':
+
+    #### params
+    compute_metrics = True
+    plot_fig = False
+
+    #### compute fc metrics
+    if compute_metrics:
+        #compute_pli_ispc_allband(sujet)
+        execute_function_in_slurm_bash('n10_fc_analysis', 'compute_pli_ispc_allband', [sujet])
+
+    #### save fig
+    if plot_fig:
+
+        save_fig_for_allsession(sujet)

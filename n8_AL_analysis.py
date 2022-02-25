@@ -38,11 +38,7 @@ def precompute_tf(cond, session_i, band_prep_list):
         #### select data without aux chan
         data_allsession = load_data(cond, band_prep=band_prep)
 
-        #### remove aux chan
-        for session_i in range(len(data_allsession)):
-            data_allsession[session_i] = data_allsession[session_i][:-4,:]
-
-        data = data_allsession[session_i]
+        data = data_allsession[session_i][:-4,:]
         
         freq_band = freq_band_dict[band_prep]
 
@@ -152,7 +148,7 @@ def precompute_tf(cond, session_i, band_prep_list):
         nrows = len(freq_band)
         df_loca = get_loca_df(sujet)
 
-        #nchan = 1
+        #nchan = 0
         for nchan in range(tf_allband[band].shape[0]):
 
             freq_band = freq_band_dict[band_prep]

@@ -65,6 +65,7 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('TF', construct_token)
     construct_token = create_folder('PSD_Coh', construct_token)
     construct_token = create_folder('Baselines', construct_token)
+    construct_token = create_folder('FC', construct_token)
 
         #### anatomy
     os.chdir(os.path.join(path_general, 'Analyses', 'anatomy'))
