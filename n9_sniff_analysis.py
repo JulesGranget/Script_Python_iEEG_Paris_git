@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import mne
 from mne_connectivity import spectral_connectivity
-from mne_connectivity.viz import plot_sensors_connectivity
+from mne_connectivity.viz import circular_layout, plot_connectivity_circle
 import pandas as pd
 import respirationtools
 import joblib
@@ -96,8 +96,6 @@ def process_sniff_connectivity():
 
     #### load data
 
-    os.chdir(os.path.join(path_prep, sujet, 'sections'))
-
     band_prep = 'lf'
 
     load_i = []
@@ -109,9 +107,6 @@ def process_sniff_connectivity():
 
     load_list = [os.listdir()[i] for i in load_i]
     
-
-
-
 
 
     #### compute covgc
@@ -126,61 +121,142 @@ def process_sniff_connectivity():
     lag = 10
     win = 100
     t0 = np.arange(win, 1600, lag) #dt, 
-    gc = conn_covgc(dt, win, lag, t0, step=10, times='times', roi='roi', method='gauss', n_jobs=6)
+    gc = conn_covgc(dt, win, lag, t0, step=10, times='times', roi='roi', method='gauss', n_jobs=20)
     
     gc = gc.mean('trials')
 
 
     #### plot
-
-    #### for one chan
-    roi_pairs = gc['roi'].data
-    roi_direction = gc['direction'].data
-
-    nchan = chan_list[0]
-    mask = [i for i, name in enumerate(roi_pairs) if name[:len(nchan)+1] == f'{nchan}-']
-    nchan_pairs = roi_pairs[mask]
-
-    n_visu = 1
-    for i in range(int(nchan_pairs.shape[0]/n_visu)+1):
-
-        try:
-            roi_p = nchan_pairs[i*n_visu:i*n_visu+n_visu]
-        except:
-            roi_p = nchan_pairs[i*n_visu:]
-    
-        plt.figure(figsize=(10, 8))
-        for r in roi_p:
-            plt.plot(gc.times.data, gc.sel(roi=r, direction='x->y').T, label=r[len(nchan)+1:])
-        plt.legend()
-        plt.show()
-
     #### for all chan
-    gc_mean = np.mean(gc.sel(direction='x->y').mean('roi').data)
-    gc_std = np.std(gc.sel(direction='x->y').mean('roi').data)
+    gc_mean = gc.mean('trials').T
+    roi_pairs = gc_mean['roi'].data
+    roi_direction = gc_mean['direction'].data[:-1]
 
-    pairs_signi = []
 
-    for r in roi_pairs:
+    #for nchan in chan_list_ieeg:
+    def get_max_signi_nchan(nchan):
 
-        mean_ = np.mean(gc.sel(roi=r, direction='x->y').data)
-        std_ = np.std(gc.sel(roi=r, direction='x->y').data)
+        pairs_max = []
+        nchan = chan_list_ieeg[nchan]
 
-        if (np.max(gc.sel(roi=r, direction='x->y').data) >= (mean_ + 3.5*std_)) or (np.min(gc.sel(roi=r, direction='x->y').data) <= (mean_ - 3.5*std_)):
+        print(nchan)
 
-            pairs_signi.append(r)
+        mask = [i for i, name in enumerate(roi_pairs) if name[:len(nchan)+1] == f'{nchan}-']
+        nchan_pairs = roi_pairs[mask]
+
+        for r in nchan_pairs:
+
+            for r_dir in roi_direction:
+
+                mean_r = np.mean(gc_mean.sel(roi=r, direction=r_dir).data)
+                std_r = np.std(gc_mean.sel(roi=r, direction=r_dir).data)
+
+                z_max = (np.max(gc_mean.sel(roi=r, direction=r_dir).data) - mean_r)/std_r
+
+                pairs_max.append(z_max)
+
+        return pairs_max
+
+    n_core = 15
+    n_nchan = len(chan_list_ieeg)
+    pair_max_allchan = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(get_max_signi_nchan)(nchan) for nchan in range(n_nchan))
+
+
+    pair_max = [] 
+
+    for nchan in range(len(pair_max_allchan)):
+
+        for r in range(len(pair_max_allchan[nchan])):
+            
+            pair_max.append(pair_max_allchan[nchan][r])
+
+    pair_max = np.array(pair_max)
+    mask = len(np.where(pair_max >= 4)[0])
+
+    std_choose = 4
+
+
+    #for nchan in chan_list_ieeg:
+    def get_pair_signi_nchan(nchan_i):
+
+        pairs_signi = []
+        nchan = chan_list_ieeg[nchan_i]
+
+        print(nchan)
+
+        #name = roi_pairs[0]
+        mask = [i for i, name in enumerate(roi_pairs) if name[:len(nchan)+1] == f'{nchan}-']
+        nchan_pairs = roi_pairs[mask]
+
+        for r in nchan_pairs:
+
+            for r_dir in roi_direction:
+
+                mean_r = np.mean(gc_mean.sel(roi=r, direction=r_dir).data)
+                std_r = np.std(gc_mean.sel(roi=r, direction=r_dir).data)
+
+                if np.max(gc_mean.sel(roi=r, direction=r_dir).data) >= (mean_r + std_choose*std_r):
+
+                    pairs_signi.append([r, r_dir])
+
+        return pairs_signi
+
+    n_nchan = 30
+    n_core = 15
+    n_nchan = len(chan_list_ieeg)
+    pair_signi_allchan = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(get_pair_signi_nchan)(nchan_i) for nchan_i in range(n_nchan))
+
+    pair_signi = []
+
+    for nchan in range(len(pair_signi_allchan)):
+
+        for pair_i in range(len(pair_signi_allchan[nchan])):
+            
+            pair_signi.append(pair_signi_allchan[nchan][pair_i])
 
     
-    r = pairs_signi[0]
-    for r in pairs_signi:
-        plt.title(r)
-        plt.plot(gc.times.data, gc.sel(roi=r, direction='x->y').T, label=r[len(nchan)+1:])
-        plt.legend()
-        plt.show()
+    os.chdir('/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/brouillon')
+
+    n_visu = 20
+    
+    for pair_i in range(n_visu):
+        r = pair_signi[pair_i][0]
+        dir = pair_signi[pair_i][1]
+        plt.title(f'{r}_{dir}')
+        plt.plot(gc_mean.times.data, gc_mean.sel(roi=r, direction=dir))
+        plt.savefig(f'{r}.png')
+        plt.close()
 
 
 
 
+    #### SPECTRAL CONN
+    os.chdir(os.path.join(path_prep, sujet, 'sections'))
+    xr_sniff_SC = xr.open_dataarray(load_list[0])
+    xr_sniff_SC = xr_sniff_SC.transpose('sniffs', 'chan_list', 'times')
+
+    mne_sniff_info = mne.create_info(list(xr_sniff_SC['chan_list'].data), srate, ch_types=['seeg']*len(xr_sniff_SC['chan_list']))
+    mne_sniff = mne.EpochsArray(xr_sniff_SC.data, info=mne_sniff_info)
+
+    metrics = ['coh', 'imcoh', 'plv', 'ciplv', 'ppc', 'pli', 'wpli', 'wpli2_debiased']
+    for metric_i in metrics:
+
+        fmin = 8.
+        fmax = 13.
+        n_core = 15
+        con = spectral_connectivity(mne_sniff, method=metric_i, mode='multitaper', sfreq=srate, fmin=fmin, fmax=fmax, faverage=True, mt_adaptive=True, n_jobs=n_core)
+
+        conmat = con.get_data(output='dense')[:, :, 0]
+
+        os.chdir('/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/brouillon')
+
+        fig = plt.figure(num=None, figsize=(8, 8), facecolor='black')
+        plot_connectivity_circle(conmat, chan_list_ieeg, title=f'{metric_i}', fig=fig)
+        fig.savefig(f'{metric_i}.png')
+
+        fig, ax = plt.subplots()
+        ax.matshow(conmat)
+        fig.savefig(f'mat_{metric_i}.png')
 
 
 

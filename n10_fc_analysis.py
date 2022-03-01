@@ -37,7 +37,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
         print(f'ALREADY COMPUTED : {sujet}_ISPC_{band}_{cond}')
         ispc_mat = np.load(f'{sujet}_ISPC_{band}_{cond}.npy')
 
-    if os.path.exists(f'{sujet}_PLI_{band}_{cond}_.npy'):
+    if os.path.exists(f'{sujet}_PLI_{band}_{cond}.npy'):
         print(f'ALREADY COMPUTED : {sujet}_PLI_{band}_{cond}')
         pli_mat = np.load(f'{sujet}_PLI_{band}_{cond}.npy')
 
@@ -254,8 +254,7 @@ def get_pli_ispc_allsession(sujet):
                 pli_allcond = {}
                 ispc_allcond = {}
 
-                #cond_i, cond = 0, conditions[0]
-                #session_i = 0
+                #cond_i, cond = 0, conditions_compute_TF[0]
                 for cond_i, cond in enumerate(conditions_compute_TF) :
 
                     print(band, cond)
@@ -286,12 +285,13 @@ def get_pli_ispc_allsession(sujet):
     ispc_allband_reduced = {}
     pli_allband_reduced = {}
 
-    ispc_allband_reduced = {}
-    pli_allband_reduced = {}
-
     for band_prep in band_prep_list:
 
         for band, freq in freq_band_dict[band_prep].items():
+
+            if band == 'whole':
+
+                continue
 
             ispc_allband_reduced[band] = {}
             pli_allband_reduced[band] = {}
@@ -327,20 +327,20 @@ def get_pli_ispc_allsession(sujet):
 ######## SAVE FIG ########
 ################################
 
-def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
+def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, prms):
 
     print('######## SAVEFIG FC ########')
 
     #### sort matrix
 
-    #def sort_mat(mat):
+    def sort_mat(mat):
 
-    #    mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
-    #    for i_before_sort_r, i_sort_r in enumerate(df_sorted.index.values):
-    #        for i_before_sort_c, i_sort_c in enumerate(df_sorted.index.values):
-    #            mat_sorted[i_sort_r,i_sort_c] = mat[i_before_sort_r,i_before_sort_c]
+        mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
+        for i_before_sort_r, i_sort_r in enumerate(df_sorted.index.values):
+            for i_before_sort_c, i_sort_c in enumerate(df_sorted.index.values):
+                mat_sorted[i_sort_r,i_sort_c] = mat[i_before_sort_r,i_before_sort_c]
 
-    #    return mat_sorted
+        return mat_sorted
 
     #### verify sorting
     #mat = pli_allband_reduced.get(band).get(cond)
@@ -349,30 +349,27 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
     #plt.show()
 
     #### prepare sort
-    #df_sorted = df_loca.sort_values(['lobes', 'ROI'])
-    #chan_name_sorted = df_sorted['ROI'].values.tolist()
+    df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+    chan_name_sorted = df_sorted['ROI'].values.tolist()
 
-
-    #chan_name_sorted_mat = []
-    #rep_count = 0
-    #for i, name_i in enumerate(chan_name_sorted):
-    #    if i == 0:
-    #        chan_name_sorted_mat.append(name_i)
-    #        continue
-    #    else:
-    #        if name_i == chan_name_sorted[i-(rep_count+1)]:
-    #            chan_name_sorted_mat.append('')
-    #            rep_count += 1
-    #            continue
-    #        if name_i != chan_name_sorted[i-(rep_count+1)]:
-    #            chan_name_sorted_mat.append(name_i)
-    #            rep_count = 0
-    #            continue
-    #            
+    chan_name_sorted_mat = []
+    rep_count = 0
+    for i, name_i in enumerate(chan_name_sorted):
+        if i == 0:
+            chan_name_sorted_mat.append(name_i)
+            continue
+        else:
+            if name_i == chan_name_sorted[i-(rep_count+1)]:
+                chan_name_sorted_mat.append('')
+                rep_count += 1
+                continue
+            if name_i != chan_name_sorted[i-(rep_count+1)]:
+                chan_name_sorted_mat.append(name_i)
+                rep_count = 0
+                continue
+                
 
     #### identify scale
-    scale = {}
-
     scale = {'ispc' : {'min' : {}, 'max' : {}}, 'pli' : {'min' : {}, 'max' : {}}}
 
     scale['ispc']['max'] = {}
@@ -383,6 +380,9 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
     for band_prep in band_prep_list:
 
         for band, freq in freq_band_dict[band_prep].items():
+
+            if band == 'whole':
+                continue
 
             band_ispc = {'min' : [], 'max' : []}
             band_pli = {'min' : [], 'max' : []}
@@ -401,12 +401,9 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
 
 
     #### ISPC
-
-    os.chdir(os.path.join(path_results, sujet, 'FC', 'ISPC'))
-
     nrows, ncols = 1, len(conditions_compute_TF)
 
-    #band_prep, band, freq = 'wb', 'theta', [2, 10]
+    #band_prep, band, freq = 'lf', 'theta', [2, 10]
     for band_prep in band_prep_list:
 
         for band, freq in freq_band_dict[band_prep].items():
@@ -414,11 +411,13 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
             #### graph
             fig = plt.figure(facecolor='black')
             for cond_i, cond in enumerate(conditions_compute_TF):
-                mne.viz.plot_connectivity_circle(ispc_allband_reduced[band][cond], node_names=prms['chan_list_ieeg'], n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
+                mne.viz.plot_connectivity_circle(sort_mat(ispc_allband_reduced[band][cond]), node_names=chan_name_sorted, n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
             plt.suptitle('ISPC_' + band, color='w')
             fig.set_figheight(10)
             fig.set_figwidth(12)
             #fig.show()
+
+            os.chdir(os.path.join(path_results, sujet, 'FC', 'ISPC', 'figures'))
 
             fig.savefig(sujet + '_ISPC_' + band + '_graph.jpeg', dpi = 100)
 
@@ -428,21 +427,20 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
                 
             for c, cond_i in enumerate(conditions_compute_TF):
                 ax = axs[c]
-                ax.matshow(ispc_allband_reduced[band][cond], vmin=scale['ispc']['min'][band], vmax=scale['ispc']['max'][band])
+                ax.matshow(sort_mat(ispc_allband_reduced[band][cond]), vmin=scale['ispc']['min'][band], vmax=scale['ispc']['max'][band])
                 ax.set_title(cond)
-                ax.set_yticks(range(len(prms['chan_list_ieeg'])))
-                ax.set_yticklabels(prms['chan_list_ieeg'])
+                ax.set_yticks(range(len(chan_name_sorted)))
+                ax.set_yticklabels(chan_name_sorted)
                         
             plt.suptitle('ISPC_' + band)
             #plt.show()
+
+            os.chdir(os.path.join(path_results, sujet, 'FC', 'ISPC', 'matrix'))
                         
             fig.savefig(sujet + '_ISPC_' + band + '_mat.jpeg', dpi = 100)
 
 
     #### PLI
-
-    os.chdir(os.path.join(path_results, sujet, 'FC', 'PLI'))
-
     nrows, ncols = 1, len(conditions_compute_TF)
 
     #band_prep, band, freq = 'wb', 'theta', [2, 10]
@@ -453,11 +451,13 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
             #### graph
             fig = plt.figure(facecolor='black')
             for cond_i, cond in enumerate(conditions_compute_TF):
-                mne.viz.plot_connectivity_circle(pli_allband_reduced[band][cond], node_names=prms['chan_list_ieeg'], n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
+                mne.viz.plot_connectivity_circle(sort_mat(pli_allband_reduced[band][cond]), node_names=chan_name_sorted, n_lines=None, title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1))
             plt.suptitle('PLI_' + band, color='w')
             fig.set_figheight(10)
             fig.set_figwidth(12)
             #fig.show()
+
+            os.chdir(os.path.join(path_results, sujet, 'FC', 'PLI', 'figures'))
 
             fig.savefig(sujet + '_PLI_' + band + '_graph.jpeg', dpi = 100)
 
@@ -467,13 +467,15 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms):
 
             for c, cond_i in enumerate(conditions_compute_TF):
                 ax = axs[c]
-                ax.matshow(pli_allband_reduced[band][cond], vmin=scale['pli']['min'][band], vmax=scale['pli']['max'][band])
+                ax.matshow(sort_mat(pli_allband_reduced[band][cond]), vmin=scale['pli']['min'][band], vmax=scale['pli']['max'][band])
                 ax.set_title(cond)
-                ax.set_yticks(range(len(prms['chan_list_ieeg'])))
-                ax.set_yticklabels(prms['chan_list_ieeg'])
+                ax.set_yticks(range(len(chan_name_sorted)))
+                ax.set_yticklabels(chan_name_sorted)
                         
             plt.suptitle('PLI_' + band)
             #plt.show()
+
+            os.chdir(os.path.join(path_results, sujet, 'FC', 'PLI', 'matrix'))
                         
             fig.savefig(sujet + '_PLI_' + band + '_mat.jpeg', dpi = 100)
 
@@ -486,9 +488,11 @@ def save_fig_for_allsession(sujet):
 
     prms = get_params(sujet)
 
+    df_loca = get_loca_df(sujet)
+
     pli_allband_reduced, ispc_allband_reduced = get_pli_ispc_allsession(sujet)
 
-    save_fig_FC(pli_allband_reduced, ispc_allband_reduced, prms)
+    save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, prms)
 
 
 
