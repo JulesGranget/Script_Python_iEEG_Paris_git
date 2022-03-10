@@ -75,57 +75,39 @@ def extract_chanlist():
 
 
 
-def generate_plot_loca(chan_list_trc):
+def generate_plot_loca(chan_list_ieeg):
 
 
     #### open loca file
-    os.chdir(os.path.join(path_raw, sujet, 'anatomy'))
+    os.chdir(os.path.join(path_raw, sujet, 'anatomy', 'anat_adjusted'))
 
-    parcellisation = pd.read_excel('_' + sujet + '.xlsx')
-
-    new_cols = parcellisation.iloc[1,:].values.tolist()
-    parcellisation.columns = new_cols
-
-    parcellisation = parcellisation.drop(labels=[0, 1], axis=0)
-    new_indexs = range(len(parcellisation['contact'].values))
-    parcellisation.index = new_indexs
+    parcellisation = pd.read_excel(f'{sujet}_anatomical_localizations.xlsx')
 
     #### open nomenclature
     os.chdir(os.path.join(path_anatomy, 'nomenclature'))
 
     nomenclature = pd.read_excel('Freesurfer_Parcellisation_Destrieux.xlsx')
 
-    #### identify if parcellisation miss plots
-    os.chdir(os.path.join(path_anatomy, 'nomenclature'))
-
-    plot_csv_extract = []
-    for i in range(len(parcellisation.index)):
-        if len(str(parcellisation.iloc[i,0])) <= 4 and str(parcellisation.iloc[i,0]) != 'nan':
-            plot_csv_extract.append(parcellisation.iloc[i,0])
-
-    plot_csv, test2 = modify_name(plot_csv_extract)
-
-    chan_list_modified, chan_list_keep = modify_name(chan_list_trc)
-    
-    miss_plot = []
-    chan_list_trc_rmw = []
-    for nchan_i, nchan in enumerate(chan_list_modified):
-        if nchan in plot_csv :
-            chan_list_trc_rmw.append(chan_list_keep[nchan_i])
-            continue
+    #### identify if parcellisation miss plots 
+    miss_in_parcellisation = []
+    chan_list_ieeg_in_parcel = []
+    for plot in chan_list_ieeg:
+        if plot in parcellisation['Plot'].values:
+            chan_list_ieeg_in_parcel.append(plot)
         else:
-            miss_plot.append(nchan)
-            
+            miss_in_parcellisation.append(plot)
+
+    print('miss in parcellisation : ', miss_in_parcellisation)
 
     #### export missed plots
     os.chdir(os.path.join(path_anatomy, sujet))
-    miss_plot_textfile = open(sujet + "_miss_in_csv.txt", "w")
-    for element in miss_plot:
+    miss_plot_textfile = open(sujet + "_miss_in_parcelisation.txt", "w")
+    for element in miss_in_parcellisation:
         miss_plot_textfile.write(element + "\n")
     miss_plot_textfile.close()
 
-    keep_plot_textfile = open(sujet + "_trcplot_in_csv.txt", "w")
-    for element in chan_list_trc_rmw:
+    keep_plot_textfile = open(sujet + "_plot_in_parcelisation.txt", "w")
+    for element in chan_list_ieeg_in_parcel:
         keep_plot_textfile.write(element + "\n")
     keep_plot_textfile.close()
 
@@ -134,11 +116,7 @@ def generate_plot_loca(chan_list_trc):
                 'noisy_signal', 'inSOZ', 'not_in_atlas', 'select', 'localisation_corrected', 'lobes_corrected']
 
     #### find correspondances
-    freesurfer_destrieux = [ parcellisation['Freesurfer'][parcellisation['contact'] == nchan].values.tolist()[0] for nchan in plot_csv_extract]
-    if debug:
-        for nchan in plot_csv_extract:
-            print(nchan)
-            parcellisation['Freesurfer'][parcellisation['contact'] == nchan].values.tolist()[0]
+    freesurfer_destrieux = [ parcellisation['FreesurferDesikan'][parcellisation['Plot'] == nchan].values.tolist()[0] for nchan in chan_list_ieeg_in_parcel]
 
     correspondance_ROI = []
     correspondance_lobes = []
@@ -157,25 +135,31 @@ def generate_plot_loca(chan_list_trc):
         correspondance_ROI.append(nomenclature['Our correspondances'][nomenclature['Labels'] == parcel_i_chunk].values[0])
         correspondance_lobes.append(nomenclature['Lobes'][nomenclature['Labels'] == parcel_i_chunk].values[0])
 
+    #### generate MNI info
+    MNI_loca = []
+    for nchan in chan_list_ieeg_in_parcel:
+        MNI_i = [parcellisation['MNI_x'][parcellisation['Plot'] == nchan].values[0], parcellisation['MNI_y'][parcellisation['Plot'] == nchan].values[0], parcellisation['MNI_z'][parcellisation['Plot'] == nchan].values[0]] 
+        MNI_loca.append(MNI_i)
+
     #### generate df
     electrode_select_dict = {}
     for ncol in columns:
         if ncol == 'subject':
-            electrode_select_dict[ncol] = [sujet] * len(plot_csv_extract)
+            electrode_select_dict[ncol] = [sujet] * len(chan_list_ieeg_in_parcel)
         elif ncol == 'plot':
-            electrode_select_dict[ncol] = plot_csv
+            electrode_select_dict[ncol] = chan_list_ieeg_in_parcel
         elif ncol == 'MNI':
-            electrode_select_dict[ncol] = [ parcellisation['MNI'][parcellisation['contact'] == nchan].values.tolist()[0] for nchan in plot_csv_extract]
+            electrode_select_dict[ncol] = MNI_loca
         elif ncol == 'freesurfer_destrieux':
             electrode_select_dict[ncol] = freesurfer_destrieux
         elif ncol == 'localisation_corrected' or ncol == 'lobes_corrected':
-            electrode_select_dict[ncol] = [0] * len(plot_csv_extract)
+            electrode_select_dict[ncol] = [0] * len(chan_list_ieeg_in_parcel)
         elif ncol == 'correspondance_ROI':
             electrode_select_dict[ncol] = correspondance_ROI
         elif ncol == 'correspondance_lobes':
             electrode_select_dict[ncol] = correspondance_lobes
         else :
-            electrode_select_dict[ncol] = [1] * len(plot_csv_extract)
+            electrode_select_dict[ncol] = [0] * len(chan_list_ieeg_in_parcel)
 
 
     #### generate df and save

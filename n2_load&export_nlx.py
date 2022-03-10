@@ -1,5 +1,6 @@
 
 
+from multiprocessing.sharedctypes import Value
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -47,7 +48,7 @@ def organize_raw(raw):
     #### remove from data
     data_ieeg = data.copy()
 
-    # remove other aux
+    #### remove other aux
     for aux_name in aux_chan[sujet].keys():
 
         aux_i = chan_list_clean.index(aux_chan[sujet][aux_name])
@@ -57,6 +58,33 @@ def organize_raw(raw):
     chan_list_aux = [aux_i for aux_i in list(aux_chan[sujet]) if aux_i != 'EMG']
     chan_list_ieeg = chan_list_clean
 
+    #### filter channel from plot_loca
+    os.chdir(os.path.join(path_anatomy, sujet))
+    
+    plot_loca_df = pd.read_excel(sujet + '_plot_loca.xlsx')
+
+    chan_to_reject = plot_loca_df['plot'][plot_loca_df['select'] == 0].values
+
+    chan_i_to_remove = [chan_list_ieeg.index(nchan) for nchan in chan_list_ieeg if nchan in chan_to_reject]
+
+    data_ieeg_rmv = data_ieeg.copy()
+    chan_list_ieeg_rmv = chan_list_ieeg.copy()
+    rmv_count = 0
+    for remove_i in chan_i_to_remove:
+        remove_i_adj = remove_i - rmv_count
+        data_ieeg_rmv = np.delete(data_ieeg_rmv, remove_i_adj, 0)
+        rmv_count += 1
+
+        chan_list_ieeg_rmv.remove(chan_list_ieeg[remove_i])
+
+    if data_ieeg.shape[0] - len(chan_to_reject) != data_ieeg_rmv.shape[0]:
+        raise ValueError('problem on chan selection from plot_loca')
+
+    if data_ieeg.shape[1] != data_ieeg_rmv.shape[1]:
+        raise ValueError('problem on chan selection from plot_loca')
+
+    data_ieeg = data_ieeg_rmv.copy()
+    chan_list_ieeg = chan_list_ieeg_rmv.copy()
 
     return data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate
 

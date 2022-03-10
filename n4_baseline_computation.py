@@ -52,7 +52,8 @@ def compute_and_save_baseline(sujet_i, band_prep):
     chan_list_raw = raw.info['ch_names']
     header = chan_list_raw[0][:23]
     chan_list_raw = [nchan[23:] for nchan in chan_list_raw]
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet_i)
+
     drop_chan = [header + chan for chan in chan_list_raw if (chan in chan_list_ieeg) == False]
 
     #### remove unused chan

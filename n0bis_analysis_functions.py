@@ -326,7 +326,7 @@ def get_params(sujet):
 
 
 
-def extract_chanlist_srate_conditions():
+def extract_chanlist_srate_conditions(sujet):
 
     path_source = os.getcwd()
     
@@ -746,7 +746,7 @@ def get_loca_df(sujet):
 
     file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
 
-    chan_list_txt = open(sujet + '_chanlist_ieeg.txt', 'r')
+    chan_list_txt = open(sujet + '_plot_in_parcelisation.txt', 'r')
     chan_list_txt_readlines = chan_list_txt.readlines()
     chan_list_ieeg_trc = [i.replace('\n', '') for i in chan_list_txt_readlines]
 
