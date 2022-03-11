@@ -131,6 +131,9 @@ def generate_plot_loca(chan_list_ieeg):
             parcel_i_chunk = 'Cerebral-White-Matter'
         else:
             parcel_i_chunk = parcel_i
+
+        if parcel_i_chunk == 'unknown':
+            parcel_i_chunk = 'Unknown'
         
         correspondance_ROI.append(nomenclature['Our correspondances'][nomenclature['Labels'] == parcel_i_chunk].values[0])
         correspondance_lobes.append(nomenclature['Lobes'][nomenclature['Labels'] == parcel_i_chunk].values[0])
@@ -173,6 +176,9 @@ def generate_plot_loca(chan_list_ieeg):
         
 
 
+
+
+
 if __name__== '__main__':
 
     construct_token = generate_folder_structure(sujet)
@@ -190,8 +196,8 @@ if __name__== '__main__':
             exit()
 
         #### execute
-        chan_list_trc = extract_chanlist()
-        generate_plot_loca(chan_list_trc)
+        chan_list_ncs = extract_chanlist()
+        generate_plot_loca(chan_list_ncs)
 
 
 

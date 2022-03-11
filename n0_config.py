@@ -19,8 +19,8 @@ import scipy.signal
 ################################
 
 #### whole protocole
-sujet = 'pat_03083_1527'
-#sujet = 'pat_03105_1551'
+#sujet = 'pat_03083_1527'
+sujet = 'pat_03105_1551'
 
 #### FR_CV only
 #sujet = 'pat_02459_0912'
@@ -147,7 +147,7 @@ conditions_trig = {
 
 aux_chan = {
 'pat_03083_1527' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
-'pat_03105_1551' : {'nasal': 'p7+', 'ventral' : 'p8+', 'ECG' : 'ECG'}, # OK
+'pat_03105_1551' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
 
 'DEBUG' : {'nasal': 'p20+', 'ventral' : 'p19+', 'ECG' : 'ECG'}, # OK
 }
