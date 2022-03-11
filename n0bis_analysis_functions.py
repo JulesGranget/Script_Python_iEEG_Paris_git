@@ -80,7 +80,6 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('PSD_Coh', construct_token)
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('FC', construct_token)
-    construct_token = create_folder('HRV', construct_token)
     construct_token = create_folder('ERP', construct_token)
 
             #### ERP
@@ -312,7 +311,7 @@ def execute_function_in_slurm_bash(name_script, name_function, params):
 
 def get_params(sujet):
 
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
     respi_ratio_allcond = get_all_respi_ratio(sujet)
     nwind, nfft, noverlap, hannw = get_params_spectral_analysis(srate)
 

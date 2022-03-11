@@ -38,7 +38,7 @@ def process_sniff_ERP():
     cond = 'SNIFF'
 
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
     df_loca = get_loca_df(sujet)
 
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
@@ -92,7 +92,7 @@ def process_sniff_connectivity():
     #### load params
 
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     #### load data
 

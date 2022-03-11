@@ -51,7 +51,7 @@ def precompute_surrogates_coh(band_prep, cond):
     
     print(cond)
 
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
     nwind, nfft, noverlap, hannw = get_params_spectral_analysis(srate)
 
     data_tmp = load_data(cond, band_prep=band_prep)
@@ -113,7 +113,7 @@ def precompute_surrogates_cyclefreq(band_prep, cond):
 
     respfeatures_allcond = load_respfeatures(sujet)
 
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     os.chdir(os.path.join(path_precompute, sujet, 'PSD_Coh'))
 
@@ -216,7 +216,7 @@ if __name__ == '__main__':
 
 
     #### load data
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
     respfeatures_allcond = load_respfeatures(sujet)
 
     #### params surrogates

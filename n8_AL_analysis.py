@@ -29,7 +29,7 @@ def precompute_tf(cond, session_i, band_prep_list):
     print('TF PRECOMPUTE')
 
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     #### select prep to load
     #band_prep = 'lf'

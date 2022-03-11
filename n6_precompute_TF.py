@@ -284,7 +284,7 @@ def precompute_tf(cond, band_prep_list):
     print('TF PRECOMPUTE')
 
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     #### select prep to load
     #band_prep = 'lf'
@@ -409,7 +409,7 @@ def precompute_tf_itpc(cond, band_prep_list):
     print('ITPC PRECOMPUTE')
 
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions()
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
     
     #### select prep to load
     for band_prep in band_prep_list:
