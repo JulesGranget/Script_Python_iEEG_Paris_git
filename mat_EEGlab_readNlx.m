@@ -14,7 +14,8 @@ OrigDirTest     = 'D:\LPPR_CMO_PROJECT\Paris\Data\signals_iEEG';
 %patID       = 'pat_02495_0949';
 %patID       = 'pat_02711_1193';
 %patID       = 'pat_02718_1201';
-patID       = 'pat_03083_1527';
+%patID       = 'pat_03083_1527';
+patID       = 'pat_03105_1551';
 
 %Set resample rate
 srate = 500;
@@ -35,6 +36,8 @@ switch patID
         InputDir_ID   = '02718_2019-05-21_10-08';
     case('pat_03083_1527')
         InputDir_ID   = '03083_2021-11-15_14-18';
+    case('pat_03105_1551')
+        InputDir_ID    = '03105_2022-01-14_11-05';    
 end
 
 InputDir = fullfile(InputDir, patID, 'eeg', InputDir_ID);
@@ -76,6 +79,60 @@ for nchan = 1 : numel(chanlist)
 end
 %XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 %XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+%%
+%channel concat if no chunk are needed
+
+for nchan = 1 : numel(chanlist)
+    path2file = fullfile(chanlist(nchan).folder, chanlist(nchan).name);
+    display(nchan)
+    
+    if nchan == 1
+        EEG         = pop_fileio(path2file, 'dataformat','auto');
+        EEG.setname = patID;
+        EEG         = eeg_checkset( EEG );
+        
+        %Select data chunk
+        %EEG = pop_select( EEG, 'time',[start_sec end_sec] );
+        %EEG = eeg_checkset( EEG );
+        
+        % resample data to SR        
+        EEG = pop_resample( EEG, srate);
+        EEG = eeg_checkset( EEG );
+        
+    else
+        % load 1 channel with eeglab in temp dataset
+        EEGtmp = pop_fileio(path2file, 'dataformat','auto');
+        EEGtmp.setname='temp';
+        EEGtmp = eeg_checkset( EEGtmp );
+        
+        %Select data chunk
+        %EEGtmp = pop_select( EEGtmp, 'time',[start_sec end_sec] );
+        %EEGtmp = eeg_checkset( EEGtmp );
+        
+        % resample data to SR      
+        EEGtmp = pop_resample( EEGtmp, srate);
+        EEGtmp = eeg_checkset( EEGtmp );
+        
+        % eventuellement verifier que vecteurs time et sampling rate
+        % identiques et data size aussi
+        
+        % fill new values in EEG
+        EEG.nbchan   = EEG.nbchan + 1;
+        EEG.data     = [EEG.data ; EEGtmp.data];
+        EEG.chanlocs = [EEG.chanlocs; EEGtmp.chanlocs];
+        
+        % save dataset (or after loop)
+        EEG = pop_saveset( EEG, 'filename', strcat(patID, '_allchan'),'filepath', OutputDir);
+        EEG = eeg_checkset( EEG );
+        
+        
+    end
+    
+    
+    
+end
 
 %%
 %Manual chunk
@@ -173,58 +230,6 @@ for nchan = 1 : numel(chanlist)
     
 end
 
-%%
-%channel concat if no chunk are needed
-
-for nchan = 1 : numel(chanlist)
-    path2file = fullfile(chanlist(nchan).folder, chanlist(nchan).name);
-    display(nchan)
-    
-    if nchan == 1
-        EEG         = pop_fileio(path2file, 'dataformat','auto');
-        EEG.setname = patID;
-        EEG         = eeg_checkset( EEG );
-        
-        %Select data chunk
-        %EEG = pop_select( EEG, 'time',[start_sec end_sec] );
-        %EEG = eeg_checkset( EEG );
-        
-        % resample data to SR        
-        EEG = pop_resample( EEG, srate);
-        EEG = eeg_checkset( EEG );
-        
-    else
-        % load 1 channel with eeglab in temp dataset
-        EEGtmp = pop_fileio(path2file, 'dataformat','auto');
-        EEGtmp.setname='temp';
-        EEGtmp = eeg_checkset( EEGtmp );
-        
-        %Select data chunk
-        %EEGtmp = pop_select( EEGtmp, 'time',[start_sec end_sec] );
-        %EEGtmp = eeg_checkset( EEGtmp );
-        
-        % resample data to SR      
-        EEGtmp = pop_resample( EEGtmp, srate);
-        EEGtmp = eeg_checkset( EEGtmp );
-        
-        % eventuellement verifier que vecteurs time et sampling rate
-        % identiques et data size aussi
-        
-        % fill new values in EEG
-        EEG.nbchan   = EEG.nbchan + 1;
-        EEG.data     = [EEG.data ; EEGtmp.data];
-        EEG.chanlocs = [EEG.chanlocs; EEGtmp.chanlocs];
-        
-        % save dataset (or after loop)
-        EEG = pop_saveset( EEG, 'filename', strcat(patID, '_allchan'),'filepath', OutputDir);
-        EEG = eeg_checkset( EEG );
-        
-        
-    end
-    
-    
-    
-end
 
 
 %%

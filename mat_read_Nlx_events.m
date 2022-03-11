@@ -6,8 +6,8 @@ todo.whichPC        = 'jules'; %'PCkatia'; PCkatia, knode01 %add your path to sc
 %patID       = 'pat_02495_0949';
 %patID       = 'pat_02711_1193';
 %patID       = 'pat_02718_1201';
-patID       = 'pat_03083_1527';
-
+%patID       = 'pat_03083_1527';
+patID       = 'pat_03105_1551';
 
 
 switch todo.whichPC
@@ -80,6 +80,9 @@ switch patID
         iEEGtrig = 'D:\\LPPR_CMO_PROJECT\\Paris\\Data\\respi_iEEG\\pat_02718_1201\\SEEGresp_PATIENT_5_F_21052019_iEEGtrig.txt';
     case('pat_03083_1527')
         dataDir    = fullfile(InputDiriEEGpress, patID, 'eeg', '03083_2021-11-15_14-18');
+    case('pat_03105_1551')
+        dataDir    = fullfile(InputDiriEEGpress, patID, 'eeg', '03105_2022-01-14_11-05');
+        
 end
 
 %%
