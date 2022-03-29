@@ -19,8 +19,8 @@ import scipy.signal
 ################################
 
 #### whole protocole
-#sujet = 'pat_03083_1527'
-sujet = 'pat_03105_1551'
+sujet = 'pat_03083_1527'
+#sujet = 'pat_03105_1551'
 
 #### FR_CV only
 #sujet = 'pat_02459_0912'
@@ -39,12 +39,19 @@ conditions_allsubjects = ['FR_CV', 'SNIFF', 'AL', 'AC']
 
 conditions_compute_TF = ['FR_CV', 'AC', 'SNIFF']
 
+conditions_FC = ['FR_CV', 'AL', 'AC']
+
 band_prep_list = ['lf', 'hf']
 freq_band_list = [{'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]}, {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}]
 
 freq_band_dict = {'wb' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40]},
                 'lf' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]},
                 'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]} }
+
+freq_band_dict_FC = {'wb' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40]},
+                'lf' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40], 'whole' : [2,50]},
+                'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]} }
+
 
 
 ########################################

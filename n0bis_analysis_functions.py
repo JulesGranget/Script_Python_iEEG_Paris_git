@@ -571,6 +571,65 @@ def get_sniff_starts(sujet):
 
 
 
+
+################################
+######## WAVELETS ########
+################################
+
+
+def get_wavelets(band_prep, freq):
+
+    #### get params
+    prms = get_params(sujet)
+
+    #### select wavelet parameters
+    if band_prep == 'wb':
+        wavetime = np.arange(-2,2,1/prms['srate'])
+        nfrex = nfrex_lf
+        ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex) 
+
+    if band_prep == 'lf':
+        wavetime = np.arange(-2,2,1/prms['srate'])
+        nfrex = nfrex_lf
+        ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
+
+    if band_prep == 'hf':
+        wavetime = np.arange(-.5,.5,1/prms['srate'])
+        nfrex = nfrex_hf
+        ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
+
+    #### compute wavelets
+    frex  = np.linspace(freq[0],freq[1],nfrex)
+    wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
+
+    # create Morlet wavelet family
+    for fi in range(0,nfrex):
+        
+        s = ncycle_list[fi] / (2*np.pi*frex[fi])
+        gw = np.exp(-wavetime**2/ (2*s**2)) 
+        sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
+        mw =  gw * sw
+
+        wavelets[fi,:] = mw
+
+    return wavelets
+
+
+def get_nfrex(band_prep):
+
+    if band_prep == 'wb':
+        nfrex = nfrex_lf
+
+    if band_prep == 'lf':
+        nfrex = nfrex_lf
+
+    if band_prep == 'hf':
+        nfrex = nfrex_hf
+
+    return nfrex
+
+
+
 ########################################
 ######## LOAD RESPI FEATURES ########
 ########################################
@@ -745,9 +804,7 @@ def get_loca_df(sujet):
 
     file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
 
-    chan_list_txt = open(sujet + '_plot_in_parcelisation.txt', 'r')
-    chan_list_txt_readlines = chan_list_txt.readlines()
-    chan_list_ieeg_trc = [i.replace('\n', '') for i in chan_list_txt_readlines]
+    chan_list_ieeg_trc = file_plot_select['plot'][file_plot_select['select'] == 1].values.tolist()
 
     if sujet[:3] == 'pat':
         chan_list_ieeg_csv = chan_list_ieeg_trc.copy()
