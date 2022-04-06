@@ -375,10 +375,13 @@ def ecg_detection(data_aux, chan_list_aux, srate):
 
     ch_types = ['misc'] * (np.size(data_aux,0)) # ‘ecg’, ‘stim’, ‘eog’, ‘misc’, ‘seeg’, ‘eeg’
 
+    #ecg = mne.filter.filter_data(ecg, srate, 8, 15, verbose='CRITICAL')
+
     info_aux = mne.create_info(chan_list_aux, srate, ch_types=ch_types)
     raw_aux = mne.io.RawArray(data_aux, info_aux)
 
     raw_aux.notch_filter(50, picks='misc')
+
 
     if debug:
         ecg = raw_aux.get_data()[-1,:]
@@ -530,7 +533,10 @@ if __name__ == '__main__':
         ecg_events_time += ecg_events_corrected
         ecg_events_time.sort()
 
-
+    if sujet == 'pat_03128_1591':
+        ecg_events_corrected = [] # OK
+        ecg_events_time += ecg_events_corrected
+        ecg_events_time.sort()
 
 
     ################################
@@ -538,11 +544,11 @@ if __name__ == '__main__':
     ################################
 
     #### choose preproc
-    #band_prep = 'lf'
-    #data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+    band_prep = 'lf'
+    data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
 
-    band_prep = 'hf'
-    data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+    #band_prep = 'hf'
+    #data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
 
     #### verif
     if debug == True:
@@ -572,7 +578,7 @@ if __name__ == '__main__':
         verif_trig(raw_aux, trig['time'].values)
         
         #### sniff trig
-        sniff_allsession = [2168.62969, 2931.20041]
+        sniff_allsession = [892.9, 1662.1]
         verif_trig(raw_aux, sniff_allsession)
 
         raw_sniff = raw_aux.copy()
@@ -582,7 +588,7 @@ if __name__ == '__main__':
         respi = raw_sniff.get_data()[respi_i,:]
         height = np.max(respi)*0.6
 
-        sniff_peaks = scipy.signal.find_peaks(respi, height=height, threshold=None, distance=srate, rel_height=0.5)[0]
+        sniff_peaks = scipy.signal.find_peaks(respi*-1, height=height, threshold=None, distance=srate, rel_height=0.5)[0]
 
         verif_trig(raw_sniff, sniff_peaks/srate)
 
@@ -590,9 +596,8 @@ if __name__ == '__main__':
         verif_trig(raw_aux, trig['time'].values)
         
         #### AC trig
-        ac_allsession = [3605, 4812]
-        ac_starts = [5075.0000000000455, 15549.999999999955, 28000, 38250.0, 50799.999999999956, 65200.000000000044, 79700.00000000004, 94700.00000000004, 109799.99999999996, 124900.00000000009, 139049.99999999994, 152900.0000000001, 167500, 236450.00000000006, 249300.00000000017, 262750.0, 277500, 292000, 306599.9999999999, 322750.0, 337050.0000000002, 351150.0000000001, 367000, 380800.0000000002, 442400.0000000001, 456900.0000000001, 470000, 484300.0000000002, 498750.0, 516000, 529699.9999999998, 545449.9999999998, 560550.0000000002, 574599.9999999999, 588099.9999999999]
-
+        ac_allsession = [2270.7, 2952.0]
+        ac_starts = [7940.000000000055, 16769.99999999998, 26730.00000000002, 37130.00000000011, 47190.00000000006, 56650.00000000009, 68180.00000000006, 81945.00000000016, 81945.00000000016, 96275.00000000009, 107280.0000000002, 119305.00000000006, 131670.00000000006, 144970.00000000003, 195640.0000000001, 208260.0, 221210.00000000003, 234019.99999999997, 246930.00000000006, 259965.00000000015, 272765.0000000001, 285205.0000000002, 297715.0000000001, 310695.0000000002, 322355.0, 333940.00000000006]
         verif_trig(raw_aux, ac_allsession)
 
         raw_ac = raw_aux.copy()
@@ -609,9 +614,9 @@ if __name__ == '__main__':
         verif_trig(raw_aux, trig['time'].values)
         
         #### AL trig
-        al_allsession = [2978, 3346]
-        al_starts = [1.120e4, 7.999e4, 1.4986e5]
-        al_stops = [3.335e4, 9.963e4, 1.6998e5]
+        al_allsession = [1787, 2067]
+        al_starts = [8149.999999999977, 44250.0, 104350.00000000003]
+        al_stops = [29450.000000000044, 68200.00000000004, 135200.00000000006]
 
         verif_trig(raw_aux, al_allsession)
 
@@ -658,7 +663,19 @@ if __name__ == '__main__':
         al_starts = [1.120e4, 7.999e4, 1.4986e5]
         al_stops = [3.335e4, 9.963e4, 1.6998e5]
 
+    if sujet == 'pat_03128_1591':
+        vs_starts = [241.577467,  543.440413]
+        
+        sniff_allsession = [892.9, 1662.1]
+        sniff_peaks = [  2256,   4906,   7699,  10926,  14343,  18007,  21560,  25211, 29385,  33271,  36625,  39601,  42493,  45386,  48462,  51400, 54759,  58048,  61580,  65152,  69017,  72737,  76320,  79856, 83655,  87637,  91552,  95241,  99430, 103260, 107199, 111428, 115257, 119166, 122855, 126705, 130532, 134642, 138513, 142337, 146148, 149827, 153526, 157282, 160744, 164577, 168423, 195536, 210975, 214223, 217693, 220943, 224172, 227633, 231135, 234589, 237411, 240083, 243002, 245793, 248903, 251362, 253982, 256861, 259791, 262820, 265841, 269347, 273671, 276913, 280013, 283390, 286866, 290982, 295611, 301320, 306771, 312149, 316999, 322617, 327440, 332568, 337060, 341038, 345050, 348762, 352973, 357015, 361503, 365927, 370303, 375194]
+        ac_allsession = [2270.7, 2952.0]
+        ac_starts = [7940.000000000055, 16769.99999999998, 26730.00000000002, 37130.00000000011, 47190.00000000006, 56650.00000000009, 68180.00000000006, 81945.00000000016, 81945.00000000016, 96275.00000000009, 107280.0000000002, 119305.00000000006, 131670.00000000006, 144970.00000000003, 195640.0000000001, 208260.0, 221210.00000000003, 234019.99999999997, 246930.00000000006, 259965.00000000015, 272765.0000000001, 285205.0000000002, 297715.0000000001, 310695.0000000002, 322355.0, 333940.00000000006]
+        ac_starts = [int(i) for i in ac_starts] 
 
+
+        al_allsession = [1787, 2067]
+        al_starts = [8149.999999999977, 44250.0, 104350.00000000003]
+        al_stops = [29450.000000000044, 68200.00000000004, 135200.00000000006]
 
 
 

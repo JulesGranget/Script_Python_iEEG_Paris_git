@@ -15,7 +15,8 @@ OrigDirTest     = 'D:\LPPR_CMO_PROJECT\Paris\Data\signals_iEEG';
 %patID       = 'pat_02711_1193';
 %patID       = 'pat_02718_1201';
 %patID       = 'pat_03083_1527';
-patID       = 'pat_03105_1551';
+%patID       = 'pat_03105_1551';
+patID        = 'pat_03128_1591';
 
 %Set resample rate
 srate = 500;
@@ -37,7 +38,9 @@ switch patID
     case('pat_03083_1527')
         InputDir_ID   = '03083_2021-11-15_14-18';
     case('pat_03105_1551')
-        InputDir_ID    = '03105_2022-01-14_11-05';    
+        InputDir_ID    = '03105_2022-01-14_11-05';
+    case('pat_03128_1591')
+        InputDir_ID    = '03128_2022-03-07_11-50';       
 end
 
 InputDir = fullfile(InputDir, patID, 'eeg', InputDir_ID);
