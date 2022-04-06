@@ -544,11 +544,11 @@ if __name__ == '__main__':
     ################################
 
     #### choose preproc
-    band_prep = 'lf'
-    data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+    #band_prep = 'lf'
+    #data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
 
-    #band_prep = 'hf'
-    #data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+    band_prep = 'hf'
+    data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
 
     #### verif
     if debug == True:
@@ -784,7 +784,7 @@ if __name__ == '__main__':
 
     #### export count session
     os.chdir(os.path.join(path_prep, sujet, 'info'))
-    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_protocol.xlsx")) != 1:
+    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_session.xlsx")) != 1:
 
         df = pd.DataFrame(count_session)
         df.to_excel(f'{sujet}_count_session.xlsx')
