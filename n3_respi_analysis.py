@@ -316,8 +316,10 @@ if __name__ == '__main__':
 
     
     #### whole protocole
-    sujet = 'pat_03083_1527'
+    #sujet = 'pat_03083_1527'
     #sujet = 'pat_03105_1551'
+    sujet = 'pat_03128_1591'
+
 
     #### FR_CV only
     #sujet = 'pat_02459_0912'
