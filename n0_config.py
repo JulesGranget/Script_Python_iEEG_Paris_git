@@ -21,7 +21,9 @@ import scipy.signal
 #### whole protocole
 #sujet = 'pat_03083_1527'
 #sujet = 'pat_03105_1551'
-sujet = 'pat_03128_1591'
+#sujet = 'pat_03128_1591'
+sujet = 'pat_03138_1601'
+
 
 #### FR_CV only
 #sujet = 'pat_02459_0912'
@@ -31,7 +33,7 @@ sujet = 'pat_03128_1591'
 #sujet = 'DEBUG'
 
 #### whole protocole
-sujet_list = ['pat_03083_1527', 'pat_03105_1551', 'pat_03128_1591']
+sujet_list = ['pat_03083_1527', 'pat_03105_1551', 'pat_03128_1591', 'pat_03138_1601']
 
 #### FR_CV
 sujet_list_FR_CV = ['CHEe', 'GOBc', 'MAZm', 'TREt', 'MUGa', 'BANc', 'KOFs', 'LEMl', 'pat_02459_0912', 'pat_02476_0929', 'pat_02495_0949']
@@ -136,6 +138,7 @@ electrodes_to_remove = {
 'pat_03083_1527' : [],
 'pat_03105_1551' : [],
 'pat_03128_1591' : [],
+'pat_03138_1601' : [],
 
 }
 
@@ -158,6 +161,7 @@ aux_chan = {
 'pat_03083_1527' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
 'pat_03105_1551' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
 'pat_03128_1591' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
+'pat_03138_1601' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'},
 
 'DEBUG' : {'nasal': 'p20+', 'ventral' : 'p19+', 'ECG' : 'ECG'}, # OK
 }
@@ -191,6 +195,7 @@ sujet_ecg_adjust = {
 'pat_03083_1527' : 'inverse',
 'pat_03105_1551' : 'normal',
 'pat_03128_1591' : 'normal',
+'pat_03138_1601' : 'normal',
 }
 
 

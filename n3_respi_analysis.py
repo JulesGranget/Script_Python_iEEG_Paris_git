@@ -136,10 +136,11 @@ def analyse_resp(resp_sig, sr, t_start, condition):
         # respi signal with inspi expi markers
     ax = axs[0]
     ax.plot(times, resp_sig)
-    ax.plot(times[cycle_indexes[:, 0]], resp_sig[cycle_indexes[:, 0]], ls='None', marker='o', color='r')
-    ax.plot(times[cycle_indexes[:, 1]], resp_sig[cycle_indexes[:, 1]], ls='None', marker='o', color='g')
+    ax.plot(times[cycle_indexes[:, 0]], resp_sig[cycle_indexes[:, 0]], ls='None', marker='o', color='r', label='inspi')
+    ax.plot(times[cycle_indexes[:, 1]], resp_sig[cycle_indexes[:, 1]], ls='None', marker='o', color='g', label='expi')
     ax.set_xlim(0,120)
     ax.set_ylabel('resp')
+    ax.legend()
     
 
         # instantaneous frequency
@@ -244,7 +245,6 @@ def analyse_resp_debug(resp_sig, sr, t_start, condition, params):
     ax.plot(times, resp_sig)
     ax.plot(times[cycle_indexes[:, 0]], resp_sig[cycle_indexes[:, 0]], ls='None', marker='o', color='r')
     ax.plot(times[cycle_indexes[:, 1]], resp_sig[cycle_indexes[:, 1]], ls='None', marker='o', color='g')
-    ax.set_xlim(0,120)
     ax.set_ylabel('resp')
     
 
@@ -299,6 +299,101 @@ def analyse_resp_debug(resp_sig, sr, t_start, condition, params):
     
 
 
+########################################
+######## CORRECT RESPFEATURES ########
+########################################
+
+
+def correct_resp_features(respi_allcond, respi_sig, srate):
+
+    #### extract cond and session
+    for cond in respi_allcond:
+
+        for session_i in respi_sig[cond]:
+
+            respi_allcond[cond][session_i][0]['cycle_duration'] = np.append(np.diff(respi_allcond[cond][session_i][0]['inspi_time']), np.round( np.mean( np.diff(respi_allcond[cond][session_i][0]['inspi_time'])), 2 ) )
+            respi_allcond[cond][session_i][0]['insp_duration'] = respi_allcond[cond][session_i][0]['expi_time'] - respi_allcond[cond][session_i][0]['inspi_time']
+            respi_allcond[cond][session_i][0]['exp_duration'] = respi_allcond[cond][session_i][0]['cycle_duration'] - respi_allcond[cond][session_i][0]['insp_duration']
+            respi_allcond[cond][session_i][0]['cycle_freq'] = 1/respi_allcond[cond][session_i][0]['cycle_duration']
+
+            cycle_indexes = np.concatenate((respi_allcond[cond][session_i][0]['inspi_index'].values.reshape(-1,1), respi_allcond[cond][session_i][0]['expi_index'].values.reshape(-1,1)), axis=1)
+            cycle_freq = respi_allcond[cond][session_i][0]['cycle_freq'].values
+            cycle_amplitudes = respi_allcond[cond][session_i][0]['total_amplitude'].values
+
+            fig0, axs = plt.subplots(nrows=3, sharex=True)
+            plt.suptitle(cond)
+            times = np.arange(respi_sig[cond][session_i].size)/srate
+            
+                # respi signal with inspi expi markers
+            ax = axs[0]
+            ax.plot(times, respi_sig[cond][session_i])
+            ax.plot(times[cycle_indexes[:, 0]], respi_sig[cond][session_i][cycle_indexes[:, 0]], ls='None', marker='o', color='r', label='inspi')
+            ax.plot(times[cycle_indexes[:, 1]], respi_sig[cond][session_i][cycle_indexes[:, 1]], ls='None', marker='o', color='g', label='expi')
+            ax.set_xlim(0,120)
+            ax.set_ylabel('resp')
+            ax.legend()
+            
+
+                # instantaneous frequency
+            ax = axs[1]
+            ax.plot(times[cycle_indexes[:, 0]], cycle_freq)
+            ax.set_ylim(0, max(cycle_freq)*1.1)
+            ax.axhline(np.median(cycle_freq), color='m', linestyle='--', label='median={:.3f}'.format(np.median(cycle_freq)))
+            ax.legend()
+            ax.set_ylabel('freq')
+
+                # instantaneous amplitude
+            ax = axs[2]
+            ax.plot(times[cycle_indexes[:, 0]], cycle_amplitudes)
+            ax.axhline(np.median(cycle_amplitudes), color='m', linestyle='--', label='median={:.3f}'.format(np.median(cycle_amplitudes)))
+            ax.set_ylabel('amplitude')
+            ax.legend()
+
+            plt.close()
+            
+            
+            # respi cycle features
+
+            fig1, axs = plt.subplots(nrows=2)
+            plt.suptitle(cond)
+
+                # histogram cycle freq
+            ax = axs[0]
+            count, bins = np.histogram(cycle_freq, bins=np.arange(0,1.5,0.01))
+            ax.plot(bins[:-1], count)
+            ax.set_xlim(0,.6)
+            ax.set_ylabel('n')
+            ax.set_xlabel('freq')
+            ax.axvline(np.median(cycle_freq), color='m', linestyle='--', label='median = {:.3f}'.format(np.median(cycle_freq)))
+            W, pval = scipy.stats.shapiro(cycle_freq)
+            ax.plot(0, 0, label='Shapiro W = {:.3f}, pval = {:.3f}'.format(W, pval)) # for plotting shapiro stats
+            ax.legend()
+            
+                # histogram inspi/expi ratio
+            ax = axs[1]
+            ratio = (cycle_indexes[:-1, 1] - cycle_indexes[:-1, 0]).astype('float64') / (cycle_indexes[1:, 0] - cycle_indexes[:-1, 0])
+            count, bins = np.histogram(ratio, bins=np.arange(0, 1., 0.01))
+            ax.plot(bins[:-1], count)
+            ax.axvline(np.median(ratio), color='m', linestyle='--', label='median = {:.3f}'.format(np.median(ratio)))
+            ax.set_ylabel('n')
+            ax.set_xlabel('ratio')
+            ax.legend()
+
+            plt.close()
+
+            #### replace
+            respi_allcond[cond][session_i][1] = fig0
+            respi_allcond[cond][session_i][2] = fig1
+
+    return respi_allcond
+
+
+
+def zscore(sig):
+
+    sig_clean = ( sig - np.mean(sig) ) / np.std(sig)
+
+    return sig_clean
 
 
 
@@ -318,7 +413,8 @@ if __name__ == '__main__':
     #### whole protocole
     #sujet = 'pat_03083_1527'
     #sujet = 'pat_03105_1551'
-    sujet = 'pat_03128_1591'
+    #sujet = 'pat_03128_1591'
+    sujet = 'pat_03138_1601'
 
 
     #### FR_CV only
@@ -338,15 +434,37 @@ if __name__ == '__main__':
     ########################################
 
     respi_allcond = {}
+    respi_sig = {}
     band_prep = band_prep_list[0]
     cond = 'FR_CV'
 
-    data = []
-    for session_i in range(len(raw_allcond.get(band_prep)[cond])):
+    
+    for cond in conditions:
 
-        respi_i = chan_list_all.index('nasal')
+        respi_sig[cond] = {}
+        data = []
 
-        data.append(analyse_resp(raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :], srate, 0, cond))
+        for session_i in range(len(raw_allcond.get(band_prep)[cond])):
+
+            respi_i = chan_list_all.index('nasal')
+
+            respi = raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :]
+            if sujet == 'pat_03105_1551':
+                respi *= -1
+            respi_clean = scipy.signal.detrend(respi)
+            respi_clean = mne.filter.filter_data(respi, srate, 0, 0.5, verbose='CRITICAL')
+            respi_clean = zscore(respi_clean)
+
+            if debug:
+                plt.plot(respi, label='respi')
+                plt.plot(respi_clean, label='respi_clean')
+                plt.legend()
+                plt.show()
+
+            respi_sig[cond][session_i] = respi_clean
+            resp_features, fig0, fig1 = analyse_resp(respi_clean, srate, 0, cond)
+            data.append([resp_features, fig0, fig1])
+        
 
     respi_allcond[cond] = data
 
@@ -358,6 +476,7 @@ if __name__ == '__main__':
     #### info to debug
 
     cond = 'FR_CV'
+    session_i = 0
 
     respi_allcond[cond][session_i][1].show()
     respi_allcond[cond][session_i][2].show()
@@ -368,7 +487,7 @@ if __name__ == '__main__':
     'smooth' : True,
 
     'baseline_with_average' : False,
-    'manual_baseline' : 1e-8,
+    'manual_baseline' : -.5,
 
     'high_pass_filter' : True,
     'constrain_frequency' : None,
@@ -383,17 +502,92 @@ if __name__ == '__main__':
     #respi_i = chan_list.index('ventral')
     respi_i = chan_list_all.index('nasal')
 
-    resp_features, fig0, fig1 = analyse_resp_debug(raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :], srate, 0, cond, params)
+    respi = raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :]
+    if sujet == 'pat_03105_1551':
+        respi *= -1
+    respi_clean = scipy.signal.detrend(respi)
+    respi_clean = mne.filter.filter_data(respi, srate, 0, 0.5, verbose='CRITICAL')
+    respi_clean = zscore(respi_clean)
+
+    resp_features, fig0, fig1 = analyse_resp_debug(respi_clean, srate, 0, cond, params)
     fig0.show()
     fig1.show()
-
-    #### changes
-    # pat_03083_1527 : 'smooth' = True
 
     #### replace
     respi_allcond[cond][session_i] = [resp_features, fig0, fig1]
 
+        #### check inspi marker
+        
+    #### inspect pre
+    fig, ax = plt.subplots()
+    times = np.arange(respi_sig[cond][session_i].size)/srate
+    ax.plot(times, respi_sig[cond][session_i])
+    ax.plot(respi_allcond[cond][session_i][0]['inspi_time'], respi_sig[cond][session_i][respi_allcond[cond][session_i][0]['inspi_index']], ls='None', marker='o', color='r', label='inspi')
+    ax.plot(respi_allcond[cond][session_i][0]['expi_time'], respi_sig[cond][session_i][respi_allcond[cond][session_i][0]['expi_index']], ls='None', marker='o', color='g', label='expi')
+    ax.set_ylabel('resp')
+    ax.legend()
+    plt.show()
 
+    #### modify
+    corrected_time_inspi = [5.02, 9.83, 18.17, 24.39, 30.33, 34.95, 40.70, 45.47, 51.72, 57.34, 63.12, 68.92, 73.67, 78.31, 83.38, 88.50, 94.06, 98.44, 103.85, 109.02, 114.40, 120.52, 125.85, 131.57, 137.85, 142.63, 148.17, 153.02, 158.46, 163.31, 168.45, 173.25, 177.87, 183.15, 189.13, 194.44, 199.45, 204.12, 209.08, 214.22, 219.02, 224.11, 228.65, 233.90, 239.36, 244.61, 249.75, 254.34, 258.99, 264.13, 269.04, 274.18, 279.01, 283.92, 289.07, 293.49, 298.35]
+    corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
+    corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
+    corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
+
+    #### inspect post
+    ms = 10
+    fig, ax = plt.subplots()
+    times = np.arange(respi_sig[cond][session_i].size)/srate
+    ax.plot(times, respi_sig[cond][session_i])
+    ax.plot(corrected_time_inspi, respi_sig[cond][session_i][corrected_index_inspi], ls='None', marker='o', color='r', label='inspi')
+    ax.plot(respi_allcond[cond][session_i][0]['inspi_time'], respi_sig[cond][session_i][respi_allcond[cond][session_i][0]['inspi_index']], ls='None', marker='x', ms=ms, color='r', label='inspi_pre')
+    ax.plot(corrected_time_expi, respi_sig[cond][session_i][respi_allcond[cond][session_i][0]['expi_index']], ls='None', marker='o', color='g', label='expi')
+    ax.plot(respi_allcond[cond][session_i][0]['expi_time'], respi_sig[cond][session_i][respi_allcond[cond][session_i][0]['expi_index']], ls='None', marker='x', ms=ms, color='g', label='expi_pre')
+    ax.set_ylabel('resp')
+    ax.legend()
+    plt.show()
+
+    #### when ok switch in df
+    if sujet == 'pat_03083_1527':
+        cond, session_i = 'FR_CV', 0
+        corrected_time_inspi = [0.9, 5.24, 10.01, 14.29, 18.71, 23.36, 28.32, 33.21, 35.29, 38.03, 43.18, 47.75, 50.06, 55.74, 57.17, 61.22, 68.74, 73.88, 80.18, 86.50, 92.60, 98.23, 103.80, 108.82, 113.27, 118.05, 123.50, 128.48, 133.27, 137.76, 142.60, 148.44, 154.26, 159.55, 165.23, 170.04, 175.44, 178.20, 180.79, 190.16, 195.63, 200.92, 202.60, 206.21, 209.48, 213.83, 216.73, 221.92, 226.09, 230.54, 234.68, 239.54, 242.90, 247.51, 253.09, 257.91, 263.16, 266.81, 269.50, 273.88, 277.86, 281.15, 284.66, 288.86, 292.34, 298.65]
+        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
+        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
+        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
+        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
+        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
+        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
+        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+
+        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
+
+    if sujet == 'pat_03105_1551':
+        cond, session_i = 'FR_CV', 0
+        corrected_time_inspi = [1.91, 6.24, 10.13, 14.46, 17.79, 20.30, 24.24, 26.45, 29.81, 32.97, 36.57, 39.94, 42.87, 46.08, 49.23, 53.61, 56.78, 60.89, 64.38, 66.17, 68.95, 72.76, 76.14, 79.06, 83.09, 86.67, 89.92, 93, 97.12, 99.91, 103.13, 106.19, 109.39, 112.82, 116.18, 119.38, 122.94, 125.71, 129.97, 133.09, 136.65, 140.22, 143.50, 146.85, 149.44, 152.82, 156.04, 159.04, 161.68, 165.54, 168.15, 171.23, 174.31, 177.38, 180.73, 183.14, 186.38, 189.28, 193.11, 197.85, 203.07, 206.42, 209.82, 212.73, 216.36, 219.61, 222.12, 226.30, 231.25, 235.47, 238.47, 241.65, 244.69, 247.81, 251.90, 254.88, 257.82, 260.32, 263.17, 266.07, 269.01, 272.02, 274.83, 277.47, 287.60, 280.81, 283.83, 290.64, 293.60, 297.02]
+        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
+        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
+        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
+        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
+        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
+        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
+        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+
+        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
+
+    if sujet == 'pat_03128_1591':
+        cond, session_i = 'FR_CV', 0
+        corrected_time_inspi = [5.02, 9.83, 18.17, 24.39, 30.33, 34.95, 40.70, 45.47, 51.72, 57.34, 63.12, 68.92, 73.67, 78.31, 83.38, 88.50, 94.06, 98.44, 103.85, 109.02, 114.40, 120.52, 125.85, 131.57, 137.85, 142.63, 148.17, 153.02, 158.46, 163.31, 168.45, 173.25, 177.87, 183.15, 189.13, 194.44, 199.45, 204.12, 209.08, 214.22, 219.02, 224.11, 228.65, 233.90, 239.36, 244.61, 249.75, 254.34, 258.99, 264.13, 269.04, 274.18, 279.01, 283.92, 289.07, 293.49, 298.35]
+        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
+        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
+        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
+        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
+        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
+        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
+        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+
+        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
+
+    #sujet = 'pat_03138_1601'
 
     ################################
     ######## SAVE FIG ########

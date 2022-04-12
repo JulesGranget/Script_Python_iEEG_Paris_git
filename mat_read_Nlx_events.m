@@ -9,7 +9,8 @@ clear all
 %patID       = 'pat_02718_1201';
 %patID       = 'pat_03083_1527';
 %patID       = 'pat_03105_1551';
-patID       = 'pat_03128_1591';
+%patID       = 'pat_03128_1591';
+patID        = 'pat_03138_1601';
 
 switch patID
     case('pat_02459_0912')
@@ -28,6 +29,8 @@ switch patID
         strRec    = '03105_2022-01-14_11-05';
     case('pat_03128_1591')
         strRec    = '03128_2022-03-07_11-50';
+    case('pat_03138_1601')
+        strRec    = '03138_2022-03-24_11-25';
 end
 
 

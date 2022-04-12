@@ -1,5 +1,6 @@
 
 
+
 addpath('D:\Program Files\MATLAB\R2019b\toolbox\eeglab_current\eeglab2021.1');
 addpath('D:\LPPR_CMO_PROJECT\Paris\Scripts\epishare-master\core\Nlx2Mat\MatlabImportExport_v6.0.0');
 addpath('D:\LPPR_CMO_PROJECT\Paris\Scripts\LPPR_project');
@@ -16,7 +17,9 @@ OrigDirTest     = 'D:\LPPR_CMO_PROJECT\Paris\Data\signals_iEEG';
 %patID       = 'pat_02718_1201';
 %patID       = 'pat_03083_1527';
 %patID       = 'pat_03105_1551';
-patID        = 'pat_03128_1591';
+%patID        = 'pat_03128_1591';
+patID        = 'pat_03138_1601';
+
 
 %Set resample rate
 srate = 500;
@@ -40,7 +43,9 @@ switch patID
     case('pat_03105_1551')
         InputDir_ID    = '03105_2022-01-14_11-05';
     case('pat_03128_1591')
-        InputDir_ID    = '03128_2022-03-07_11-50';       
+        InputDir_ID    = '03128_2022-03-07_11-50';
+    case('pat_03138_1601')
+        InputDir_ID    = '03138_2022-03-24_11-25';    
 end
 
 InputDir = fullfile(InputDir, patID, 'eeg', InputDir_ID);
@@ -319,7 +324,5 @@ end
 
 EEG_loca = pop_loadset('filename', 'pat_03083_1527.set', 'filepath', 'D:\LPPR_CMO_PROJECT\Paris\Analyses\data_for_analysis\pat_03083_1527');
 EEG_loca = eeg_checkset( EEG_loca );
-
-
 
 
