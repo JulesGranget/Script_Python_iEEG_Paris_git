@@ -45,7 +45,7 @@ def shuffle_Cxy(x):
    return x_shift
 
 
-def precompute_surrogates_coh(band_prep, cond):
+def precompute_surrogates_coh(sujet, band_prep, cond):
     
     os.chdir(os.path.join(path_precompute, sujet, 'PSD_Coh'))
     
@@ -107,7 +107,7 @@ def precompute_surrogates_coh(band_prep, cond):
 
 
 #band_prep, session_eeg, cond, session_i = 'wb', 0, 'FR_CV', 0
-def precompute_surrogates_cyclefreq(band_prep, cond):
+def precompute_surrogates_cyclefreq(sujet, band_prep, cond):
     
     print(cond)
 
@@ -237,10 +237,10 @@ if __name__ == '__main__':
         for cond in ['FR_CV']:
 
             #precompute_surrogates_cyclefreq(band_prep, cond)
-            execute_function_in_slurm_bash('n5_precompute_surrogates', 'precompute_surrogates_cyclefreq', [band_prep, cond])
+            execute_function_in_slurm_bash('n5_precompute_surrogates', 'precompute_surrogates_cyclefreq', [sujet, band_prep, cond])
 
             if band_prep == 'wb' or band_prep == 'lf':
                 #precompute_surrogates_coh(band_prep, cond)
-                execute_function_in_slurm_bash('n5_precompute_surrogates', 'precompute_surrogates_coh', [band_prep, cond])
+                execute_function_in_slurm_bash('n5_precompute_surrogates', 'precompute_surrogates_coh', [sujet, band_prep, cond])
 
             

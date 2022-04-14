@@ -19,10 +19,10 @@ import scipy.signal
 ################################
 
 #### whole protocole
-#sujet = 'pat_03083_1527'
+sujet = 'pat_03083_1527'
 #sujet = 'pat_03105_1551'
 #sujet = 'pat_03128_1591'
-sujet = 'pat_03138_1601'
+#sujet = 'pat_03138_1601'
 
 
 #### FR_CV only
@@ -46,6 +46,7 @@ conditions_FC = ['FR_CV', 'AL', 'AC']
 
 band_prep_list = ['lf', 'hf']
 freq_band_list = [{'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]}, {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}]
+freq_band_whole = {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}
 
 freq_band_dict = {'wb' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40]},
                 'lf' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]},

@@ -5,15 +5,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal
 import mne
+
 from mne_connectivity import spectral_connectivity
 from mne_connectivity.viz import circular_layout, plot_connectivity_circle
+
 import pandas as pd
 import respirationtools
 import joblib
 import xarray as xr
+
 from frites.dataset import SubjectEphy, DatasetEphy
-from frites.conn import conn_covgc
+from frites.conn import conn_covgc, conn_dfc
 from frites.workflow import WfMi
+from frites.conn import define_windows
 
 
 from n0_config import *
@@ -76,11 +80,60 @@ def process_sniff_ERP():
         fig.savefig(f'{sujet}_{nchan}_{chan_loca}.jpeg', dpi=600)
 
 
-            
+
+
+
+
+
+
+########################################
+######## PLOT FUNCTION ########
+########################################
+
+def plot_mi(mi, pv, roi_i):
+    # figure definition
+    r = mi['roi'].data[roi_i]
+    fig, gs  = plt.subplots()
+
+    n_r = np.where(mi['roi'].data == r)[0]
+    # select mi and p-values for a single roi
+    mi_r, pv_r = mi.sel(roi=r), pv.sel(roi=r)
+    # set to nan when it's not significant
+    mi_r_s = mi_r.copy()
+    mi_r_s[pv_r >= .05] = np.nan
+
+    # significant = red; non-significant = black
+    plt.plot(mi['times'].data, mi_r, lw=1, color='k')
+    plt.plot(mi['times'].data, mi_r_s, lw=3, color='red')
+    plt.xlabel('Times'), plt.ylabel('MI (bits)')
+    plt.title(f"ROI={r}")
+    plt.axvline(0, lw=2, color='b')
+
+    return plt.gcf()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ########################################
 ######## SNIFF CONNECTIVITY ########
 ########################################
+
+
+def zscore(sig):
+
+    sig_clean = (sig - np.mean(sig)) / np.std(sig)
+
+    return sig_clean
 
 
 def process_sniff_connectivity():
@@ -91,28 +144,149 @@ def process_sniff_connectivity():
 
     #### load params
 
-    respfeatures_allcond = load_respfeatures(sujet)
     conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
+    sniff_starts = get_sniff_starts(sujet)
+    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
 
     #### load data
 
-    band_prep = 'lf'
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
+    sniff_starts = get_sniff_starts(sujet)
+    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
+
+    os.chdir(os.path.join(path_prep, sujet, 'sections'))
 
     load_i = []
     for i, session_name in enumerate(os.listdir()):
-        if (session_name.find(cond) != -1) and (session_name.find('nc') != -1) :
+        if (session_name.find('hf.nc') != -1) :
             load_i.append(i)
         else:
             continue
 
     load_list = [os.listdir()[i] for i in load_i]
-    
 
-
-    #### compute covgc
+    df_loca = get_loca_df(sujet)
 
     xr_sniff = xr.open_dataarray(load_list[0])
     xr_sniff = xr_sniff.transpose('sniffs', 'chan_list', 'times')
+    xr_sniff['sniffs'] = [0]*len(sniff_starts)
+    xr_sniff['chan_list'] = df_loca['ROI'].values
+
+    slwin_len = .3    # 100ms window length
+    slwin_step = .02  # 80ms between consecutive windows
+    win_sample = define_windows(times, slwin_len=slwin_len, slwin_step=slwin_step)[0]
+
+    # compute the DFC for each subject
+    dfc = conn_dfc(xr_sniff.data, win_sample, times=times, roi=chan_list[:-4], n_jobs=6, verbose=False)
+    # reset trials dimension
+    dfc['trials'] = xr_sniff['sniffs'].data
+
+    dfc_suj = xr.concat(dfc, 'trials').groupby('trials').mean('trials')
+
+
+
+    dfc_search = dfc_suj.data.reshape(dfc_suj.shape[1], dfc_suj.shape[2])
+    pair_signi = []
+    for pair_i in range(dfc_search.shape[0]):
+        x = dfc_search[pair_i,:]
+        x_mean = np.mean(x)
+        x_std = np.std(x)
+        thresh = x_mean + 3*x_std
+        if len(np.where(dfc_search[pair_i,:] >= thresh)[0]) == 0:
+            continue
+        else:
+            pair_signi.append(pair_i)
+
+    for pair_i in pair_signi:
+        dfc_suj[0,pair_i,:].plot()
+        plt.show()
+
+
+    #### segment time
+    time_pre = 0
+    time_post = .5
+    time_list = ['pre', 'inst', 'post']
+    times_pre = dfc_suj['times'].values[np.where(dfc_suj['times'].data < time_pre)[0]]
+    times_inst = dfc_suj['times'].values[np.where((dfc_suj['times'].data > time_pre) & (dfc_suj['times'].data < time_post))[0]]
+    times_post = dfc_suj['times'].values[np.where(dfc_suj['times'].data > time_post)[0]]
+
+    if debug:
+        for pair_i in dfc_suj['roi'].data[:10]:
+            for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
+                dfc_suj.sel(trials=0, roi=pair_i, times=time_sel).mean().values
+                plt.plot(dfc_suj.sel(trials=0, roi=pair_i, times=time_sel).values)
+                plt.show()
+            
+
+    #### generate matrix
+    mat_dfc = np.zeros(( 3, len(chan_list[:-4]), len(chan_list[:-4]) ))
+    #pair_i = dfc_suj['roi'].values[0]
+    for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
+        for pair_i in dfc_suj['roi'].data:
+            pair_A, pair_B = pair_i.split('-')
+            pair_A_i, pair_B_i = chan_list.index(pair_A), chan_list.index(pair_B)
+            mat_dfc[time_sel_i, pair_A_i, pair_B_i] = dfc_suj.sel(trials=0, roi=pair_i, times=time_sel).max().values
+            mat_dfc[time_sel_i, pair_B_i, pair_A_i] = dfc_suj.sel(trials=0, roi=pair_i, times=time_sel).max().values
+
+
+    #### sorting
+    def sort_mat(mat):
+
+        mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
+        for i_before_sort_r, i_sort_r in enumerate(df_sorted.index.values):
+            for i_before_sort_c, i_sort_c in enumerate(df_sorted.index.values):
+                mat_sorted[i_sort_r,i_sort_c] = mat[i_before_sort_r,i_before_sort_c]
+
+        return mat_sorted
+
+    #### verify sorting
+    #mat = pli_allband_reduced.get(band).get(cond)
+    #mat_sorted = sort_mat(mat)
+    #plt.matshow(mat_sorted)
+    #plt.show()
+
+    #### prepare sort
+    df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+    chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+    chan_name_sorted_mat = []
+    rep_count = 0
+    for i, name_i in enumerate(chan_name_sorted):
+        if i == 0:
+            chan_name_sorted_mat.append(name_i)
+            continue
+        else:
+            if name_i == chan_name_sorted[i-(rep_count+1)]:
+                chan_name_sorted_mat.append('')
+                rep_count += 1
+                continue
+            if name_i != chan_name_sorted[i-(rep_count+1)]:
+                chan_name_sorted_mat.append(name_i)
+                rep_count = 0
+                continue
+
+
+    #### plot
+    fig, axs = plt.subplots(ncols=3)
+    for c in range(3):
+        ax = axs[c]
+        ax.set_title(time_list[c])
+        ax.matshow(sort_mat(mat_dfc[c, :, :]), vmin=np.min(dfc_suj.values), vmax=np.max(dfc_suj.values))
+        if c == 0:
+            ax.set_yticks(np.arange(len(chan_list[:-4])))
+            ax.set_yticklabels(chan_name_sorted_mat)
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
 
 
     dt = SubjectEphy(xr_sniff, roi='chan_list', times='times')
@@ -121,7 +295,7 @@ def process_sniff_connectivity():
     lag = 10
     win = 100
     t0 = np.arange(win, 1600, lag) #dt, 
-    gc = conn_covgc(dt, win, lag, t0, step=10, times='times', roi='roi', method='gauss', n_jobs=20)
+    gc = conn_covgc(dt, win, lag, t0, step=10, times='times', roi='roi', method='gauss', n_jobs=6)
     
     gc = gc.mean('trials')
 

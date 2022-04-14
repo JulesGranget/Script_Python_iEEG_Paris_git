@@ -279,7 +279,7 @@ def compute_stretch_tf_itpc_sniff(tf, cond, sniff_starts, srate):
 ################################
 
 
-def precompute_tf(cond, band_prep_list):
+def precompute_tf(sujet, cond, band_prep_list):
 
     print('TF PRECOMPUTE')
 
@@ -311,44 +311,16 @@ def precompute_tf(cond, band_prep_list):
             print('COMPUTE')
 
             #### select wavelet parameters
+            wavelets = get_wavelets(band_prep, freq)
+
             if band_prep == 'lf':
-                wavetime = np.arange(-2,2,1/srate)
                 nfrex = nfrex_lf
-                ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
-
             elif band_prep == 'hf':
-                wavetime = np.arange(-.5,.5,1/srate)
                 nfrex = nfrex_hf
-                ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
-
             elif band_prep == 'wb':
-                wavetime = np.arange(-2,2,1/srate)
                 nfrex = nfrex_wb
-                ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
 
-
-            #### compute wavelets
-            frex  = np.linspace(freq[0],freq[1],nfrex)
-            wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
-
-            # create Morlet wavelet family
-            for fi in range(0,nfrex):
-                
-                s = ncycle_list[fi] / (2*np.pi*frex[fi])
-                gw = np.exp(-wavetime**2/ (2*s**2)) 
-                sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
-                mw =  gw * sw
-
-                wavelets[fi,:] = mw
-                
-            # plot all the wavelets
-            if debug == True:
-                plt.pcolormesh(wavetime,frex,np.real(wavelets))
-                plt.xlabel('Time (s)')
-                plt.ylabel('Frequency (Hz)')
-                plt.title('Real part of wavelets')
-                plt.show()
-
+            #### compute
             os.chdir(path_memmap)
             tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(np.size(data,0), nfrex, np.size(data,1)))
 
@@ -404,7 +376,7 @@ def precompute_tf(cond, band_prep_list):
 
 
 
-def precompute_tf_itpc(cond, band_prep_list):
+def precompute_tf_itpc(sujet, cond, band_prep_list):
 
     print('ITPC PRECOMPUTE')
 
@@ -434,42 +406,14 @@ def precompute_tf_itpc(cond, band_prep_list):
             print(band, ' : ', freq)
 
             #### select wavelet parameters
+            wavelets = get_wavelets(band_prep, freq)
+
             if band_prep == 'lf':
-                wavetime = np.arange(-2,2,1/srate)
                 nfrex = nfrex_lf
-                ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
-
             elif band_prep == 'hf':
-                wavetime = np.arange(-.5,.5,1/srate)
                 nfrex = nfrex_hf
-                ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
-
             elif band_prep == 'wb':
-                wavetime = np.arange(-2,2,1/srate)
                 nfrex = nfrex_wb
-                ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
-
-            #### compute wavelets
-            frex  = np.linspace(freq[0],freq[1],nfrex)
-            wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
-
-            # create Morlet wavelet family
-            for fi in range(0,nfrex):
-                
-                s = ncycle_list[fi] / (2*np.pi*frex[fi])
-                gw = np.exp(-wavetime**2/ (2*s**2)) 
-                sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
-                mw =  gw * sw
-
-                wavelets[fi,:] = mw
-                
-            # plot all the wavelets
-            if debug == True:
-                plt.pcolormesh(wavetime,frex,np.real(wavelets))
-                plt.xlabel('Time (s)')
-                plt.ylabel('Frequency (Hz)')
-                plt.title('Real part of wavelets')
-                plt.show()
 
             #### compute itpc
             print('COMPUTE, STRETCH & ITPC')
@@ -536,6 +480,135 @@ def precompute_tf_itpc(cond, band_prep_list):
 
 
 
+####################################
+######### SNIFF CHUNKS ########
+####################################
+
+
+#tf, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate = tf_allchan, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate
+def compute_tf_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate):
+
+    def chunk_tf_n_chan(n_chan):
+
+        if n_chan/np.size(tf,0) % .2 <= .01:
+            print('{:.2f}'.format(n_chan/np.size(tf,0)))
+
+        stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
+
+        tf_sniff = np.zeros(( len(sniff_starts), np.size(tf,1), int(stretch_point_TF_sniff) ))
+
+        for fi in range(np.size(tf,1)):
+
+            x = tf[n_chan,fi,:]
+
+            for start_i, start_time in enumerate(sniff_starts):
+
+                t_start = int(start_time + t_start_SNIFF*srate)
+                t_stop = int(start_time + t_stop_SNIFF*srate)
+
+                tf_sniff[start_i, fi, :] = x[t_start: t_stop]
+
+        tf_sniff_mean = np.mean(tf_sniff, 1)
+
+        return tf_sniff_mean
+
+    chunk_tf_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(np.size(tf,0)))
+
+    stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
+    tf_sniff_allchan = np.zeros((np.size(tf,0), len(sniff_starts), stretch_point_TF_sniff))
+
+    for n_chan in range(np.size(tf,0)):
+        tf_sniff_allchan[n_chan,:,:] = chunk_tf_nchan_res[n_chan]
+
+    return tf_sniff_allchan
+
+
+def precompute_tf_sniff(sujet, cond, band_prep_list):
+
+    print('TF PRECOMPUTE')
+
+    cond = 'SNIFF'
+
+    respfeatures_allcond = load_respfeatures(sujet)
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
+
+    #### select prep to load
+    #band_prep = 'lf'
+    for band_prep in band_prep_list:
+
+        #### select data without aux chan
+        data = load_data(cond, band_prep=band_prep)
+
+        #### remove aux chan
+        data = data[:-4,:]
+
+        freq_band = freq_band_dict[band_prep] 
+
+        #band, freq = list(freq_band.items())[0]
+        for band, freq in freq_band.items():
+
+            os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+
+            if os.path.exists(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}.npy') == True :
+                print('ALREADY COMPUTED')
+                continue
+            
+            print(band, ' : ', freq)
+            print('COMPUTE')
+
+            #### select wavelet parameters
+            wavelets = get_wavelets(band_prep, freq)
+
+            if band_prep == 'lf':
+                nfrex = nfrex_lf
+            elif band_prep == 'hf':
+                nfrex = nfrex_hf
+            elif band_prep == 'wb':
+                nfrex = nfrex_wb
+
+            #### compute
+            os.chdir(path_memmap)
+            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(np.size(data,0), nfrex, np.size(data,1)))
+
+            def compute_tf_convolution_nchan(n_chan):
+
+                if n_chan/np.size(data,0) % .2 <= .01:
+                    print("{:.2f}".format(n_chan/np.size(data,0)))
+                x = data[n_chan,:]
+
+                tf = np.zeros((nfrex,np.size(x)))
+
+                for fi in range(nfrex):
+                    
+                    tf[fi,:] = abs(scipy.signal.fftconvolve(x, wavelets[fi,:], 'same'))**2 
+
+                tf_allchan[n_chan,:,:] = tf
+
+                return
+
+            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(np.size(data,0)))
+
+            #### stretch
+            print('CHUNK_SNIFF')
+            sniff_starts = get_sniff_starts(sujet)
+            tf_chunk_SNIFF = compute_tf_SNIFF(tf_allchan, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate)
+
+            #### save
+            print('SAVE')
+            os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+            np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}.npy', tf_chunk_SNIFF)
+            
+            os.chdir(path_memmap)
+            os.remove(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}_precompute_convolutions.dat')
+
+
+
+
+
+
+
+
+
 
 
 
@@ -554,11 +627,13 @@ if __name__ == '__main__':
         print(cond)
     
         #precompute_tf(session_eeg, cond, 0, band_prep_list)
-        execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf', [cond, band_prep_list])
+        execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf', [sujet, cond, band_prep_list])
         #precompute_tf_itpc(session_eeg, cond, 0, band_prep_list)
-        execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_itpc', [cond, band_prep_list])
+        execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_itpc', [sujet, cond, band_prep_list])
     
-
+    #### compute sniff chunks
+    #precompute_tf_sniff(sujet, 'SNIFF', band_prep_list)
+    execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_sniff', [sujet, 'SNIFF', band_prep_list])
 
 
 
