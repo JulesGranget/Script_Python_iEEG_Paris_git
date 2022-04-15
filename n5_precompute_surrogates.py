@@ -184,7 +184,7 @@ def check_precompute_status():
 
     to_compute = []
     #session_eeg, band_prep, cond, session_i = 0, band_prep_list[0], 'RD_FV', 0
-    for band_prep in band_prep_list:
+    for band_prep in ['lf']:
         for cond in ['FR_CV']:
             to_compute.append(f'{sujet}_{cond}_{band_prep}_Coh.npy')
     

@@ -329,46 +329,45 @@ def plot_save_PSD_Coh(n_chan):
     mask_hzCxy = (hzCxy>=freq_surrogates[0]) & (hzCxy<freq_surrogates[1])
     hzCxy = hzCxy[mask_hzCxy]
 
-    #band_prep = 'lf'
-    for band_prep in band_prep_list:
+    band_prep = 'lf'
 
-        fig, axs = plt.subplots(nrows=4, ncols=len(['FR_CV']))
-        plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
+    fig, axs = plt.subplots(nrows=4, ncols=len(['FR_CV']))
+    plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
+    
+    cond = 'FR_CV'
         
-        cond = 'FR_CV'
-            
-        #### plot
-        ax = axs[0]
-        ax.set_title(cond, fontweight='bold', rotation=0)
-        ax.semilogy(hzPxx,Pxx_allcond[band_prep][cond][0][n_chan,:], color='k')
-        ax.vlines(respi_mean, ymin=0, ymax=np.max(Pxx_allcond[band_prep][cond][0][n_chan,:]), color='r')
-        ax.set_xlim(0,60)
+    #### plot
+    ax = axs[0]
+    ax.set_title(cond, fontweight='bold', rotation=0)
+    ax.semilogy(hzPxx,Pxx_allcond[band_prep][cond][0][n_chan,:], color='k')
+    ax.vlines(respi_mean, ymin=0, ymax=np.max(Pxx_allcond[band_prep][cond][0][n_chan,:]), color='r')
+    ax.set_xlim(0,60)
 
-        ax = axs[1]
-        ax.plot(hzPxx[remove_zero_pad:],Pxx_allcond[band_prep][cond][0][n_chan,:][remove_zero_pad:], color='k')
-        ax.set_xlim(0, 2)
-        ax.vlines(respi_mean, ymin=0, ymax=np.max(Pxx_allcond[band_prep][cond][0][n_chan,:]), color='r')
+    ax = axs[1]
+    ax.plot(hzPxx[remove_zero_pad:],Pxx_allcond[band_prep][cond][0][n_chan,:][remove_zero_pad:], color='k')
+    ax.set_xlim(0, 2)
+    ax.vlines(respi_mean, ymin=0, ymax=np.max(Pxx_allcond[band_prep][cond][0][n_chan,:]), color='r')
 
-        ax = axs[2]
-        ax.plot(hzCxy,Cxy_allcond[cond][0][n_chan,:], color='k')
-        ax.plot(hzCxy,surrogates_allcond['Cxy'][cond][0][n_chan,:], color='c')
-        ax.vlines(respi_mean, ymin=0, ymax=1, color='r')
+    ax = axs[2]
+    ax.plot(hzCxy,Cxy_allcond[cond][0][n_chan,:], color='k')
+    ax.plot(hzCxy,surrogates_allcond['Cxy'][cond][0][n_chan,:], color='c')
+    ax.vlines(respi_mean, ymin=0, ymax=1, color='r')
 
-        ax = axs[3]
-        ax.plot(cyclefreq_allcond[band_prep][cond][0][n_chan,:], color='k')
-        ax.plot(surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][0, n_chan,:], color='b')
-        ax.plot(surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][1, n_chan,:], color='c', linestyle='dotted')
-        ax.plot(surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][2, n_chan,:], color='c', linestyle='dotted')
-        if stretch_TF_auto:
-            ax.vlines(prms['respi_ratio_allcond'][cond][0]*stretch_point_surrogates, ymin=np.min( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][2, n_chan,:] ), ymax=np.max( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][1, n_chan,:] ), colors='r')
-        else:
-            ax.vlines(ratio_stretch_TF*stretch_point_TF, ymin=np.min( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][2, n_chan,:] ), ymax=np.max( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][1, n_chan,:] ), colors='r') 
-        #plt.show()
-        
-        #### save
-        os.chdir(os.path.join(path_results, sujet, 'PSD_Coh', 'summary'))
-        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
-        plt.close()
+    ax = axs[3]
+    ax.plot(cyclefreq_allcond[band_prep][cond][0][n_chan,:], color='k')
+    ax.plot(surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][0, n_chan,:], color='b')
+    ax.plot(surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][1, n_chan,:], color='c', linestyle='dotted')
+    ax.plot(surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][2, n_chan,:], color='c', linestyle='dotted')
+    if stretch_TF_auto:
+        ax.vlines(prms['respi_ratio_allcond'][cond][0]*stretch_point_surrogates, ymin=np.min( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][2, n_chan,:] ), ymax=np.max( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][1, n_chan,:] ), colors='r')
+    else:
+        ax.vlines(ratio_stretch_TF*stretch_point_TF, ymin=np.min( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][2, n_chan,:] ), ymax=np.max( surrogates_allcond[f'cyclefreq_{band_prep}'][cond][0][1, n_chan,:] ), colors='r') 
+    #plt.show()
+    
+    #### save
+    os.chdir(os.path.join(path_results, sujet, 'PSD_Coh', 'summary'))
+    fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
+    plt.close()
 
     
 
@@ -513,7 +512,6 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
     prms = get_params(sujet)
     tf_stretch_allcond = get_tf_itpc_stretch_allcond(tf_mode)
     df_loca = get_loca_df(sujet)
-
 
     if tf_mode == 'TF':
         os.chdir(os.path.join(path_results, sujet, 'TF', 'summary'))

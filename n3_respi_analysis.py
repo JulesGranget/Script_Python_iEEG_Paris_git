@@ -411,9 +411,9 @@ if __name__ == '__main__':
 
     
     #### whole protocole
-    #sujet = 'pat_03083_1527'
-    #sujet = 'pat_03105_1551'
-    #sujet = 'pat_03128_1591'
+    # sujet = 'pat_03083_1527'
+    # sujet = 'pat_03105_1551'
+    # sujet = 'pat_03128_1591'
     sujet = 'pat_03138_1601'
 
 
@@ -487,7 +487,7 @@ if __name__ == '__main__':
     'smooth' : True,
 
     'baseline_with_average' : False,
-    'manual_baseline' : -.5,
+    'manual_baseline' : -.1,
 
     'high_pass_filter' : True,
     'constrain_frequency' : None,
@@ -529,7 +529,7 @@ if __name__ == '__main__':
     plt.show()
 
     #### modify
-    corrected_time_inspi = [5.02, 9.83, 18.17, 24.39, 30.33, 34.95, 40.70, 45.47, 51.72, 57.34, 63.12, 68.92, 73.67, 78.31, 83.38, 88.50, 94.06, 98.44, 103.85, 109.02, 114.40, 120.52, 125.85, 131.57, 137.85, 142.63, 148.17, 153.02, 158.46, 163.31, 168.45, 173.25, 177.87, 183.15, 189.13, 194.44, 199.45, 204.12, 209.08, 214.22, 219.02, 224.11, 228.65, 233.90, 239.36, 244.61, 249.75, 254.34, 258.99, 264.13, 269.04, 274.18, 279.01, 283.92, 289.07, 293.49, 298.35]
+    corrected_time_inspi = [3.02, 8.41, 12.38, 16.88, 20.89, 24.72, 28.73, 32.52, 36.03, 40.62, 44.84, 49.96, 54.39, 58.96, 63.36, 67.61, 72.46, 76.99, 81.85, 87.19, 91.68, 96.055, 100.08, 104.15, 108.31, 112.04, 116.43, 121.22, 124.49, 128.35, 131.69, 136.98, 142.06, 146.52, 152.43, 157.28, 161.52, 165.72, 170.50, 174.50, 178.29, 182.71, 187.40, 192.17, 196.91, 200.80, 205.45, 210.35, 215.62, 220.95, 225.58, 229.73, 233.61, 238.20, 243.16, 246.85, 250.14, 254.61, 258.34, 262.70, 267.10, 271.57, 275.80, 279.36, 284.22, 289.14, 294.19, 298.12]
     corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
     corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
     corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
@@ -587,7 +587,20 @@ if __name__ == '__main__':
 
         respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
-    #sujet = 'pat_03138_1601'
+    if sujet == 'pat_03138_1601':
+        cond, session_i = 'FR_CV', 0
+        corrected_time_inspi = [3.02, 8.41, 12.38, 16.88, 20.89, 24.72, 28.73, 32.52, 36.03, 40.62, 44.84, 49.96, 54.39, 58.96, 63.36, 67.61, 72.46, 76.99, 81.85, 87.19, 91.68, 96.055, 100.08, 104.15, 108.31, 112.04, 116.43, 121.22, 124.49, 128.35, 131.69, 136.98, 142.06, 146.52, 152.43, 157.28, 161.52, 165.72, 170.50, 174.50, 178.29, 182.71, 187.40, 192.17, 196.91, 200.80, 205.45, 210.35, 215.62, 220.95, 225.58, 229.73, 233.61, 238.20, 243.16, 246.85, 250.14, 254.61, 258.34, 262.70, 267.10, 271.57, 275.80, 279.36, 284.22, 289.14, 294.19, 298.12]
+        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
+        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
+        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
+        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
+        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
+        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
+        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+
+        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
+
+    
 
     ################################
     ######## SAVE FIG ########

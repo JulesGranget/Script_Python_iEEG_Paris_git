@@ -633,7 +633,7 @@ if __name__ == '__main__':
     
     #### compute sniff chunks
     #precompute_tf_sniff(sujet, 'SNIFF', band_prep_list)
-    execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_sniff', [sujet, 'SNIFF', band_prep_list])
+    #execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_sniff', [sujet, 'SNIFF', band_prep_list])
 
 
 

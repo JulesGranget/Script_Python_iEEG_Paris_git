@@ -111,6 +111,7 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC'))
     construct_token = create_folder('PLI', construct_token)
     construct_token = create_folder('ISPC', construct_token)
+    construct_token = create_folder('GCMI_DFC', construct_token)
 
                 #### PLI
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'PLI'))
