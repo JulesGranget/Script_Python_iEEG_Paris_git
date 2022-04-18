@@ -613,22 +613,7 @@ def get_wavelets(band_prep, freq):
 
         wavelets[fi,:] = mw
 
-    return wavelets
-
-
-def get_nfrex(band_prep):
-
-    if band_prep == 'wb':
-        nfrex = nfrex_lf
-
-    if band_prep == 'lf':
-        nfrex = nfrex_lf
-
-    if band_prep == 'hf':
-        nfrex = nfrex_hf
-
-    return nfrex
-
+    return wavelets, nfrex
 
 
 ########################################

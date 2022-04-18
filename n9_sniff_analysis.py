@@ -34,7 +34,7 @@ debug = False
 
 def process_sniff_ERP():
 
-    print('SNIFF COMPUTE')
+    print('######## SNIFF ERP ########')
 
     cond = 'SNIFF'
 
@@ -74,7 +74,7 @@ def process_sniff_ERP():
         ax.vlines(0, ymin=np.min(xr_sniff_mean.sel(chan_list=nchan).data) ,ymax=np.max(xr_sniff_mean.sel(chan_list=nchan).data), colors='r')
         ax.set_title(f'{sujet}_{nchan}_{chan_loca}')
         # plt.show()
-        fig.savefig(f'{sujet}_{nchan}_{chan_loca}.jpeg', dpi=600)
+        fig.savefig(f'{sujet}_{nchan}_{chan_loca}.jpeg', dpi=150)
         plt.close()
 
 
@@ -138,7 +138,7 @@ def process_sniff_connectivity():
 
     cond = 'SNIFF'
 
-    print('SNIFF COMPUTE')
+    print('######## SNIFF FC ########')
 
     #### load params
 
@@ -272,7 +272,7 @@ def process_sniff_connectivity():
 
     nrows, ncols = 1, 3
     fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(conditions_FC):
+    for cond_i, cond in enumerate(time_list):
         mne.viz.plot_connectivity_circle(sort_mat(mat_dfc[cond_i, :, :], index_sorted), node_names=chan_name_sorted_mat, n_lines=None, 
                                         title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
                                         vmin=np.min(mat_dfc), vmax=np.max(mat_dfc))
@@ -317,7 +317,7 @@ def process_sniff_connectivity():
 
     nrows, ncols = 1, 3
     fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(conditions_FC):
+    for cond_i, cond in enumerate(time_list):
         mne.viz.plot_connectivity_circle(sort_mat(mat_dfc_clean[cond_i, :, :], index_sorted), node_names=chan_name_sorted_mat, n_lines=None, 
                                         title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
                                         vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
@@ -391,7 +391,7 @@ def process_sniff_connectivity():
 
     nrows, ncols = 1, 3
     fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(conditions_FC):
+    for cond_i, cond in enumerate(time_list):
         mne.viz.plot_connectivity_circle(mat_dfc_mean[cond_i, :, :], node_names=roi_in_data, n_lines=None, 
                                         title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
                                         vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean))
@@ -433,7 +433,7 @@ def process_sniff_connectivity():
 
     nrows, ncols = 1, 3
     fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(conditions_FC):
+    for cond_i, cond in enumerate(time_list):
         mne.viz.plot_connectivity_circle(mat_dfc_clean[cond_i, :, :], node_names=roi_in_data, n_lines=None, 
                                         title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
                                         vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))

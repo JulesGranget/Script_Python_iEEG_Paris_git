@@ -311,14 +311,7 @@ def precompute_tf(sujet, cond, band_prep_list):
             print('COMPUTE')
 
             #### select wavelet parameters
-            wavelets = get_wavelets(band_prep, freq)
-
-            if band_prep == 'lf':
-                nfrex = nfrex_lf
-            elif band_prep == 'hf':
-                nfrex = nfrex_hf
-            elif band_prep == 'wb':
-                nfrex = nfrex_wb
+            wavelets, nfrex = get_wavelets(band_prep, freq)
 
             #### compute
             os.chdir(path_memmap)
@@ -406,14 +399,7 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
             print(band, ' : ', freq)
 
             #### select wavelet parameters
-            wavelets = get_wavelets(band_prep, freq)
-
-            if band_prep == 'lf':
-                nfrex = nfrex_lf
-            elif band_prep == 'hf':
-                nfrex = nfrex_hf
-            elif band_prep == 'wb':
-                nfrex = nfrex_wb
+            wavelets, nfrex = get_wavelets(band_prep, freq)
 
             #### compute itpc
             print('COMPUTE, STRETCH & ITPC')
@@ -557,14 +543,7 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
             print('COMPUTE')
 
             #### select wavelet parameters
-            wavelets = get_wavelets(band_prep, freq)
-
-            if band_prep == 'lf':
-                nfrex = nfrex_lf
-            elif band_prep == 'hf':
-                nfrex = nfrex_hf
-            elif band_prep == 'wb':
-                nfrex = nfrex_wb
+            wavelets, nfrex = get_wavelets(band_prep, freq)
 
             #### compute
             os.chdir(path_memmap)

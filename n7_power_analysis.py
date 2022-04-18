@@ -366,7 +366,7 @@ def plot_save_PSD_Coh(n_chan):
     
     #### save
     os.chdir(os.path.join(path_results, sujet, 'PSD_Coh', 'summary'))
-    fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
+    fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=150)
     plt.close()
 
     
@@ -426,7 +426,7 @@ def compute_TF_ITPC(prms):
 
             for cond in conditions_compute_TF:
 
-                tf_stretch_onecond = {}
+                tf_stretch_allcond[band_prep][cond] = {}
 
                 #### generate file to load
                 load_file = []
@@ -438,7 +438,7 @@ def compute_TF_ITPC(prms):
 
                 #### impose good order in dict
                 for band, freq in freq_band_dict[band_prep].items():
-                    tf_stretch_onecond[band] = 0
+                    tf_stretch_allcond[band_prep][cond][band] = 0
 
                 #### file load
                 for file in load_file:
@@ -446,18 +446,17 @@ def compute_TF_ITPC(prms):
                     for i, (band, freq) in enumerate(freq_band_dict[band_prep].items()):
 
                         if file.find(freq_band_str[band]) != -1:
-                            tf_stretch_onecond[band] = np.load(file)
+                            tf_stretch_allcond[band_prep][cond][band] = np.load(file)
                         else:
                             continue
                             
-                tf_stretch_allcond[band_prep][cond] = tf_stretch_onecond
-
 
         #### verif
-        for cond in conditions_compute_TF:
-            for band, freq in freq_band_dict[band_prep].items():
-                if len(tf_stretch_allcond[band_prep][cond][band]) != len(prms['chan_list_ieeg']) :
-                    print('ERROR FREQ BAND : ' + band)
+        for band_prep in band_prep_list:
+            for cond in conditions_compute_TF:
+                for band, freq in freq_band_dict[band_prep].items():
+                    if tf_stretch_allcond[band_prep][cond][band].shape[0] != len(prms['chan_list_ieeg']) :
+                        print('ERROR FREQ BAND : ' + band)
                     
         #### save
         if tf_mode == 'TF':
@@ -510,7 +509,6 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
 
     #### load data
     prms = get_params(sujet)
-    tf_stretch_allcond = get_tf_itpc_stretch_allcond(tf_mode)
     df_loca = get_loca_df(sujet)
 
     if tf_mode == 'TF':
@@ -539,7 +537,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
             if band == 'whole' or band == 'l_gamma':
                 continue
 
-            data = tf_stretch_allcond[band_prep][cond][band][n_chan, :, :]
+            data = get_tf_itpc_stretch_allcond(tf_mode)[band_prep][cond][band][n_chan, :, :]
             frex = np.linspace(freq[0], freq[1], np.size(data,0))
 
             scales['vmin_val'] = np.append(scales['vmin_val'], np.min(data))
@@ -576,7 +574,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
         #### plot
         for i, (band, freq) in enumerate(freq_band.items()) :
 
-            data = tf_stretch_allcond[band_prep][cond][band][n_chan, :, :]
+            data = get_tf_itpc_stretch_allcond(tf_mode)[band_prep][cond][band][n_chan, :, :]
             frex = np.linspace(freq[0], freq[1], np.size(data,0))
         
             if len(conditions_allsubjects) == 1:
@@ -618,7 +616,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
     #plt.show()
 
     #### save
-    fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=600)
+    fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=150)
     plt.close()
 
 
@@ -629,7 +627,7 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
 ######## COMPILATION FUNCTION ########
 ########################################
 
-def compilation_compute_Pxx_Cxy_Cyclefreq():
+def compilation_compute_Pxx_Cxy_Cyclefreq(sujet):
     
     prms = get_params(sujet)
     respfeatures_allcond = load_respfeatures(sujet)
@@ -646,7 +644,7 @@ def compilation_compute_Pxx_Cxy_Cyclefreq():
 
     
 
-def compilation_compute_TF_ITPC():
+def compilation_compute_TF_ITPC(sujet):
 
     prms = get_params(sujet)
 
@@ -679,10 +677,10 @@ if __name__ == '__main__':
 
     
     #### Pxx Cxy CycleFreq
-    #compilation_compute_Pxx_Cxy_Cyclefreq()
-    execute_function_in_slurm_bash('n7_power_analysis', 'compilation_compute_Pxx_Cxy_Cyclefreq', [])
+    #compilation_compute_Pxx_Cxy_Cyclefreq(sujet)
+    execute_function_in_slurm_bash('n7_power_analysis', 'compilation_compute_Pxx_Cxy_Cyclefreq', [sujet])
 
 
     #### TF & ITPC
-    #compilation_compute_TF_ITPC(session_eeg_i)
-    execute_function_in_slurm_bash('n7_power_analysis', 'compilation_compute_TF_ITPC', [])
+    #compilation_compute_TF_ITPC(sujet)
+    execute_function_in_slurm_bash('n7_power_analysis', 'compilation_compute_TF_ITPC', [sujet])

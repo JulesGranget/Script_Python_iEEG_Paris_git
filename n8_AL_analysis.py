@@ -54,44 +54,7 @@ def precompute_tf(cond, session_i, band_prep_list):
             print('COMPUTE')
 
             #### select wavelet parameters
-            if band_prep == 'lf':
-                wavetime = np.arange(-2,2,1/srate)
-                nfrex = nfrex_lf
-                ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
-
-            elif band_prep == 'hf':
-                wavetime = np.arange(-.5,.5,1/srate)
-                nfrex = nfrex_hf
-                ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
-
-            elif band_prep == 'wb':
-                wavetime = np.arange(-2,2,1/srate)
-                nfrex = nfrex_wb
-                ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
-
-
-            #### compute wavelets
-            frex  = np.linspace(freq[0],freq[1],nfrex)
-            wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
-
-            # create Morlet wavelet family
-            for fi in range(0,nfrex):
-                
-                s = ncycle_list[fi] / (2*np.pi*frex[fi])
-                gw = np.exp(-wavetime**2/ (2*s**2)) 
-                sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
-                mw =  gw * sw
-
-                wavelets[fi,:] = mw
-                
-            # plot all the wavelets
-            if debug == True:
-                plt.pcolormesh(wavetime,frex,np.real(wavelets))
-                plt.xlabel('Time (s)')
-                plt.ylabel('Frequency (Hz)')
-                plt.title('Real part of wavelets')
-                plt.show()
-
+            wavelets, nfrex = get_wavelets(band_prep, freq)
 
             def compute_tf_convolution_nchan(n_chan):
 
@@ -207,7 +170,7 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             #### save
             os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
-            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}.jpeg', dpi=600)
+            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}.jpeg', dpi=150)
             plt.close()
 
             
