@@ -11,7 +11,7 @@ import neo
 import scipy.io
 import xarray as xr
 
-from n0_config import *
+from n0_config_params import *
 
 debug = False
 

@@ -9,8 +9,8 @@ import pandas as pd
 import respirationtools
 import joblib
 
-from n0_config import *
-from n0bis_analysis_functions import *
+from n0_config_params import *
+from n0bis_config_analysis_functions import *
 
 debug = False
 
@@ -173,6 +173,8 @@ def precompute_tf(cond, session_i, band_prep_list):
             fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}.jpeg', dpi=150)
             plt.close()
 
+            print('done')
+
             
 
 
@@ -190,6 +192,8 @@ def precompute_tf(cond, session_i, band_prep_list):
 
 if __name__ == '__main__':
 
+    #### NEED BASELINES
+
     #### load n_session
     cond = 'AL'
     n_session = len(load_data(cond, band_prep=band_prep_list[0]))
@@ -198,7 +202,7 @@ if __name__ == '__main__':
     #session_i = 0
     for session_i in range(n_session):
         #precompute_tf(cond, session_i, band_prep_list)
-        execute_function_in_slurm_bash('n8_AL_analysis', 'precompute_tf', [cond, session_i, band_prep_list])
+        execute_function_in_slurm_bash('n11_AL_analysis', 'precompute_tf', [cond, session_i, band_prep_list])
         
 
 

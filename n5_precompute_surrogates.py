@@ -9,8 +9,8 @@ import mne
 import pandas as pd
 import respirationtools
 
-from n0_config import *
-from n0bis_analysis_functions import *
+from n0_config_params import *
+from n0bis_config_analysis_functions import *
 
 import joblib
 
@@ -104,6 +104,8 @@ def precompute_surrogates_coh(sujet, band_prep, cond):
 
     np.save(f'{sujet}_{cond}_Coh.npy', surrogates_n_chan)
 
+    print('done')
+
 
 
 #band_prep, session_eeg, cond, session_i = 'wb', 0, 'FR_CV', 0
@@ -169,6 +171,8 @@ def precompute_surrogates_cyclefreq(sujet, band_prep, cond):
         surrogates_n_chan[2,n_chan,:] = compute_surrogates_cyclefreq_results[n_chan][2]
     
     np.save(f'{sujet}_{cond}_cyclefreq_{band_prep}.npy', surrogates_n_chan)
+
+    print('done')
 
 
 

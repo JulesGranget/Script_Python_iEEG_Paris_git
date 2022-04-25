@@ -17,8 +17,8 @@ from frites.workflow import WfMi
 from frites.conn import define_windows
 
 
-from n0_config import *
-from n0bis_analysis_functions import *
+from n0_config_params import *
+from n0bis_config_analysis_functions import *
 
 debug = False
 
@@ -134,6 +134,91 @@ def zscore(sig):
     return sig_clean
 
 
+
+def reduce_functionnal_mat(mat, df_sorted):
+
+    index_sorted = df_sorted.index.values
+    chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+    #### which roi in data
+    roi_in_data = []
+    rep_count = 0
+    for i, name_i in enumerate(chan_name_sorted):
+        if i == 0:
+            roi_in_data.append(name_i)
+            continue
+        else:
+            if name_i == chan_name_sorted[i-(rep_count+1)]:
+                rep_count += 1
+                continue
+            if name_i != chan_name_sorted[i-(rep_count+1)]:
+                roi_in_data.append(name_i)
+                rep_count = 0
+                continue
+
+    #### compute index
+    pairs_possible = []
+    for pair_A_i, pair_A in enumerate(roi_in_data):
+        for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+            if pair_A == pair_B:
+                continue
+            pairs_possible.append(f'{pair_A}-{pair_B}')
+            
+    indexes_to_compute = {}
+    for pair_i, pair_name in enumerate(pairs_possible):    
+        pair_A, pair_B = pair_name.split('-')[0], pair_name.split('-')[-1]
+        x_to_mean = [i for i, roi in enumerate(chan_name_sorted) if roi == pair_A]
+        y_to_mean = [i for i, roi in enumerate(chan_name_sorted) if roi == pair_B]
+        
+        coord = []
+        for x_i in x_to_mean:
+            for y_i in y_to_mean:
+                if x_i == y_i:
+                    continue
+                else:
+                    coord.append([x_i, y_i])
+                    coord.append([y_i, x_i])
+
+        indexes_to_compute[pair_name] = coord
+
+    #### reduce mat
+    mat_reduced = np.zeros((len(roi_in_data), len(roi_in_data) ))
+
+    for roi_i_x, roi_name_x in enumerate(roi_in_data):        
+        for roi_i_y, roi_name_y in enumerate(roi_in_data):
+            if roi_name_x == roi_name_y:
+                continue
+            else:
+                pair_i = f'{roi_name_x}-{roi_name_y}'
+                if (pair_i in indexes_to_compute) == False:
+                    pair_i = f'{roi_name_y}-{roi_name_x}'
+                pair_i_data = []
+                for coord_i in indexes_to_compute[pair_i]:
+                    pair_i_data.append(mat[coord_i[0],coord_i[-1]])
+                mat_reduced[roi_i_x, roi_i_y] = np.mean(pair_i_data)
+
+    #### verif
+    if debug:
+        mat_test = np.zeros(( len(chan_name_sorted), len(chan_name_sorted) )) 
+        for roi_i, roi_name in enumerate(pairs_possible): 
+            i_test = indexes_to_compute[roi_name]
+            for pixel in i_test:
+                mat_test[pixel[0],pixel[-1]] = 1
+
+        plt.matshow(mat_test)
+        plt.show()
+
+    return mat_reduced
+
+
+
+
+
+
+
+
+
+
 def process_sniff_connectivity():
 
     cond = 'SNIFF'
@@ -171,7 +256,6 @@ def process_sniff_connectivity():
     xr_sniff['chan_list'] = df_loca['ROI'].values
 
     #### params for dfc
-
     slwin_len = .5    # in sec
     slwin_step = .5*.1  # in sec
     win_sample = define_windows(times, slwin_len=slwin_len, slwin_step=slwin_step)[0]
@@ -184,14 +268,27 @@ def process_sniff_connectivity():
 
     dfc_mean = xr.concat(dfc, 'trials').groupby('trials').mean('trials')
 
+    if debug:
+        plt.matshow(dfc_mean[0,:100,:])
+        plt.show()
+
+
+
+
+
+
+
+    #### SEGMENT PERIODS ####  
 
     #### segment time
-    time_pre = 0
-    time_post = .5
+    time_pre = -0.5
+    time_inspi = 0
+    time_post = 0.5
+    time_final = 1
     time_list = ['pre', 'inst', 'post']
-    times_pre = dfc_mean['times'].values[np.where(dfc_mean['times'].data < time_pre)[0]]
-    times_inst = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_pre) & (dfc_mean['times'].data < time_post))[0]]
-    times_post = dfc_mean['times'].values[np.where(dfc_mean['times'].data > time_post)[0]]
+    times_pre = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_pre) & (dfc_mean['times'].data < time_inspi))[0]]
+    times_inst = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_inspi) & (dfc_mean['times'].data < time_post))[0]]
+    times_post = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_post) & (dfc_mean['times'].data < time_final))[0]]
 
     if debug:
         for pair_i in dfc_mean['roi'].data[:10]:
@@ -331,11 +428,16 @@ def process_sniff_connectivity():
 
 
 
+
+
+
+
     #### mean with reduced ROI 
     df_sorted = df_loca.sort_values(['lobes', 'ROI'])
     index_sorted = df_sorted.index.values
     chan_name_sorted = df_sorted['ROI'].values.tolist()
 
+    #### identify roi in data
     roi_in_data = []
     rep_count = 0
     for i, name_i in enumerate(chan_name_sorted):
@@ -351,30 +453,34 @@ def process_sniff_connectivity():
                 rep_count = 0
                 continue
 
+    #### compute index
+    pairs_possible = []
+    for pair_A_i, pair_A in enumerate(roi_in_data):
+        for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+            if pair_A == pair_B:
+                continue
+            pairs_possible.append(f'{pair_A}-{pair_B}')
+            
+
+
+    #### reduce mat
     mat_dfc_mean = np.zeros(( 3, len(roi_in_data), len(roi_in_data) ))
 
     for chunk_i in range(3):
 
         mat_df_sorted = sort_mat(mat_dfc[chunk_i, :, :], index_sorted)
-        
-        indexes_to_compute = {}
-        for roi_i, roi_name in enumerate(roi_in_data):        
-            i_to_mean = [i for i, roi in enumerate(chan_name_sorted) if roi == roi_name]
-            indexes_to_compute[roi_name] = i_to_mean
-            
-        for roi_i_x, roi_name_x in enumerate(roi_in_data):        
-            roi_chunk_dfc = mat_df_sorted[indexes_to_compute[roi_name_x],:]
-            roi_chunk_dfc_mean = np.mean(roi_chunk_dfc, 0)
-            coeff_i = []
-            for roi_i_y, roi_name_y in enumerate(roi_in_data):
-                if roi_name_x == roi_name_y:
-                    coeff_i.append(0)
-                    continue
-                else:
-                    coeff_i.append( np.mean(roi_chunk_dfc_mean[indexes_to_compute[roi_name_y]]) )
-            coeff_i = np.array(coeff_i)
-            mat_dfc_mean[chunk_i, roi_i_x,:] = coeff_i
 
+        mat_dfc_mean[chunk_i, :, :] = reduce_functionnal_mat(mat_df_sorted, df_sorted)
+            
+
+
+    #### verif
+    if debug:
+        plt.matshow(mat_dfc_mean[2])
+        plt.show()
+
+        plt.matshow(mat_dfc_mean[2] - mat_dfc_mean[1])
+        plt.show()
 
     #### plot with reduced ROI
     fig, axs = plt.subplots(ncols=3, figsize=(15,15))
@@ -448,6 +554,69 @@ def process_sniff_connectivity():
 
 
 
+
+    #### ERP CONNECTIVITY ####
+    #### generate mat results
+    pairs_possible = []
+    for pair_A_i, pair_A in enumerate(roi_in_data):
+        if pair_A == 'WM':
+            continue
+        for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+            if pair_A == pair_B:
+                continue
+            if pair_B == 'WM':
+                continue
+
+            pairs_possible.append(f'{pair_A}-{pair_B}')
+
+
+    mat_dfc_time = np.zeros(( len(pairs_possible), dfc_mean.shape[-1] ))
+
+    #### fill mat
+    name_modified = np.array([])
+    count_pairs = np.zeros(( len(pairs_possible) ))
+    for pair_i in dfc_mean['roi'].data:
+        pair_A, pair_B = pair_i.split('-')
+        pair_A_name, pair_B_name = df_loca['ROI'][df_loca['name'] == pair_A].values[0], df_loca['ROI'][df_loca['name'] == pair_B].values[0]
+        pair_name_i = f'{pair_A_name}-{pair_B_name}'
+        name_modified = np.append(name_modified, pair_name_i)
+    
+    for pair_name_i, pair_name in enumerate(pairs_possible):
+        pair_name_inv = f"{pair_name.split('-')[-1]}-{pair_name.split('-')[0]}"
+        mask = (name_modified == pair_name) | (name_modified == pair_name_inv)
+        count_pairs[pair_name_i] = int(np.sum(mask))
+        mat_dfc_time[pair_name_i,:] = np.mean(dfc_mean.data[0,mask,:], axis=0)
+
+
+
+
+    #### plot and save fig
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC'))
+
+    times = dfc_mean['times'].values
+    for pair_i, pair_name in enumerate(pairs_possible):
+
+        fig = plt.figure()
+        plt.plot(times, mat_dfc_time[pair_i,:])
+        plt.ylim(mat_dfc_time[:,:].min(), mat_dfc_time[:,:].max())
+        plt.vlines(0, ymin=mat_dfc_time[:,:].min() ,ymax=mat_dfc_time[:,:].max(), color='r')
+        plt.title(f'{pair_name} count : {count_pairs[pair_i]}')
+        plt.show()
+        
+        fig.savefig((f'{sujet}_GCMI_alltime_{pair_name}.png'))
+
+        plt.close()
+    
+    #### all plot
+    if debug:
+
+        for pair_i, pair_name in enumerate(pairs_possible):
+
+            plt.plot(times, mat_dfc_time[pair_i,:], label=pair_name)
+
+        plt.vlines(0, ymin=mat_dfc_time[:,:].min() ,ymax=mat_dfc_time[:,:].max(), color='r')
+        plt.legend()
+        plt.show()
 
 
 

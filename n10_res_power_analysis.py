@@ -10,8 +10,8 @@ import respirationtools
 import joblib
 import pickle
 
-from n0_config import *
-from n0bis_analysis_functions import *
+from n0_config_params import *
+from n0bis_config_analysis_functions import *
 
 
 debug = False
@@ -678,9 +678,9 @@ if __name__ == '__main__':
     
     #### Pxx Cxy CycleFreq
     #compilation_compute_Pxx_Cxy_Cyclefreq(sujet)
-    execute_function_in_slurm_bash('n7_power_analysis', 'compilation_compute_Pxx_Cxy_Cyclefreq', [sujet])
+    execute_function_in_slurm_bash('n10_power_analysis', 'compilation_compute_Pxx_Cxy_Cyclefreq', [sujet])
 
 
     #### TF & ITPC
     #compilation_compute_TF_ITPC(sujet)
-    execute_function_in_slurm_bash('n7_power_analysis', 'compilation_compute_TF_ITPC', [sujet])
+    execute_function_in_slurm_bash('n10_power_analysis', 'compilation_compute_TF_ITPC', [sujet])

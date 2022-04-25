@@ -12,7 +12,7 @@ import sys
 import stat
 import xarray as xr
 
-from n0_config import *
+from n0_config_params import *
 
 
 debug = False
@@ -684,6 +684,7 @@ def get_all_respi_ratio(sujet):
             elif len(respfeatures_allcond[cond]) > 1:
 
                 data_to_short = []
+                data_to_short_count = 0
 
                 for session_i in range(len(respfeatures_allcond[cond])):   
                     
@@ -698,12 +699,13 @@ def get_all_respi_ratio(sujet):
                         mean_cycle_duration = np.mean(respfeatures_allcond[cond][session_i][['insp_duration', 'exp_duration']].values, axis=0)
                         mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
 
-                        data_replace = [(data_to_short[0] + mean_inspi_ratio) / 2]
+                        data_replace = [(data_to_short[0] + mean_inspi_ratio)]
+                        data_to_short_count += 1
 
                         data_to_short = data_replace.copy()
                 
                 # to put in list
-                respi_ratio_allcond[cond] = data_to_short 
+                respi_ratio_allcond[cond] = data_to_short / data_to_short_count
 
     return respi_ratio_allcond
 

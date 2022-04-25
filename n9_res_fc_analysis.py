@@ -10,11 +10,10 @@ import mne
 import pandas as pd
 import respirationtools
 import joblib
-from sympy import subsets
 
 
-from n0_config import *
-from n0bis_analysis_functions import *
+from n0_config_params import *
+from n0bis_config_analysis_functions import *
 
 
 debug = False
@@ -224,6 +223,7 @@ def compute_pli_ispc_allband(sujet):
                 print(band, cond, len(pli_allband[band][cond]))
                 print(band, cond, len(ispc_allband[band][cond]))
 
+    print('done')
 
 
 
@@ -624,16 +624,6 @@ def save_fig_for_allsession(sujet):
 
 if __name__ == '__main__':
 
-    #### params
-    compute_metrics = True
-    plot_fig = False
-
-    #### compute fc metrics
-    if compute_metrics:
-        #compute_pli_ispc_allband(sujet)
-        execute_function_in_slurm_bash('n10_fc_analysis', 'compute_pli_ispc_allband', [sujet])
 
     #### save fig
-    if plot_fig:
-
-        save_fig_for_allsession(sujet)
+    save_fig_for_allsession(sujet)

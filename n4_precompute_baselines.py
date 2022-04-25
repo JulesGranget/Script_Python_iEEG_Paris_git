@@ -10,8 +10,8 @@ import mne
 import pandas as pd
 import joblib
 
-from n0_config import *
-from n0bis_analysis_functions import *
+from n0_config_params import *
+from n0bis_config_analysis_functions import *
 
 debug = False
 
@@ -158,6 +158,8 @@ def compute_and_save_baseline(sujet_i, band_prep):
     #### remove memmap
     os.chdir(path_memmap)
     os.remove(f'{sujet_i}_baseline_convolutions_{band_prep}.dat')
+
+    print('done')
 
 
 

@@ -19,8 +19,8 @@ import scipy.signal
 ################################
 
 #### whole protocole
-sujet = 'pat_03083_1527'
-# sujet = 'pat_03105_1551'
+# sujet = 'pat_03083_1527'
+sujet = 'pat_03105_1551'
 # sujet = 'pat_03128_1591'
 # sujet = 'pat_03138_1601'
 
@@ -42,7 +42,7 @@ conditions_allsubjects = ['FR_CV', 'SNIFF', 'AL', 'AC']
 
 conditions_compute_TF = ['FR_CV', 'AC', 'SNIFF']
 
-conditions_FC = ['FR_CV', 'AL', 'AC']
+conditions_FC = ['FR_CV']
 
 band_prep_list = ['lf', 'hf']
 freq_band_list = [{'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]}, {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}]
@@ -217,8 +217,8 @@ t_start_SNIFF = -1.5
 t_stop_SNIFF = 2
 
 
-t_start_AC = -1.5
-t_stop_AC = 12
+t_start_AC = -5
+t_stop_AC = 15
 
 
 
