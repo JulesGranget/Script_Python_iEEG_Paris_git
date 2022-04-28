@@ -163,69 +163,6 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
     
 
-    
-
-
-
-
-#session_eeg=0
-def compute_pli_ispc_allband(sujet):
-
-    #### get params
-    prms = get_params(sujet)
-
-    #### compute
-    pli_allband = {}
-    ispc_allband = {}
-
-    #band_prep_i, band_prep = 0, 'lf'
-    for band_prep_i, band_prep in enumerate(band_prep_list):
-
-        #band, freq = 'theta', [2, 10]
-        for band, freq in freq_band_dict_FC[band_prep].items():
-
-            if band == 'whole' :
-
-                continue
-
-            else: 
-
-                pli_allcond = {}
-                ispc_allcond = {}
-
-                #cond_i, cond = 0, 'FR_CV'
-                for cond_i, cond in enumerate(conditions_FC) :
-
-                    print(band, cond)
-
-                    pli_mat, ispc_mat = compute_fc_metrics_mat(band_prep, freq, band, cond, prms)
-                    pli_allcond[cond] = [pli_mat]
-                    ispc_allcond[cond] = [ispc_mat]
-
-
-                pli_allband[band] = pli_allcond
-                ispc_allband[band] = ispc_allcond
-
-    #### verif mat
-    if debug:
-        for band in pli_allband.keys():
-            for cond in pli_allband[band].keys():
-                plt.matshow(pli_allband[band][cond][0])
-                plt.show()
-    #### verif
-
-    if debug == True:
-                
-        for band, freq in freq_band_fc_analysis.items():
-
-            for cond_i, cond in enumerate(conditions_FC) :
-
-                print(band, cond, len(pli_allband[band][cond]))
-                print(band, cond, len(ispc_allband[band][cond]))
-
-    print('done')
-
-
 
 
 
@@ -327,12 +264,6 @@ def get_pli_ispc_allsession(sujet):
 
 
     return pli_allband_reduced, ispc_allband_reduced
-
-
-
-
-
-
 
 
 
