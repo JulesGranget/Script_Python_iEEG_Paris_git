@@ -240,5 +240,5 @@ if __name__ == '__main__':
 
 
     #compute_pli_ispc_allband(sujet)
-    execute_function_in_slurm_bash('n7_fc_analysis', 'compute_pli_ispc_allband', [sujet])
+    execute_function_in_slurm_bash('n7_precompute_fc', 'compute_pli_ispc_allband', [sujet])
 

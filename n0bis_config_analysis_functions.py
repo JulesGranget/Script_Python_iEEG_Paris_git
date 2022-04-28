@@ -19,6 +19,29 @@ debug = False
 
 
 
+
+########################
+######## DEBUG ########
+########################
+
+
+def debug_memory():
+
+    def sizeof_fmt(num, suffix='B'):
+        ''' by Fred Cirera,  https://stackoverflow.com/a/1094933/1870254, modified'''
+        for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+            if abs(num) < 1024.0:
+                return "%3.1f %s%s" % (num, unit, suffix)
+            num /= 1024.0
+        return "%.1f %s%s" % (num, 'Yi', suffix)
+
+    for name, size in sorted(((name, sys.getsizeof(value)) for name, value in locals().items()),
+                            key= lambda x: -x[1])[:10]:
+        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
+
+
+
+
 ########################################
 ######## GENERATE FOLDERS ########
 ########################################
@@ -60,6 +83,7 @@ def generate_folder_structure(sujet):
         #### precompute
     os.chdir(os.path.join(path_general, 'Analyses', 'precompute'))
     construct_token = create_folder(sujet, construct_token)
+    construct_token = create_folder('allplot', construct_token)
     os.chdir(os.path.join(path_general, 'Analyses', 'precompute', sujet))
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('TF', construct_token)
@@ -74,6 +98,25 @@ def generate_folder_structure(sujet):
         #### results
     os.chdir(os.path.join(path_general, 'Analyses', 'results'))
     construct_token = create_folder(sujet, construct_token)
+    construct_token = create_folder('allplot', construct_token)
+
+            #### allplot
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot'))
+    construct_token = create_folder('TF', construct_token)
+    construct_token = create_folder('ITPC', construct_token)
+    construct_token = create_folder('anatomy', construct_token)
+                
+                #### TF
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'TF'))
+    construct_token = create_folder('Lobes', construct_token)
+    construct_token = create_folder('ROI', construct_token)
+                
+                ####ITPC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'ITPC'))
+    construct_token = create_folder('Lobes', construct_token)
+    construct_token = create_folder('ROI', construct_token)
+
+        #### results
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet))
     construct_token = create_folder('RESPI', construct_token)
     construct_token = create_folder('TF', construct_token)
@@ -486,16 +529,21 @@ def load_data(cond, band_prep=None):
 
     return data
 
-
+#band_prep, cond, session_i = 'lf', cond, 0
 def load_data_sujet(sujet_tmp, band_prep, cond, session_i):
 
     path_source = os.getcwd()
     
     os.chdir(os.path.join(path_prep, sujet_tmp, 'sections'))
 
+    if cond == 'SNIFF':
+        cond_search = 'SNIFF_session'
+    else:
+        cond_search = cond
+
     load_i = []
     for i, session_name in enumerate(os.listdir()):
-        if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
+        if ( session_name.find(cond_search) != -1 ) & ( session_name.find(band_prep) != -1 ):
             load_i.append(i)
         else:
             continue
@@ -514,6 +562,7 @@ def load_data_sujet(sujet_tmp, band_prep, cond, session_i):
     del raw
 
     return data
+
 
 def get_srate(sujet):
 

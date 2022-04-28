@@ -287,7 +287,7 @@ def precompute_tf(sujet, cond, band_prep_list):
     conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     #### select prep to load
-    #band_prep = 'lf'
+    #band_prep = 'hf'
     for band_prep in band_prep_list:
 
         #### select data without aux chan

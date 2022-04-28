@@ -173,7 +173,7 @@ def precompute_tf(cond, session_i, band_prep_list):
             fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}.jpeg', dpi=150)
             plt.close()
 
-            print('done')
+    print('done')
 
             
 
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     #session_i = 0
     for session_i in range(n_session):
         #precompute_tf(cond, session_i, band_prep_list)
-        execute_function_in_slurm_bash('n11_AL_analysis', 'precompute_tf', [cond, session_i, band_prep_list])
+        execute_function_in_slurm_bash('n8_precompute_AL_analysis', 'precompute_tf', [cond, session_i, band_prep_list])
         
 
 

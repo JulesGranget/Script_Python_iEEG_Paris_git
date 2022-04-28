@@ -177,5 +177,5 @@ if __name__== '__main__':
     
     #### slurm execution
     for band_prep in band_prep_list:
-        execute_function_in_slurm_bash('n4_baseline_computation', 'compute_and_save_baseline', [sujet, band_prep])
+        execute_function_in_slurm_bash('n4_precompute_baselines', 'compute_and_save_baseline', [sujet, band_prep])
 

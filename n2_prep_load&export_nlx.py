@@ -1,6 +1,5 @@
 
 
-from multiprocessing.sharedctypes import Value
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -452,10 +451,10 @@ if __name__ == '__main__':
     ################################
 
     #### whole protocole
-    sujet = 'pat_03083_1527'
-    #sujet = 'pat_03105_1551'
-    #sujet = 'pat_03128_1591'
-    #sujet = 'pat_03138_1601'
+    # sujet = 'pat_03083_1527'
+    # sujet = 'pat_03105_1551'
+    # sujet = 'pat_03128_1591'
+    sujet = 'pat_03138_1601'
 
     #### load data
     os.chdir(os.path.join(path_raw, sujet, 'raw_data', 'mat'))
@@ -550,11 +549,11 @@ if __name__ == '__main__':
     ################################
 
     #### choose preproc
-    band_prep = 'lf'
-    data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+    # band_prep = 'lf'
+    # data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
 
-    #band_prep = 'hf'
-    #data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+    band_prep = 'hf'
+    data_preproc = preprocessing_ieeg(raw_ieeg, prep_step_hf)
 
     #### verif
     if debug == True:

@@ -642,6 +642,8 @@ def compilation_compute_Pxx_Cxy_Cyclefreq(sujet):
 
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(plot_save_PSD_Coh)(n_chan) for n_chan in range(len(prms['chan_list_ieeg'])))
 
+    print('done')
+
     
 
 def compilation_compute_TF_ITPC(sujet):
@@ -662,7 +664,7 @@ def compilation_compute_TF_ITPC(sujet):
 
             joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(save_TF_ITPC_n_chan)(n_chan, tf_mode, band_prep) for n_chan, tf_mode, band_prep in zip(range(len(prms['chan_list_ieeg'])), [tf_mode]*len(prms['chan_list_ieeg']), [band_prep]*len(prms['chan_list_ieeg'])))
 
-
+    print('done')
 
 
 
@@ -678,9 +680,9 @@ if __name__ == '__main__':
     
     #### Pxx Cxy CycleFreq
     #compilation_compute_Pxx_Cxy_Cyclefreq(sujet)
-    execute_function_in_slurm_bash('n10_power_analysis', 'compilation_compute_Pxx_Cxy_Cyclefreq', [sujet])
+    execute_function_in_slurm_bash('n10_res_power_analysis', 'compilation_compute_Pxx_Cxy_Cyclefreq', [sujet])
 
 
     #### TF & ITPC
     #compilation_compute_TF_ITPC(sujet)
-    execute_function_in_slurm_bash('n10_power_analysis', 'compilation_compute_TF_ITPC', [sujet])
+    execute_function_in_slurm_bash('n10_res_power_analysis', 'compilation_compute_TF_ITPC', [sujet])

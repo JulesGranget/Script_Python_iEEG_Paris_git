@@ -20,8 +20,8 @@ import scipy.signal
 
 #### whole protocole
 # sujet = 'pat_03083_1527'
-sujet = 'pat_03105_1551'
-# sujet = 'pat_03128_1591'
+# sujet = 'pat_03105_1551'
+sujet = 'pat_03128_1591'
 # sujet = 'pat_03138_1601'
 
 
@@ -213,14 +213,12 @@ hrv_metrics_short_name = ['HRV_RMSSD', 'HRV_MeanNN', 'HRV_SDNN', 'HRV_pNN50', 'H
 ######## PARAMS ERP ########
 ########################################
 
-t_start_SNIFF = -1.5
-t_stop_SNIFF = 2
+t_start_SNIFF = -3
+t_stop_SNIFF = 3
 
 
 t_start_AC = -5
 t_stop_AC = 15
-
-
 
 
 
