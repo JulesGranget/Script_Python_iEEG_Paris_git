@@ -363,6 +363,92 @@ def execute_function_in_slurm_bash(name_script, name_function, params):
 
 
 
+#name_script, name_function, params = 'n9_fc_analysis', 'compute_pli_ispc_allband', [sujet]
+def execute_function_in_slurm_bash_mem_choice(name_script, name_function, params, mem_required):
+
+    scritp_path = os.getcwd()
+    
+    python = sys.executable
+
+    #### params to print in script
+    params_str = ""
+    for i, params_i in enumerate(params):
+        if isinstance(params_i, str):
+            str_i = f"'{params_i}'"
+        else:
+            str_i = str(params_i)
+
+        if i == 0 :
+            params_str = params_str + str_i
+        else:
+            params_str = params_str + ' , ' + str_i
+
+    #### params to print in script name
+    params_str_name = ''
+    for i, params_i in enumerate(params):
+
+        str_i = str(params_i)
+
+        if i == 0 :
+            params_str_name = params_str_name + str_i
+        else:
+            params_str_name = params_str_name + '_' + str_i
+
+    #### remove all txt that block name save
+    for txt_remove_i in ["'", "[", "]", "{", "}", ":", " ", ","]:
+        if txt_remove_i == " " or txt_remove_i == ",":
+            params_str_name = params_str_name.replace(txt_remove_i, '_')
+        else:
+            params_str_name = params_str_name.replace(txt_remove_i, '')
+    
+    #### script text
+    lines = [f'#! {python}']
+    lines += ['import sys']
+    lines += [f"sys.path.append('{path_main_workdir}')"]
+    lines += [f'from {name_script} import {name_function}']
+    lines += [f'{name_function}({params_str})']
+
+    cpus_per_task = n_core_slurms
+    mem = mem_crnl_cluster
+        
+    #### write script and execute
+    os.chdir(path_slurm)
+    slurm_script_name =  f"run__{name_function}__{params_str_name}.py" #add params
+        
+    with open(slurm_script_name, 'w') as f:
+        f.writelines('\n'.join(lines))
+        os.fchmod(f.fileno(), mode = stat.S_IRWXU)
+        f.close()
+    
+    #### script text
+    lines = ['#!/bin/bash']
+    lines += [f'#SBATCH --job-name={name_function}']
+    lines += [f'#SBATCH --output=%slurm_{name_function}_{params_str_name}.log']
+    lines += [f'#SBATCH --cpus-per-task={n_core_slurms}']
+    lines += [f'#SBATCH --mem={mem_required}']
+    lines += [f'srun {python} {os.path.join(path_slurm, slurm_script_name)}']
+        
+    #### write script and execute
+    slurm_bash_script_name =  f"bash__{name_function}__{params_str_name}.batch" #add params
+        
+    with open(slurm_bash_script_name, 'w') as f:
+        f.writelines('\n'.join(lines))
+        os.fchmod(f.fileno(), mode = stat.S_IRWXU)
+        f.close()
+
+    #### execute bash
+    print(f'#### slurm submission : from {name_script} execute {name_function}({params})')
+    subprocess.Popen(['sbatch', f'{slurm_bash_script_name}']) 
+
+    # wait subprocess to lauch before removing
+    #time.sleep(4)
+    #os.remove(slurm_script_name)
+    #os.remove(slurm_bash_script_name)
+
+    #### get back to original path
+    os.chdir(scritp_path)
+
+
 
 
 ############################
@@ -1010,24 +1096,23 @@ def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
         print('CONV')
 
         #nchan = 0
-        def convolution_x_wavelets_nchan(nchan):
+        def convolution_x_wavelets_nchan(nchan_i, nchan):
 
-            if nchan/np.size(data,0) % .25 <= .01:
-                print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+            # print_advancement(nchan_i, len(prms['chan_list_ieeg']), steps=[25, 50, 75])
             
             nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
 
-            x = data[nchan,:]
+            x = data[nchan_i,:]
 
             for fi in range(nfrex):
 
                 nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
 
-            convolutions[nchan,:,:] = nchan_conv
+            convolutions[nchan_i,:,:] = nchan_conv
 
             return
 
-        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan) for nchan in range(len(prms['chan_list_ieeg'])))
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan_i, nchan) for nchan_i, nchan in enumerate(prms['chan_list_ieeg']))
 
         #### free memory
         del data
@@ -1037,22 +1122,22 @@ def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
             t_start_epoch, t_stop_epoch = t_start_SNIFF, t_stop_SNIFF
         if cond == 'AC':
             t_start_epoch, t_stop_epoch = t_start_AC, t_stop_AC
-        
+
+        #### generate matrix epoch
+        os.chdir(path_memmap)
         stretch_point_TF_epoch = int(np.abs(t_start_epoch)*prms['srate'] +  t_stop_epoch*prms['srate'])
-        epochs = np.zeros(( len(prms['chan_list_ieeg']), len(epochs_starts), nfrex, stretch_point_TF_epoch ), dtype='complex')
+        epochs = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_fc_epochs.dat', dtype=np.complex128, mode='w+', shape=( len(prms['chan_list_ieeg']), len(epochs_starts), nfrex, stretch_point_TF_epoch ))
 
-        for nchan_i, nchan in enumerate(prms['chan_list_ieeg']):
-
+        def chunk_epochs_in_signal(nchan_i, nchan):
+            
             for epoch_i, epoch_time in enumerate(epochs_starts):
 
                 _t_start = epoch_time + int(t_start_epoch*prms['srate']) 
                 _t_stop = epoch_time + int(t_stop_epoch*prms['srate'])
 
                 epochs[nchan_i, epoch_i, :, :] = convolutions[nchan_i, :, _t_start:_t_stop]
-            
-        #### remove conv
-        os.chdir(path_memmap)
-        os.remove(f'{sujet}_{cond}_{band_prep}_{band}_fc_convolutions.dat')
+
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_epochs_in_signal)(nchan_i, nchan) for nchan_i, nchan in enumerate(prms['chan_list_ieeg']))
         
         #### identify roi in data
         df_loca = get_loca_df(sujet)
@@ -1093,18 +1178,16 @@ def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
         #### identify slwin
         slwin_len = slwin_dict[band]    # in sec
         slwin_step = slwin_len*slwin_step_coeff  # in sec
-        win_sample = frites.conn.define_windows(times, slwin_len=slwin_len, slwin_step=slwin_step)[0]
+        times_epoch = np.arange(t_start_epoch, t_stop_epoch, 1/prms['srate'])
+        win_sample = frites.conn.define_windows(times_epoch, slwin_len=slwin_len, slwin_step=slwin_step)[0]
         times = np.linspace(t_start_epoch, t_stop_epoch, len(win_sample))
 
         print('COMPUTE')   
 
         #pair_to_compute = pairs_to_compute[0]
-        def compute_ispc_pli(pair_to_compute):
+        def compute_ispc_pli(pair_to_compute_i, pair_to_compute):
 
-            pair_to_compute_i = pairs_to_compute.index(pair_to_compute)
-
-            if pair_to_compute_i/len(pairs_to_compute) % .25 <= .01:
-                print("{:.2f}".format(pair_to_compute_i/len(pairs_to_compute)))
+            # print_advancement(pair_to_compute_i, len(pairs_to_compute), steps=[25, 50, 75])
 
             pair_A, pair_B = pair_to_compute.split('-')[0], pair_to_compute.split('-')[-1]
             pair_A_i, pair_B_i = prms['chan_list_ieeg'].index(pair_A), prms['chan_list_ieeg'].index(pair_B)
@@ -1127,7 +1210,7 @@ def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
 
             return ispc_dfc_i, pli_dfc_i
 
-        compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(pair_to_compute) for pair_to_compute in pairs_to_compute)
+        compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(pair_to_compute_i, pair_to_compute) for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute))
         
         #### compute metrics
         pli_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
@@ -1140,8 +1223,12 @@ def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
             pli_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][1]
 
         #### free memory
-        del epochs
         del compute_ispc_pli_res
+
+        #### remove conv
+        os.chdir(path_memmap)
+        os.remove(f'{sujet}_{cond}_{band_prep}_{band}_fc_convolutions.dat')
+        os.remove(f'{sujet}_{cond}_{band_prep}_{band}_fc_epochs.dat')
         
         #### generate mat results
         mat_pli_time = np.zeros(( len(pairs_possible), pli_mat.shape[-1] ))
@@ -1167,14 +1254,32 @@ def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
         os.chdir(os.path.join(path_precompute, sujet, 'FC'))
         dict_xr_pli = {'mat_type' : ['pli', 'ispc'], 'pairs' : pairs_possible, 'times' : times}
         data_export = np.concatenate( [mat_pli_time.reshape(1, mat_pli_time.shape[0], mat_pli_time.shape[1]), 
-                                        mat_pli_time.reshape(1, mat_ispc_time.shape[0], mat_pli_time.shape[1])], axis=0 )
+                                        mat_ispc_time.reshape(1, mat_ispc_time.shape[0], mat_ispc_time.shape[1])], axis=0 )
         xr_export = xr.DataArray(data_export, coords=dict_xr_pli.values(), dims=dict_xr_pli.keys())
         xr_export.to_netcdf(f'{sujet}_DFC_pli_ispc_{band}_{cond}.nc')
 
 
 
+########################################
+######## SCRIPT ADVANCEMENT ########
+########################################
 
 
+def print_advancement(i, i_final, steps=[25, 50, 75]):
+
+    steps_i = {}
+    for step in steps:
+
+        step_i = 0
+        while (step_i/i_final*100) < step:
+            step_i += 1
+
+        steps_i[step] = step_i
+
+    for step, step_i in steps_i.items():
+
+        if i == step_i:
+            print(f'{step}%')
 
 
 

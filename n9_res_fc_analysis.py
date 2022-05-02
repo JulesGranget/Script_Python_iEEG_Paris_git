@@ -65,8 +65,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
     def convolution_x_wavelets_nchan(nchan):
 
-        if nchan/np.size(data,0) % .25 <= .01:
-            print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+        print_advancement(nchan, np.size(data,0), steps=[25, 50, 75])
         
         nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
 
@@ -101,8 +100,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
         for seed in range(np.size(data,0)) :
 
-            if seed/len(prms['chan_list_ieeg']) % .25 <= .01:
-                print("{:.2f}".format(seed/len(prms['chan_list_ieeg'])))
+            print_advancement(seed, np.size(data,0), steps=[25, 50, 75])
 
             def compute_ispc_pli(nchan):
 
@@ -552,7 +550,7 @@ def save_fig_for_allsession(sujet):
 ########################
 
 
-def save_fig_dfc(sujet):
+def save_fig_dfc_AL(sujet):
 
     #### load data
     os.chdir(os.path.join(path_precompute, sujet, 'FC'))
@@ -654,6 +652,71 @@ def save_fig_dfc(sujet):
 
 
 
+#cond, band_prep = 'SNIFF', 'hf'
+def save_fig_dfc_AC_SNIFF(sujet, cond, band_prep):
+
+    #### load data
+    os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+
+    dict_allband = {}
+
+    #band_i, band = 0, 'l_gamma'
+    for band_i, band in enumerate(freq_band_dict_FC[band_prep].keys()):
+
+        dict_allband[band] = {}
+
+        #### open data
+        load_i = []
+        for i, session_name in enumerate(os.listdir()):
+            if (session_name.find(f'pli_ispc_{band}_{cond}') != -1):
+                load_i.append(i)
+            else:
+                continue
+
+        load_list = [os.listdir()[i] for i in load_i]
+
+        #### generate mat
+        xr_load = xr.open_dataarray(load_list[0])
+
+        dict_allband[band] = xr_load
+
+    #### plot
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC', cond))
+
+    pairs = dict_allband[band]['pairs'].values
+
+    #pair = pairs[0]
+    for pair in pairs:
+        #mat_type = 'ispc'
+        for mat_type_i, mat_type in enumerate(['ispc', 'pli']):
+
+            fig, axs = plt.subplots(nrows=len(freq_band_dict_FC[band_prep].keys()))
+            times = dict_allband[band]['times'].values
+
+            for band_i, band in enumerate(freq_band_dict_FC[band_prep].keys()):
+
+                ax = axs[band_i]
+
+                ax.plot(times, dict_allband[band].loc[mat_type, pair, :])
+                ax.vlines(0, ymin=dict_allband[band].loc[mat_type, pair, :].values.min(), ymax=dict_allband[band].loc[mat_type, pair, :].values.max(), color='r')
+
+                if band_i == 0:
+                    ax.set_title(f'{pair} {mat_type}')
+                
+                ax.set_ylabel(band)
+
+            #plt.show()
+
+            fig.set_figheight(15)
+            fig.set_figwidth(15)
+            fig.savefig(f'{sujet}_{mat_type}_{pair}.png')
+
+            plt.close()
+
+
+
+
+
 
 
 
@@ -672,4 +735,10 @@ if __name__ == '__main__':
 
     #### save fig
     save_fig_for_allsession(sujet)
-    save_fig_dfc(sujet)
+    save_fig_dfc_AL(sujet)
+
+    for cond in ['AC', 'SNIFF']:
+        save_fig_dfc_AC_SNIFF(sujet, cond, 'hf')
+
+
+

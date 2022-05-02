@@ -130,8 +130,7 @@ def compute_and_save_baseline(sujet_i, band_prep):
     #n_chan = 0
     def baseline_convolutions(n_chan):
 
-        if n_chan/np.size(data,0) % .2 <= .01:
-            print("{:.2f}".format(n_chan/np.size(data,0)))
+        print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
 
         x = data[n_chan,:]
 

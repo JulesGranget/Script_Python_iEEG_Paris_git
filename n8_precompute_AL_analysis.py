@@ -58,8 +58,8 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             def compute_tf_convolution_nchan(n_chan):
 
-                if n_chan/np.size(data,0) % .2 <= .01:
-                    print("{:.2f}".format(n_chan/np.size(data,0)))
+                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+
                 x = data[n_chan,:]
 
                 tf = np.zeros((nfrex,np.size(x)))

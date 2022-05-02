@@ -80,8 +80,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
             #nchan = 0
             def convolution_x_wavelets_nchan(nchan):
 
-                if nchan/np.size(data_AL,0) % .25 <= .01:
-                    print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+                print_advancement(nchan, np.size(data_AL,0), steps=[25, 50, 75])
                 
                 nchan_conv = np.zeros((nfrex, np.size(data_AL,1)), dtype='complex')
 
@@ -144,12 +143,9 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
             print('COMPUTE')   
 
-            def compute_ispc_pli(pair_to_compute):
+            def compute_ispc_pli(pair_to_compute_i, pair_to_compute):
 
-                pair_to_compute_i = pairs_to_compute.index(pair_to_compute)
-
-                if pair_to_compute_i/len(pairs_to_compute) % .25 <= .01:
-                    print("{:.2f}".format(pair_to_compute_i/len(pairs_to_compute)))
+                print_advancement(pair_to_compute_i, len(pairs_to_compute), steps=[25, 50, 75])
 
                 pair_A, pair_B = pair_to_compute.split('-')[0], pair_to_compute.split('-')[-1]
                 pair_A_i, pair_B_i = prms['chan_list_ieeg'].index(pair_A), prms['chan_list_ieeg'].index(pair_B)
@@ -178,7 +174,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
                 return ispc_dfc_i, pli_dfc_i
 
-            compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(pair_to_compute) for pair_to_compute in pairs_to_compute)
+            compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(pair_to_compute_i, pair_to_compute) for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute))
                 
             #### compute metrics
             pli_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
@@ -241,8 +237,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
         def convolution_x_wavelets_nchan(nchan):
 
-            if nchan/np.size(data,0) % .25 <= .01:
-                print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+            print_advancement(nchan, len(np.size(data,0)), steps=[25, 50, 75])
             
             nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
 
@@ -272,10 +267,9 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
         print('COMPUTE')
 
-        for seed in range(np.size(data,0)) :
+        for seed in range(np.size(data,0)):
 
-            if seed/len(prms['chan_list_ieeg']) % .25 <= .01:
-                print("{:.2f}".format(seed/len(prms['chan_list_ieeg'])))
+            print_advancement(seed, len(np.size(data,0)), steps=[25, 50, 75])
 
             def compute_ispc_pli(nchan):
 
@@ -436,8 +430,9 @@ if __name__ == '__main__':
     band_prep = 'hf'
     #cond = 'AC'
     for cond in ['AC', 'SNIFF']:
-        #band, freq = 'l_gamma', [50, 80]
+        #band, freq = 'h_gamma', [80, 120]
         for band, freq in freq_band_dict_FC_function[band_prep].items():
             #precompute_ispc_pli_FC(sujet, cond)
-            execute_function_in_slurm_bash('n7_precompute_fc', 'precompute_ispc_pli_DFC', [sujet, cond, band_prep, band, freq])
+            #execute_function_in_slurm_bash('n7_precompute_fc', 'precompute_ispc_pli_DFC', [sujet, cond, band_prep, band, freq])
+            execute_function_in_slurm_bash_mem_choice('n7_precompute_fc', 'precompute_ispc_pli_DFC', [sujet, cond, band_prep, band, freq], '30G')
 

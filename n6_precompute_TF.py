@@ -319,8 +319,8 @@ def precompute_tf(sujet, cond, band_prep_list):
 
             def compute_tf_convolution_nchan(n_chan):
 
-                if n_chan/np.size(data,0) % .2 <= .01:
-                    print("{:.2f}".format(n_chan/np.size(data,0)))
+                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+
                 x = data[n_chan,:]
 
                 tf = np.zeros((nfrex,np.size(x)))
@@ -405,8 +405,8 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
             print('COMPUTE, STRETCH & ITPC')
             def compute_itpc_n_chan(n_chan):
 
-                if n_chan/np.size(data,0) % .2 <= .01:
-                    print("{:.2f}".format(n_chan/np.size(data,0)))
+                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+
                 x = data[n_chan,:]
 
                 tf = np.zeros((nfrex,np.size(x)), dtype='complex')
@@ -551,8 +551,8 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
             def compute_tf_convolution_nchan(n_chan):
 
-                if n_chan/np.size(data,0) % .2 <= .01:
-                    print("{:.2f}".format(n_chan/np.size(data,0)))
+                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+
                 x = data[n_chan,:]
 
                 tf = np.zeros((nfrex,np.size(x)))
