@@ -104,7 +104,10 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             tf_allband[band] = tf_allchan
 
-            
+            # print('SAVE')
+            # os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+            # np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy', tf_allchan)
+
 
 
         #### plot and save all the tf for one session

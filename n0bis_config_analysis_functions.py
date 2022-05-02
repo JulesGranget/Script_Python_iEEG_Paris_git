@@ -11,6 +11,8 @@ import subprocess
 import sys
 import stat
 import xarray as xr
+import joblib
+import frites
 
 from n0_config_params import *
 
@@ -105,7 +107,18 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('TF', construct_token)
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('anatomy', construct_token)
-                
+    construct_token = create_folder('FC', construct_token)
+
+                #### FC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC'))
+    construct_token = create_folder('GCMI_DFC', construct_token)
+
+                    #### GCMI_DFC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC', 'GCMI_DFC'))
+    construct_token = create_folder('SNIFF', construct_token)
+    construct_token = create_folder('AC', construct_token)
+    construct_token = create_folder('AL', construct_token)
+
                 #### TF
     os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'TF'))
     construct_token = create_folder('Lobes', construct_token)
@@ -165,6 +178,12 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'ISPC'))
     construct_token = create_folder('figures', construct_token)
     construct_token = create_folder('matrix', construct_token)
+
+                #### GCMI_DFC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'GCMI_DFC'))
+    construct_token = create_folder('SNIFF', construct_token)
+    construct_token = create_folder('AC', construct_token)
+    construct_token = create_folder('AL', construct_token)
 
     #### Data
     os.chdir(os.path.join(path_general, 'Data'))
@@ -954,6 +973,212 @@ def modify_name(chan_list):
 
 
     return chan_list_modified, chan_list_keep
+
+
+
+
+
+
+
+
+################################
+######## PLI ISPC DFC ######## 
+################################
+
+#cond, band_prep, band, freq = 'SNIFF', 'hf', 'l_gamma', [50, 80]
+def get_pli_ispc_dfc(sujet, cond, band_prep, band, freq):
+
+        data = load_data(cond, band_prep='hf')
+
+        if cond == 'SNIFF':
+            epochs_starts = get_sniff_starts(sujet)
+
+        if cond == 'AC':
+            epochs_starts = get_ac_starts(sujet)
+        
+        prms = get_params(sujet)
+
+        if os.path.exists(os.path.join(path_precompute, sujet, 'FC', f'{sujet}_DFC_pli_ispc_{band}_{cond}.nc')):
+            print('ALREADY DONE')
+            return
+
+        wavelets, nfrex = get_wavelets(band_prep, freq)
+
+        os.chdir(path_memmap)
+        convolutions = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_fc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex, data.shape[1]))
+
+        print('CONV')
+
+        #nchan = 0
+        def convolution_x_wavelets_nchan(nchan):
+
+            if nchan/np.size(data,0) % .25 <= .01:
+                print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+            
+            nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
+
+            x = data[nchan,:]
+
+            for fi in range(nfrex):
+
+                nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
+
+            convolutions[nchan,:,:] = nchan_conv
+
+            return
+
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan) for nchan in range(len(prms['chan_list_ieeg'])))
+
+        #### free memory
+        del data
+
+        #### epoch convolutions
+        if cond == 'SNIFF':
+            t_start_epoch, t_stop_epoch = t_start_SNIFF, t_stop_SNIFF
+        if cond == 'AC':
+            t_start_epoch, t_stop_epoch = t_start_AC, t_stop_AC
+        
+        stretch_point_TF_epoch = int(np.abs(t_start_epoch)*prms['srate'] +  t_stop_epoch*prms['srate'])
+        epochs = np.zeros(( len(prms['chan_list_ieeg']), len(epochs_starts), nfrex, stretch_point_TF_epoch ), dtype='complex')
+
+        for nchan_i, nchan in enumerate(prms['chan_list_ieeg']):
+
+            for epoch_i, epoch_time in enumerate(epochs_starts):
+
+                _t_start = epoch_time + int(t_start_epoch*prms['srate']) 
+                _t_stop = epoch_time + int(t_stop_epoch*prms['srate'])
+
+                epochs[nchan_i, epoch_i, :, :] = convolutions[nchan_i, :, _t_start:_t_stop]
+            
+        #### remove conv
+        os.chdir(path_memmap)
+        os.remove(f'{sujet}_{cond}_{band_prep}_{band}_fc_convolutions.dat')
+        
+        #### identify roi in data
+        df_loca = get_loca_df(sujet)
+        df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+        index_sorted = df_sorted.index.values
+        chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+        roi_in_data = []
+        rep_count = 0
+        for i, name_i in enumerate(chan_name_sorted):
+            if i == 0:
+                roi_in_data.append(name_i)
+                continue
+            else:
+                if name_i == chan_name_sorted[i-(rep_count+1)]:
+                    rep_count += 1
+                    continue
+                if name_i != chan_name_sorted[i-(rep_count+1)]:
+                    roi_in_data.append(name_i)
+                    rep_count = 0
+                    continue
+
+        #### compute index
+        pairs_possible = []
+        for pair_A_i, pair_A in enumerate(roi_in_data):
+            for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+                if pair_A == pair_B:
+                    continue
+                pairs_possible.append(f'{pair_A}-{pair_B}')
+
+        pairs_to_compute = []
+        for pair_A_i, pair_A in enumerate(prms['chan_list_ieeg']):
+            for pair_B_i, pair_B in enumerate(prms['chan_list_ieeg']):
+                if pair_A == pair_B or f'{pair_A}-{pair_B}' in pairs_to_compute or f'{pair_B}-{pair_A}' in pairs_to_compute:
+                    continue
+                pairs_to_compute.append(f'{pair_A}-{pair_B}')
+
+        #### identify slwin
+        slwin_len = slwin_dict[band]    # in sec
+        slwin_step = slwin_len*slwin_step_coeff  # in sec
+        win_sample = frites.conn.define_windows(times, slwin_len=slwin_len, slwin_step=slwin_step)[0]
+        times = np.linspace(t_start_epoch, t_stop_epoch, len(win_sample))
+
+        print('COMPUTE')   
+
+        #pair_to_compute = pairs_to_compute[0]
+        def compute_ispc_pli(pair_to_compute):
+
+            pair_to_compute_i = pairs_to_compute.index(pair_to_compute)
+
+            if pair_to_compute_i/len(pairs_to_compute) % .25 <= .01:
+                print("{:.2f}".format(pair_to_compute_i/len(pairs_to_compute)))
+
+            pair_A, pair_B = pair_to_compute.split('-')[0], pair_to_compute.split('-')[-1]
+            pair_A_i, pair_B_i = prms['chan_list_ieeg'].index(pair_A), prms['chan_list_ieeg'].index(pair_B)
+
+            ispc_dfc_i = np.zeros(( len(win_sample) ))
+            pli_dfc_i = np.zeros(( len(win_sample) ))
+
+            #slwin_values_i, slwin_values = 0, win_sample[0]
+            for slwin_values_i, slwin_values in enumerate(win_sample):
+                    
+                as1 = epochs[pair_A_i, :, :, slwin_values[0]:slwin_values[-1]]
+                as2 = epochs[pair_B_i, :, :, slwin_values[0]:slwin_values[-1]]
+
+                # collect "eulerized" phase angle differences
+                cdd = np.exp(1j*(np.angle(as1)-np.angle(as2)))
+                
+                # compute ISPC and PLI (and average over trials!)
+                ispc_dfc_i[slwin_values_i] = np.abs(np.mean(cdd))
+                pli_dfc_i[slwin_values_i] = np.abs(np.mean(np.sign(np.imag(cdd))))
+
+            return ispc_dfc_i, pli_dfc_i
+
+        compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(pair_to_compute) for pair_to_compute in pairs_to_compute)
+        
+        #### compute metrics
+        pli_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
+        ispc_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
+
+        #### load in mat    
+        for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute):
+                    
+            ispc_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][0]
+            pli_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][1]
+
+        #### free memory
+        del epochs
+        del compute_ispc_pli_res
+        
+        #### generate mat results
+        mat_pli_time = np.zeros(( len(pairs_possible), pli_mat.shape[-1] ))
+        mat_ispc_time = np.zeros(( len(pairs_possible), ispc_mat.shape[-1] ))
+
+        #### fill mat
+        name_modified = np.array([])
+        count_pairs = np.zeros(( len(pairs_possible) ))
+        for pair_i in pairs_to_compute:
+            pair_A, pair_B = pair_i.split('-')
+            pair_A_name, pair_B_name = df_loca['ROI'][df_loca['name'] == pair_A].values[0], df_loca['ROI'][df_loca['name'] == pair_B].values[0]
+            pair_name_i = f'{pair_A_name}-{pair_B_name}'
+            name_modified = np.append(name_modified, pair_name_i)
+        
+        for pair_name_i, pair_name in enumerate(pairs_possible):
+            pair_name_inv = f"{pair_name.split('-')[-1]}-{pair_name.split('-')[0]}"
+            mask = (name_modified == pair_name) | (name_modified == pair_name_inv)
+            count_pairs[pair_name_i] = int(np.sum(mask))
+            mat_pli_time[pair_name_i,:] = np.mean(pli_mat[mask,:], axis=0)
+            mat_ispc_time[pair_name_i,:] = np.mean(ispc_mat[mask,:], axis=0)
+
+        #### save
+        os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+        dict_xr_pli = {'mat_type' : ['pli', 'ispc'], 'pairs' : pairs_possible, 'times' : times}
+        data_export = np.concatenate( [mat_pli_time.reshape(1, mat_pli_time.shape[0], mat_pli_time.shape[1]), 
+                                        mat_pli_time.reshape(1, mat_ispc_time.shape[0], mat_pli_time.shape[1])], axis=0 )
+        xr_export = xr.DataArray(data_export, coords=dict_xr_pli.values(), dims=dict_xr_pli.keys())
+        xr_export.to_netcdf(f'{sujet}_DFC_pli_ispc_{band}_{cond}.nc')
+
+
+
+
+
+
+
+
+
 
 
 

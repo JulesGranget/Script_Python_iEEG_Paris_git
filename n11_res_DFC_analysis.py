@@ -213,47 +213,86 @@ def reduce_functionnal_mat(mat, df_sorted):
 
 
 
+def sort_mat(mat, index_sorted):
+
+    mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
+    for i_before_sort_r, i_sort_r in enumerate(index_sorted):
+        for i_before_sort_c, i_sort_c in enumerate(index_sorted):
+            mat_sorted[i_sort_r,i_sort_c] = mat[i_before_sort_r,i_before_sort_c]
+
+    return mat_sorted
 
 
 
 
 
 
-def process_sniff_connectivity():
+def process_dfc_connectivity(cond):
 
-    cond = 'SNIFF'
 
-    print('######## SNIFF FC ########')
+    print(f'######## {cond} FC ########')
 
     #### load params
-
     conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
-    sniff_starts = get_sniff_starts(sujet)
-    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
     df_loca = get_loca_df(sujet)
 
+    if cond == 'SNIFF':
+        sniff_starts = get_sniff_starts(sujet)
+        times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
+        str_load_file = 'hf.nc'
 
-    #### load data
+    if cond == 'AC':
+        ac_starts = get_ac_starts(sujet)
+        stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
+        times = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
+        str_load_file = 'AC_session_hf'
 
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
-    sniff_starts = get_sniff_starts(sujet)
-    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
-
+    #### load data 
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
 
     load_i = []
     for i, session_name in enumerate(os.listdir()):
-        if (session_name.find('hf.nc') != -1) :
+        if (session_name.find(str_load_file) != -1) :
             load_i.append(i)
         else:
             continue
 
     load_list = [os.listdir()[i] for i in load_i]
 
-    xr_sniff = xr.open_dataarray(load_list[0])
-    xr_sniff = xr_sniff.transpose('sniffs', 'chan_list', 'times')
-    xr_sniff['sniffs'] = [0]*len(sniff_starts)
-    xr_sniff['chan_list'] = df_loca['ROI'].values
+    if cond == 'SNIFF':
+        xr_sniff = xr.open_dataarray(load_list[0])
+        xr_sniff = xr_sniff.transpose('sniffs', 'chan_list', 'times')
+        xr_sniff['sniffs'] = [0]*len(sniff_starts)
+        xr_sniff['chan_list'] = df_loca['ROI'].values
+
+        xr_to_compute = xr_sniff
+
+    if cond == 'AC':
+        raw = mne.io.read_raw_fif(load_list[0])
+        data = raw.get_data()
+
+        data_AC = np.zeros((len(chan_list_ieeg),len(ac_starts),int(stretch_point_TF_ac)))
+
+        for nchan_i, nchan in enumerate(chan_list_ieeg):
+
+                x = data[nchan_i,:]
+
+                for start_i, start_time in enumerate(ac_starts):
+
+                    t_start = int(start_time + t_start_AC*srate)
+                    t_stop = int(start_time + t_stop_AC*srate)
+
+                    data_AC[nchan_i,start_i,:] = x[t_start: t_stop]
+
+        coords = {'chan_list' : chan_list_ieeg, 'AC' : [0]*len(ac_starts), 'time' : times}
+
+        xr_ac = xr.DataArray(data=data_AC, coords=coords)
+        xr_ac = xr_ac.transpose('AC', 'chan_list', 'time')
+        xr_ac['chan_list'] = df_loca['ROI'].values
+
+        xr_to_compute = xr_ac
+
+
 
     #### params for dfc
     slwin_len = .5    # in sec
@@ -261,10 +300,13 @@ def process_sniff_connectivity():
     win_sample = define_windows(times, slwin_len=slwin_len, slwin_step=slwin_step)[0]
 
     #### compute dfc
-    dfc = conn_dfc(xr_sniff.data, win_sample, times=times, roi=chan_list[:-4], n_jobs=6, verbose=False)
+    dfc = conn_dfc(xr_to_compute.data, win_sample, times=times, roi=chan_list[:-4], n_jobs=n_core_slurms, verbose=False)
 
     #### rearange results and mean
-    dfc['trials'] = xr_sniff['sniffs'].data
+    if cond == 'SNIFF':
+        dfc['trials'] = xr_to_compute['sniffs'].data
+    if cond == 'AC':
+        dfc['trials'] = xr_to_compute['AC'].data
 
     dfc_mean = xr.concat(dfc, 'trials').groupby('trials').mean('trials')
 
@@ -273,166 +315,7 @@ def process_sniff_connectivity():
         plt.show()
 
 
-
-
-
-
-
-    #### SEGMENT PERIODS ####  
-
-    #### segment time
-    time_pre = -0.5
-    time_inspi = 0
-    time_post = 0.5
-    time_final = 1
-    time_list = ['pre', 'inst', 'post']
-    times_pre = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_pre) & (dfc_mean['times'].data < time_inspi))[0]]
-    times_inst = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_inspi) & (dfc_mean['times'].data < time_post))[0]]
-    times_post = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_post) & (dfc_mean['times'].data < time_final))[0]]
-
-    if debug:
-        for pair_i in dfc_mean['roi'].data[:10]:
-            for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
-                dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).mean().values
-                plt.plot(dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).values)
-                plt.show()
-            
-
-    #### generate matrix for results
-    mat_dfc = np.zeros(( 3, len(chan_list[:-4]), len(chan_list[:-4]) ))
-    #pair_i = dfc_suj['roi'].values[0]
-    for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
-        for pair_i in dfc_mean['roi'].data:
-            pair_A, pair_B = pair_i.split('-')
-            pair_A_i, pair_B_i = chan_list.index(pair_A), chan_list.index(pair_B)
-            mat_dfc[time_sel_i, pair_A_i, pair_B_i] = dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).max().values
-            mat_dfc[time_sel_i, pair_B_i, pair_A_i] = dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).max().values
-
-
-    #### sorting
-    def sort_mat(mat, index_sorted):
-
-        mat_sorted = np.zeros((np.size(mat,0), np.size(mat,1)))
-        for i_before_sort_r, i_sort_r in enumerate(index_sorted):
-            for i_before_sort_c, i_sort_c in enumerate(index_sorted):
-                mat_sorted[i_sort_r,i_sort_c] = mat[i_before_sort_r,i_before_sort_c]
-
-        return mat_sorted
-
-    #### verify sorting
-    if debug:
-        df_sorted = df_loca.sort_values(['lobes', 'ROI'])
-        index_sorted = df_sorted.index.values
-        mat = mat_dfc[0]
-        mat_sorted = sort_mat(mat, index_sorted)
-        plt.matshow(mat_sorted)
-        plt.show()
-
-    #### prepare sort
-    df_sorted = df_loca.sort_values(['lobes', 'ROI'])
-    index_sorted = df_sorted.index.values
-    chan_name_sorted = df_sorted['ROI'].values.tolist()
-
-    chan_name_sorted_mat = []
-    rep_count = 0
-    for i, name_i in enumerate(chan_name_sorted):
-        if i == 0:
-            chan_name_sorted_mat.append(name_i)
-            continue
-        else:
-            if name_i == chan_name_sorted[i-(rep_count+1)]:
-                chan_name_sorted_mat.append('')
-                rep_count += 1
-                continue
-            if name_i != chan_name_sorted[i-(rep_count+1)]:
-                chan_name_sorted_mat.append(name_i)
-                rep_count = 0
-                continue
-
-
-    #### go to results
-    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC'))
-
-
-    #### plot
-    fig, axs = plt.subplots(ncols=3, figsize=(15,15))
-    for c in range(3):
-        ax = axs[c]
-        ax.set_title(time_list[c])
-        ax.matshow(sort_mat(mat_dfc[c, :, :], index_sorted), vmin=np.min(mat_dfc), vmax=np.max(mat_dfc))
-        if c == 0:
-            ax.set_yticks(np.arange(len(chan_list[:-4])))
-            ax.set_yticklabels(chan_name_sorted_mat)
-    # plt.show()
-    fig.savefig(f'{sujet}_GCMI_raw_mat.png')
-    plt.close()
-
-    nrows, ncols = 1, 3
-    fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(time_list):
-        mne.viz.plot_connectivity_circle(sort_mat(mat_dfc[cond_i, :, :], index_sorted), node_names=chan_name_sorted_mat, n_lines=None, 
-                                        title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
-                                        vmin=np.min(mat_dfc), vmax=np.max(mat_dfc))
-    plt.suptitle('GC_DFC', color='w')
-    fig.set_figheight(10)
-    fig.set_figwidth(12)
-    # fig.show()
-    fig.savefig(f'{sujet}_GCMI_raw_circle.png')
-    plt.close()
-
-    if debug:
-        plt.hist(mat_dfc[cond_i, :, :].reshape(-1), 50, density=True)
-        plt.show()
-
-    #### thresh on previous plot
-    percentile_thresh = 99
-    thresh = np.percentile(mat_dfc.reshape(-1), percentile_thresh)
-
-    mat_dfc_clean = mat_dfc.copy()
-
-    for cond_i in range(3):
-        for x in range(mat_dfc_clean.shape[1]):
-            for y in range(mat_dfc_clean.shape[1]):
-                if mat_dfc_clean[cond_i, x, y] < thresh:
-                    mat_dfc_clean[cond_i, x, y] = 0
-                if mat_dfc_clean[cond_i, y, x] < thresh:
-                    mat_dfc_clean[cond_i, y, x] = 0
-
-
-    #### plot with thresh
-    fig, axs = plt.subplots(ncols=3, figsize=(15,15))
-    for c in range(3):
-        ax = axs[c]
-        ax.set_title(time_list[c])
-        ax.matshow(sort_mat(mat_dfc_clean[c, :, :], index_sorted), vmin=np.min(mat_dfc_clean[c, :, :]), vmax=np.max(mat_dfc_clean[c, :, :]))
-        if c == 0:
-            ax.set_yticks(np.arange(len(chan_list[:-4])))
-            ax.set_yticklabels(chan_name_sorted_mat)
-    # plt.show()
-    fig.savefig(f'{sujet}_GCMI_raw_tresh_mat.png')
-    plt.close()
-
-    nrows, ncols = 1, 3
-    fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(time_list):
-        mne.viz.plot_connectivity_circle(sort_mat(mat_dfc_clean[cond_i, :, :], index_sorted), node_names=chan_name_sorted_mat, n_lines=None, 
-                                        title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
-                                        vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
-    plt.suptitle('GC_DFC', color='w')
-    fig.set_figheight(10)
-    fig.set_figwidth(12)
-    # fig.show()
-    fig.savefig(f'{sujet}_GCMI_raw_thresh_circle.png')
-    plt.close()
-
-
-
-
-
-
-
-
-    #### mean with reduced ROI 
+    #### ARANGE ANAT DATA ####
     df_sorted = df_loca.sort_values(['lobes', 'ROI'])
     index_sorted = df_sorted.index.values
     chan_name_sorted = df_sorted['ROI'].values.tolist()
@@ -460,115 +343,240 @@ def process_sniff_connectivity():
             if pair_A == pair_B:
                 continue
             pairs_possible.append(f'{pair_A}-{pair_B}')
-            
 
 
-    #### reduce mat
-    mat_dfc_mean = np.zeros(( 3, len(roi_in_data), len(roi_in_data) ))
-
-    for chunk_i in range(3):
-
-        mat_df_sorted = sort_mat(mat_dfc[chunk_i, :, :], index_sorted)
-
-        mat_dfc_mean[chunk_i, :, :] = reduce_functionnal_mat(mat_df_sorted, df_sorted)
-            
 
 
-    #### verif
-    if debug:
-        plt.matshow(mat_dfc_mean[2])
-        plt.show()
-
-        plt.matshow(mat_dfc_mean[2] - mat_dfc_mean[1])
-        plt.show()
-
-    #### plot with reduced ROI
-    fig, axs = plt.subplots(ncols=3, figsize=(15,15))
-    for c in range(3):
-        ax = axs[c]
-        ax.set_title(time_list[c])
-        ax.matshow(mat_dfc_mean[c, :, :], vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean))
-        if c == 0:
-            ax.set_yticks(np.arange(len(roi_in_data)))
-            ax.set_yticklabels(roi_in_data)
-    # plt.show()
-    fig.savefig(f'{sujet}_GCMI_reduced_mat.png')
-    plt.close()
-
-    nrows, ncols = 1, 3
-    fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(time_list):
-        mne.viz.plot_connectivity_circle(mat_dfc_mean[cond_i, :, :], node_names=roi_in_data, n_lines=None, 
-                                        title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
-                                        vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean))
-    plt.suptitle('GC_DFC', color='w')
-    fig.set_figheight(10)
-    fig.set_figwidth(12)
-    # fig.show()
-    fig.savefig(f'{sujet}_GCMI_reduced_circle.png')
-    plt.close()
 
 
-    #### thresh on previous plot
-    percentile_thresh = 99
-    thresh = np.percentile(mat_dfc_mean.reshape(-1), percentile_thresh)
+    #### SEGMENT PERIODS ####  
 
-    mat_dfc_clean = mat_dfc_mean.copy()
+    if cond == 'SNIFF':
 
-    for cond_i in range(3):
-        for x in range(mat_dfc_clean.shape[1]):
-            for y in range(mat_dfc_clean.shape[1]):
-                if mat_dfc_clean[cond_i, x, y] < thresh:
-                    mat_dfc_clean[cond_i, x, y] = 0
-                if mat_dfc_clean[cond_i, y, x] < thresh:
-                    mat_dfc_clean[cond_i, y, x] = 0
+        #### segment time
+        time_pre = -0.5
+        time_inspi = 0
+        time_post = 0.5
+        time_final = 1
+        time_list = ['pre', 'inst', 'post']
+        times_pre = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_pre) & (dfc_mean['times'].data < time_inspi))[0]]
+        times_inst = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_inspi) & (dfc_mean['times'].data < time_post))[0]]
+        times_post = dfc_mean['times'].values[np.where((dfc_mean['times'].data > time_post) & (dfc_mean['times'].data < time_final))[0]]
 
+        if debug:
+            for pair_i in dfc_mean['roi'].data[:10]:
+                for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
+                    dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).mean().values
+                    plt.plot(dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).values)
+                    plt.show()
+                
 
-    #### plot with thresh
-    fig, axs = plt.subplots(ncols=3, figsize=(15,15))
-    for c in range(3):
-        ax = axs[c]
-        ax.set_title(time_list[c])
-        ax.matshow(mat_dfc_clean[c, :, :], vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
-        if c == 0:
-            ax.set_yticks(np.arange(len(roi_in_data)))
-            ax.set_yticklabels(roi_in_data)
-    # plt.show()
-    fig.savefig(f'{sujet}_GCMI_reduced_thresh_mat.png')
-    plt.close()
-
-    nrows, ncols = 1, 3
-    fig = plt.figure(facecolor='black')
-    for cond_i, cond in enumerate(time_list):
-        mne.viz.plot_connectivity_circle(mat_dfc_clean[cond_i, :, :], node_names=roi_in_data, n_lines=None, 
-                                        title=cond, show=False, padding=7, fig=fig, subplot=(nrows, ncols, cond_i+1),
-                                        vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
-    plt.suptitle('GC_DFC', color='w')
-    fig.set_figheight(10)
-    fig.set_figwidth(12)
-    # fig.show()
-    fig.savefig(f'{sujet}_GCMI_reduced_thresh_circle.png')
-    plt.close()
+        #### generate matrix for results
+        mat_dfc = np.zeros(( 3, len(chan_list[:-4]), len(chan_list[:-4]) ))
+        #pair_i = dfc_suj['roi'].values[0]
+        for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
+            for pair_i in dfc_mean['roi'].data:
+                pair_A, pair_B = pair_i.split('-')
+                pair_A_i, pair_B_i = chan_list.index(pair_A), chan_list.index(pair_B)
+                mat_dfc[time_sel_i, pair_A_i, pair_B_i] = dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).max().values
+                mat_dfc[time_sel_i, pair_B_i, pair_A_i] = dfc_mean.sel(trials=0, roi=pair_i, times=time_sel).max().values
 
 
+        
+
+        #### prepare sort
+        df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+        index_sorted = df_sorted.index.values
+        chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+        chan_name_sorted_mat = []
+        rep_count = 0
+        for i, name_i in enumerate(chan_name_sorted):
+            if i == 0:
+                chan_name_sorted_mat.append(name_i)
+                continue
+            else:
+                if name_i == chan_name_sorted[i-(rep_count+1)]:
+                    chan_name_sorted_mat.append('')
+                    rep_count += 1
+                    continue
+                if name_i != chan_name_sorted[i-(rep_count+1)]:
+                    chan_name_sorted_mat.append(name_i)
+                    rep_count = 0
+                    continue
+
+
+        #### go to results
+        os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC'))
+
+
+        #### plot
+        fig, axs = plt.subplots(ncols=3, figsize=(15,15))
+        for c in range(3):
+            ax = axs[c]
+            ax.set_title(time_list[c])
+            ax.matshow(sort_mat(mat_dfc[c, :, :], index_sorted), vmin=np.min(mat_dfc), vmax=np.max(mat_dfc))
+            if c == 0:
+                ax.set_yticks(np.arange(len(chan_list[:-4])))
+                ax.set_yticklabels(chan_name_sorted_mat)
+        # plt.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_raw_mat.png')
+        plt.close()
+
+        nrows, ncols = 1, 3
+        fig = plt.figure(facecolor='black')
+        for chunk_i, chunk in enumerate(time_list):
+            mne.viz.plot_connectivity_circle(sort_mat(mat_dfc[chunk_i, :, :], index_sorted), node_names=chan_name_sorted_mat, n_lines=None, 
+                                            title=chunk, show=False, padding=7, fig=fig, subplot=(nrows, ncols, chunk_i+1),
+                                            vmin=np.min(mat_dfc), vmax=np.max(mat_dfc))
+        plt.suptitle('GC_DFC', color='w')
+        fig.set_figheight(10)
+        fig.set_figwidth(12)
+        # fig.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_raw_circle.png')
+        plt.close()
+
+        if debug:
+            plt.hist(mat_dfc[chunk_i, :, :].reshape(-1), 50, density=True)
+            plt.show()
+
+        #### thresh on previous plot
+        percentile_thresh = 99
+        thresh = np.percentile(mat_dfc.reshape(-1), percentile_thresh)
+
+        mat_dfc_clean = mat_dfc.copy()
+
+        for chunk_i in range(3):
+            for x in range(mat_dfc_clean.shape[1]):
+                for y in range(mat_dfc_clean.shape[1]):
+                    if mat_dfc_clean[chunk_i, x, y] < thresh:
+                        mat_dfc_clean[chunk_i, x, y] = 0
+                    if mat_dfc_clean[chunk_i, y, x] < thresh:
+                        mat_dfc_clean[chunk_i, y, x] = 0
+
+
+        #### plot with thresh
+        fig, axs = plt.subplots(ncols=3, figsize=(15,15))
+        for c in range(3):
+            ax = axs[c]
+            ax.set_title(time_list[c])
+            ax.matshow(sort_mat(mat_dfc_clean[c, :, :], index_sorted), vmin=np.min(mat_dfc_clean[c, :, :]), vmax=np.max(mat_dfc_clean[c, :, :]))
+            if c == 0:
+                ax.set_yticks(np.arange(len(chan_list[:-4])))
+                ax.set_yticklabels(chan_name_sorted_mat)
+        # plt.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_raw_tresh_mat.png')
+        plt.close()
+
+        nrows, ncols = 1, 3
+        fig = plt.figure(facecolor='black')
+        for chunk_i, chunk in enumerate(time_list):
+            mne.viz.plot_connectivity_circle(sort_mat(mat_dfc_clean[chunk_i, :, :], index_sorted), node_names=chan_name_sorted_mat, n_lines=None, 
+                                            title=chunk, show=False, padding=7, fig=fig, subplot=(nrows, ncols, chunk_i+1),
+                                            vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
+        plt.suptitle('GC_DFC', color='w')
+        fig.set_figheight(10)
+        fig.set_figwidth(12)
+        # fig.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_raw_thresh_circle.png')
+        plt.close()
+
+
+                
+
+        #### mean with reduced ROI 
+        #### reduce mat
+        mat_dfc_mean = np.zeros(( 3, len(roi_in_data), len(roi_in_data) ))
+
+        for chunk_i in range(3):
+
+            mat_df_sorted = sort_mat(mat_dfc[chunk_i, :, :], index_sorted)
+
+            mat_dfc_mean[chunk_i, :, :] = reduce_functionnal_mat(mat_df_sorted, df_sorted)
+                
+
+
+        #### verif
+        if debug:
+            plt.matshow(mat_dfc_mean[2])
+            plt.show()
+
+            plt.matshow(mat_dfc_mean[2] - mat_dfc_mean[1])
+            plt.show()
+
+        #### plot with reduced ROI
+        fig, axs = plt.subplots(ncols=3, figsize=(15,15))
+        for c in range(3):
+            ax = axs[c]
+            ax.set_title(time_list[c])
+            ax.matshow(mat_dfc_mean[c, :, :], vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean))
+            if c == 0:
+                ax.set_yticks(np.arange(len(roi_in_data)))
+                ax.set_yticklabels(roi_in_data)
+        # plt.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_reduced_mat.png')
+        plt.close()
+
+        nrows, ncols = 1, 3
+        fig = plt.figure(facecolor='black')
+        for chunk_i, chunk in enumerate(time_list):
+            mne.viz.plot_connectivity_circle(mat_dfc_mean[chunk_i, :, :], node_names=roi_in_data, n_lines=None, 
+                                            title=chunk, show=False, padding=7, fig=fig, subplot=(nrows, ncols, chunk_i+1),
+                                            vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean))
+        plt.suptitle('GC_DFC', color='w')
+        fig.set_figheight(10)
+        fig.set_figwidth(12)
+        # fig.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_reduced_circle.png')
+        plt.close()
+
+
+        #### thresh on previous plot
+        percentile_thresh = 99
+        thresh = np.percentile(mat_dfc_mean.reshape(-1), percentile_thresh)
+
+        mat_dfc_clean = mat_dfc_mean.copy()
+
+        for chunk_i in range(3):
+            for x in range(mat_dfc_clean.shape[1]):
+                for y in range(mat_dfc_clean.shape[1]):
+                    if mat_dfc_clean[chunk_i, x, y] < thresh:
+                        mat_dfc_clean[chunk_i, x, y] = 0
+                    if mat_dfc_clean[chunk_i, y, x] < thresh:
+                        mat_dfc_clean[chunk_i, y, x] = 0
+
+
+        #### plot with thresh
+        fig, axs = plt.subplots(ncols=3, figsize=(15,15))
+        for c in range(3):
+            ax = axs[c]
+            ax.set_title(time_list[c])
+            ax.matshow(mat_dfc_clean[c, :, :], vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
+            if c == 0:
+                ax.set_yticks(np.arange(len(roi_in_data)))
+                ax.set_yticklabels(roi_in_data)
+        # plt.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_reduced_thresh_mat.png')
+        plt.close()
+
+        nrows, ncols = 1, 3
+        fig = plt.figure(facecolor='black')
+        for chunk_i, chunk in enumerate(time_list):
+            mne.viz.plot_connectivity_circle(mat_dfc_clean[chunk_i, :, :], node_names=roi_in_data, n_lines=None, 
+                                            title=chunk, show=False, padding=7, fig=fig, subplot=(nrows, ncols, chunk_i+1),
+                                            vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
+        plt.suptitle('GC_DFC', color='w')
+        fig.set_figheight(10)
+        fig.set_figwidth(12)
+        # fig.show()
+        fig.savefig(f'{sujet}_{cond}_GCMI_reduced_thresh_circle.png')
+        plt.close()
 
 
 
 
     #### ERP CONNECTIVITY ####
     #### generate mat results
-    pairs_possible = []
-    for pair_A_i, pair_A in enumerate(roi_in_data):
-        if pair_A == 'WM':
-            continue
-        for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
-            if pair_A == pair_B:
-                continue
-            if pair_B == 'WM':
-                continue
-
-            pairs_possible.append(f'{pair_A}-{pair_B}')
-
 
     mat_dfc_time = np.zeros(( len(pairs_possible), dfc_mean.shape[-1] ))
 
@@ -593,7 +601,12 @@ def process_sniff_connectivity():
     #### plot and save fig
     os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC'))
 
-    times = dfc_mean['times'].values
+    if cond == 'AC':
+        times = np.linspace(t_start_AC, t_stop_AC, mat_dfc_time.shape[1])
+    if cond == 'SNIFF':
+        times = np.linspace(t_start_SNIFF, t_stop_SNIFF, mat_dfc_time.shape[1])
+
+
     for pair_i, pair_name in enumerate(pairs_possible):
 
         fig = plt.figure()
@@ -601,9 +614,9 @@ def process_sniff_connectivity():
         plt.ylim(mat_dfc_time[:,:].min(), mat_dfc_time[:,:].max())
         plt.vlines(0, ymin=mat_dfc_time[:,:].min() ,ymax=mat_dfc_time[:,:].max(), color='r')
         plt.title(f'{pair_name} count : {count_pairs[pair_i]}')
-        plt.show()
+        # plt.show()
         
-        fig.savefig((f'{sujet}_GCMI_alltime_{pair_name}.png'))
+        fig.savefig((f'{sujet}_{cond}_GCMI_alltime_{pair_name}.png'))
 
         plt.close()
     
@@ -804,7 +817,10 @@ if __name__ == '__main__':
 
 
     process_sniff_ERP()
-    process_sniff_connectivity()
+
+    #cond = 'AC'
+    for cond in ['SNIFF', 'AC']:
+        process_dfc_connectivity(cond)
         
 
 

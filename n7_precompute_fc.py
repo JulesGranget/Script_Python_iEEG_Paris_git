@@ -11,6 +11,8 @@ import pandas as pd
 import respirationtools
 import joblib
 
+import frites
+
 
 from n0_config_params import *
 from n0bis_config_analysis_functions import *
@@ -33,20 +35,21 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
     
     #### check if already computed
-    pli_mat = np.array([0])
-    ispc_mat = np.array([0])
+    if cond == 'FR_CV':
+        pli_mat = np.array([0])
+        ispc_mat = np.array([0])
 
-    os.chdir(os.path.join(path_precompute, sujet, 'FC'))
-    if os.path.exists(f'{sujet}_ISPC_{band}_{cond}.npy'):
-        print(f'ALREADY COMPUTED : {sujet}_ISPC_{band}_{cond}')
-        ispc_mat = np.load(f'{sujet}_ISPC_{band}_{cond}.npy')
+        os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+        if os.path.exists(f'{sujet}_ISPC_{band}_{cond}.npy'):
+            print(f'ALREADY COMPUTED : {sujet}_ISPC_{band}_{cond}')
+            ispc_mat = np.load(f'{sujet}_ISPC_{band}_{cond}.npy')
 
-    if os.path.exists(f'{sujet}_PLI_{band}_{cond}.npy'):
-        print(f'ALREADY COMPUTED : {sujet}_PLI_{band}_{cond}')
-        pli_mat = np.load(f'{sujet}_PLI_{band}_{cond}.npy')
+        if os.path.exists(f'{sujet}_PLI_{band}_{cond}.npy'):
+            print(f'ALREADY COMPUTED : {sujet}_PLI_{band}_{cond}')
+            pli_mat = np.load(f'{sujet}_PLI_{band}_{cond}.npy')
 
-    if len(ispc_mat) != 1 and len(pli_mat) != 1:
-        return pli_mat, ispc_mat 
+        if len(ispc_mat) != 1 and len(pli_mat) != 1:
+            return pli_mat, ispc_mat 
     
     #### load_data
     data = load_data(cond, band_prep=band_prep)
@@ -55,43 +58,213 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
     wavelets, nfrex = get_wavelets(band_prep, freq)
 
     #### get only EEG chan
-    data = data[:len(prms['chan_list_ieeg']),:]
+    if cond == 'FR_CV':
+        data = data[:len(prms['chan_list_ieeg']),:]
+    if cond == 'AL':
+        data = [i[:len(prms['chan_list_ieeg']),:] for i in data]
 
     #### compute all convolution
-    os.chdir(path_memmap)
-    convolutions = np.memmap(f'{sujet}_{band_prep}_{band}_{cond}_fc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex, data.shape[1]))
+    if cond == 'AL':
 
-    print('CONV')
+        #data_AL_i, data_AL = 0, data[0]
+        for data_AL_i, data_AL in enumerate(data):
 
-    def convolution_x_wavelets_nchan(nchan):
+            if os.path.exists(os.path.join(path_precompute, sujet, 'FC', f'{sujet}_DFC_pli_{band}_{cond}{data_AL_i+1}.nc')) and os.path.exists(os.path.join(path_precompute, sujet, 'FC', f'{sujet}_DFC_ispc_{band}_{cond}{data_AL_i+1}.nc')):
+                continue
 
-        if nchan/np.size(data,0) % .25 <= .01:
-            print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+            os.chdir(path_memmap)
+            convolutions = np.memmap(f'{sujet}_{band_prep}_{band}_{cond}_fc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex, data_AL.shape[1]))
+
+            print('CONV')
+
+            #nchan = 0
+            def convolution_x_wavelets_nchan(nchan):
+
+                if nchan/np.size(data_AL,0) % .25 <= .01:
+                    print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+                
+                nchan_conv = np.zeros((nfrex, np.size(data_AL,1)), dtype='complex')
+
+                x = data_AL[nchan,:]
+
+                for fi in range(nfrex):
+
+                    nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
+
+                convolutions[nchan,:,:] = nchan_conv
+
+                return
+
+            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan) for nchan in range(np.size(data_AL,0)))
+
+            # convs = np.array(convolutions)
+            
+            #### identify roi in data
+            df_loca = get_loca_df(sujet)
+            df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+            index_sorted = df_sorted.index.values
+            chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+            roi_in_data = []
+            rep_count = 0
+            for i, name_i in enumerate(chan_name_sorted):
+                if i == 0:
+                    roi_in_data.append(name_i)
+                    continue
+                else:
+                    if name_i == chan_name_sorted[i-(rep_count+1)]:
+                        rep_count += 1
+                        continue
+                    if name_i != chan_name_sorted[i-(rep_count+1)]:
+                        roi_in_data.append(name_i)
+                        rep_count = 0
+                        continue
+
+            #### compute index
+            pairs_possible = []
+            for pair_A_i, pair_A in enumerate(roi_in_data):
+                for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+                    if pair_A == pair_B:
+                        continue
+                    pairs_possible.append(f'{pair_A}-{pair_B}')
+
+            pairs_to_compute = []
+            for pair_A_i, pair_A in enumerate(prms['chan_list_ieeg']):
+                for pair_B_i, pair_B in enumerate(prms['chan_list_ieeg']):
+                    if pair_A == pair_B or f'{pair_A}-{pair_B}' in pairs_to_compute or f'{pair_B}-{pair_A}' in pairs_to_compute:
+                        continue
+                    pairs_to_compute.append(f'{pair_A}-{pair_B}')
+
+            #### identify slwin
+            times = np.linspace(0, data_AL.shape[-1]/prms['srate'], data_AL.shape[-1])
+            slwin_len = slwin_dict[band]    # in sec
+            slwin_step = slwin_len*slwin_step_coeff  # in sec
+            win_sample = frites.conn.define_windows(times, slwin_len=slwin_len, slwin_step=slwin_step)[0]
         
-        nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
 
-        x = data[nchan,:]
+            print('COMPUTE')   
 
-        for fi in range(nfrex):
+            def compute_ispc_pli(pair_to_compute):
 
-            nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
+                pair_to_compute_i = pairs_to_compute.index(pair_to_compute)
 
-        convolutions[nchan,:,:] = nchan_conv
+                if pair_to_compute_i/len(pairs_to_compute) % .25 <= .01:
+                    print("{:.2f}".format(pair_to_compute_i/len(pairs_to_compute)))
+
+                pair_A, pair_B = pair_to_compute.split('-')[0], pair_to_compute.split('-')[-1]
+                pair_A_i, pair_B_i = prms['chan_list_ieeg'].index(pair_A), prms['chan_list_ieeg'].index(pair_B)
+
+                ispc_dfc_i = np.zeros(( nfrex, len(win_sample) ))
+                pli_dfc_i = np.zeros(( nfrex, len(win_sample) ))
+
+                #slwin_i = win_sample[0]
+                for slwin_values_i, slwin_values in enumerate(win_sample):
+
+                    for fi in range(nfrex):
+                        
+                        as1 = convolutions[pair_A_i][fi, slwin_values[0]:slwin_values[-1]]
+                        as2 = convolutions[pair_B_i][fi, slwin_values[0]:slwin_values[-1]]
+
+                        # collect "eulerized" phase angle differences
+                        cdd = np.exp(1j*(np.angle(as1)-np.angle(as2)))
+                        
+                        # compute ISPC and PLI (and average over trials!)
+                        ispc_dfc_i[fi,slwin_values_i] = np.abs(np.mean(cdd))
+                        pli_dfc_i[fi,slwin_values_i] = np.abs(np.mean(np.sign(np.imag(cdd))))
+
+                # compute mean
+                ispc_dfc_i = np.mean(ispc_dfc_i,0)
+                pli_dfc_i = np.mean(pli_dfc_i,0)
+
+                return ispc_dfc_i, pli_dfc_i
+
+            compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_pli)(pair_to_compute) for pair_to_compute in pairs_to_compute)
+                
+            #### compute metrics
+            pli_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
+            ispc_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
+
+            #### load in mat    
+            for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute):
+                        
+                ispc_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][0]
+                pli_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][1]
+
+            #### supress mmap
+            os.chdir(path_memmap)
+            os.remove(f'{sujet}_{band_prep}_{band}_{cond}_fc_convolutions.dat')
+
+
+            #### generate mat results
+            mat_pli_time = np.zeros(( len(pairs_possible), pli_mat.shape[-1] ))
+            mat_ispc_time = np.zeros(( len(pairs_possible), ispc_mat.shape[-1] ))
+
+            #### fill mat
+            name_modified = np.array([])
+            count_pairs = np.zeros(( len(pairs_possible) ))
+            for pair_i in pairs_to_compute:
+                pair_A, pair_B = pair_i.split('-')
+                pair_A_name, pair_B_name = df_loca['ROI'][df_loca['name'] == pair_A].values[0], df_loca['ROI'][df_loca['name'] == pair_B].values[0]
+                pair_name_i = f'{pair_A_name}-{pair_B_name}'
+                name_modified = np.append(name_modified, pair_name_i)
+            
+            for pair_name_i, pair_name in enumerate(pairs_possible):
+                pair_name_inv = f"{pair_name.split('-')[-1]}-{pair_name.split('-')[0]}"
+                mask = (name_modified == pair_name) | (name_modified == pair_name_inv)
+                count_pairs[pair_name_i] = int(np.sum(mask))
+                mat_pli_time[pair_name_i,:] = np.mean(pli_mat[mask,:], axis=0)
+                mat_ispc_time[pair_name_i,:] = np.mean(ispc_mat[mask,:], axis=0)
+
+
+            #### save
+            times = np.linspace(0, data_AL.shape[-1]/prms['srate'], len(win_sample))
+
+            os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+            dict_xr_pli = {'pairs' : pairs_possible, 'times' : times}
+            xr_pli = xr.DataArray(mat_pli_time, coords=dict_xr_pli.values(), dims=dict_xr_pli.keys())
+            xr_pli.to_netcdf(f'{sujet}_DFC_pli_{band}_{cond}{data_AL_i+1}.nc')
+
+            dict_xr_ispc = {'pairs' : pairs_possible, 'times' : times}
+            xr_ispc = xr.DataArray(mat_ispc_time, coords=dict_xr_ispc.values(), dims=dict_xr_ispc.keys())
+            xr_ispc.to_netcdf(f'{sujet}_DFC_ispc_{band}_{cond}{data_AL_i+1}.nc')
+
 
         return
 
-    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan) for nchan in range(np.size(data,0)))
-
-    #### verif conv
-    if debug:
-        for nchan in range(10):
-            for i in range(5):
-                i = nchan*5 + i
-                plt.plot(np.mean(np.real(convolutions[i]), 0))
-            plt.show()
-
 
     if cond == 'FR_CV':
+
+        os.chdir(path_memmap)
+        convolutions = np.memmap(f'{sujet}_{band_prep}_{band}_{cond}_fc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex, data.shape[1]))
+
+        print('CONV')
+
+        def convolution_x_wavelets_nchan(nchan):
+
+            if nchan/np.size(data,0) % .25 <= .01:
+                print("{:.2f}".format(nchan/len(prms['chan_list_ieeg'])))
+            
+            nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
+
+            x = data[nchan,:]
+
+            for fi in range(nfrex):
+
+                nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
+
+            convolutions[nchan,:,:] = nchan_conv
+
+            return
+
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan) for nchan in range(np.size(data,0)))
+
+        #### verif conv
+        if debug:
+            for nchan in range(10):
+                for i in range(5):
+                    i = nchan*5 + i
+                    plt.plot(np.mean(np.real(convolutions[i]), 0))
+                plt.show()
 
         #### compute metrics
         pli_mat = np.zeros((np.size(data,0),np.size(data,0)))
@@ -168,8 +341,7 @@ def compute_fc_metrics_mat(band_prep, freq, band, cond, prms):
 
 
 
-#session_eeg=0
-def compute_pli_ispc_allband(sujet):
+def compute_pli_ispc_allband(sujet, cond):
 
     #### get params
     prms = get_params(sujet)
@@ -181,7 +353,7 @@ def compute_pli_ispc_allband(sujet):
     #band_prep_i, band_prep = 0, 'lf'
     for band_prep_i, band_prep in enumerate(band_prep_list):
 
-        #band, freq = 'theta', [2, 10]
+        #band, freq = 'alpha', [8, 12]
         for band, freq in freq_band_dict_FC[band_prep].items():
 
             if band == 'whole' :
@@ -193,18 +365,26 @@ def compute_pli_ispc_allband(sujet):
                 pli_allcond = {}
                 ispc_allcond = {}
 
-                #cond_i, cond = 0, 'FR_CV'
-                for cond_i, cond in enumerate(conditions_FC) :
-
+                if cond == 'FR_CV':
+                    
                     print(band, cond)
 
                     pli_mat, ispc_mat = compute_fc_metrics_mat(band_prep, freq, band, cond, prms)
                     pli_allcond[cond] = [pli_mat]
                     ispc_allcond[cond] = [ispc_mat]
 
+                    pli_allband[band] = pli_allcond
+                    ispc_allband[band] = ispc_allcond
 
-                pli_allband[band] = pli_allcond
-                ispc_allband[band] = ispc_allcond
+                if cond == 'AL':
+
+                    compute_fc_metrics_mat(band_prep, freq, band, cond, prms)
+
+                    continue
+
+    if cond == 'AL':
+
+        return
 
     #### verif mat
     if debug:
@@ -230,6 +410,16 @@ def compute_pli_ispc_allband(sujet):
 
 
 
+def precompute_ispc_pli_DFC(sujet, cond, band_prep, band, freq):
+
+    get_pli_ispc_dfc(sujet, cond, band_prep, band, freq)
+
+
+
+
+
+
+
 ################################
 ######## EXECUTE ########
 ################################
@@ -238,7 +428,16 @@ def compute_pli_ispc_allband(sujet):
 
 if __name__ == '__main__':
 
+    #cond = 'AL'
+    for cond in conditions_FC:
+        #compute_pli_ispc_allband(sujet, cond)
+        execute_function_in_slurm_bash('n7_precompute_fc', 'compute_pli_ispc_allband', [sujet, cond])
 
-    #compute_pli_ispc_allband(sujet)
-    execute_function_in_slurm_bash('n7_precompute_fc', 'compute_pli_ispc_allband', [sujet])
+    band_prep = 'hf'
+    #cond = 'AC'
+    for cond in ['AC', 'SNIFF']:
+        #band, freq = 'l_gamma', [50, 80]
+        for band, freq in freq_band_dict_FC_function[band_prep].items():
+            #precompute_ispc_pli_FC(sujet, cond)
+            execute_function_in_slurm_bash('n7_precompute_fc', 'precompute_ispc_pli_DFC', [sujet, cond, band_prep, band, freq])
 

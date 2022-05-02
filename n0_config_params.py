@@ -19,9 +19,9 @@ import scipy.signal
 ################################
 
 #### whole protocole
-# sujet = 'pat_03083_1527'
+sujet = 'pat_03083_1527'
 # sujet = 'pat_03105_1551'
-sujet = 'pat_03128_1591'
+# sujet = 'pat_03128_1591'
 # sujet = 'pat_03138_1601'
 
 
@@ -42,7 +42,7 @@ conditions_allsubjects = ['FR_CV', 'SNIFF', 'AL', 'AC']
 
 conditions_compute_TF = ['FR_CV', 'AC', 'SNIFF']
 
-conditions_FC = ['FR_CV']
+conditions_FC = ['FR_CV', 'AL']
 
 band_prep_list = ['lf', 'hf']
 freq_band_list = [{'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]}, {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}]
@@ -54,6 +54,9 @@ freq_band_dict = {'wb' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40]},
 
 freq_band_dict_FC = {'wb' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40]},
                 'lf' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40], 'whole' : [2,50]},
+                'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]} }
+
+freq_band_dict_FC_function = {'lf' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40]},
                 'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]} }
 
 
@@ -104,10 +107,10 @@ elif PC_ID == 'pc-valentin':
 elif PC_ID == 'nodeGPU':
 
     PC_working = 'nodeGPU'
-    path_main_workdir = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/Script_Python_iEEG_Lyon'
-    path_general = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ'
+    path_main_workdir = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Script_Python_iEEG_Lyon'
+    path_general = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J'
     path_memmap = '/mnt/data/julesgranget'
-    n_core = 40
+    n_core = 10
 
 else:
 
@@ -299,7 +302,9 @@ coh_computation_interval = .02 #Hz around respi
 freq_band_fc_analysis = {'theta' : [4, 8], 'alpha' : [9,12], 'beta' : [15,40], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}
 
 
-
+#### for AL DFC
+slwin_dict = {'theta' : 5, 'alpha' : 3, 'beta' : 2, 'l_gamma' : .5, 'h_gamma' : .5}
+slwin_step_coeff = .1  # in sec 10% move
 
 ################################
 ######## HRV ANALYSIS ########

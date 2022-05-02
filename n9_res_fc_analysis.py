@@ -547,6 +547,120 @@ def save_fig_for_allsession(sujet):
 
 
 
+########################
+######## DFC ########
+########################
+
+
+def save_fig_dfc(sujet):
+
+    #### load data
+    os.chdir(os.path.join(path_precompute, sujet, 'FC'))
+
+    #### find n session
+    load_i = []
+    for i, session_name in enumerate(os.listdir()):
+        if (session_name.find('ispc_theta_AL') != -1) :
+            load_i.append(i)
+        else:
+            continue
+
+    n_session = len(load_i)
+
+    dict_allband = {}
+
+    #### compute for every AL
+    for band_i, band in enumerate(freq_band_whole):
+
+        if band == 'whole':
+            continue
+
+        dict_allband[band] = {}
+
+        #AL_i = 0
+        for AL_i in range(n_session):
+
+            #### open data
+            load_i = []
+            for i, session_name in enumerate(os.listdir()):
+                if (session_name.find('DFC') != -1) and (session_name.find(f'AL{AL_i+1}') != -1) and (session_name.find(band) != -1):
+                    load_i.append(i)
+                else:
+                    continue
+
+            load_list = [os.listdir()[i] for i in load_i]
+
+            #### generate mat
+            xr_sniff = xr.open_dataarray(load_list[0])
+            data_alltypes = np.zeros(( 2, xr_sniff.shape[0], xr_sniff.shape[1] ))
+
+            #mat_type = 'pli'
+            for mat_type_i, mat_type in enumerate(['ispc', 'pli']):
+                #band_prep = 'lf'
+            
+                load_i = []
+                for i, session_name in enumerate(load_list):
+                    if (session_name.find(mat_type) != -1):
+                        load_i.append(session_name)
+                    else:
+                        continue
+
+                xr_load = xr.open_dataarray(load_i[0])
+
+                data_alltypes[mat_type_i, :, :] = xr_load.data
+
+            dict_xr_load = {'mat_type' : ['ispc', 'pli'], 'pairs' : xr_load['pairs'], 'times' : xr_load['times']}
+            xr_load_dict = xr.DataArray(data_alltypes, coords=dict_xr_load.values(), dims=dict_xr_load.keys())
+
+            dict_allband[band][f'AL{AL_i+1}'] = xr_load_dict
+
+            pairs = xr_load_dict['pairs'].values
+
+    #### plot
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC', 'AL'))
+
+    #pair = pairs[0]
+    for pair in pairs:
+        #mat_type = 'ispc'
+        for mat_type_i, mat_type in enumerate(['ispc', 'pli']):
+
+            fig, axs = plt.subplots(nrows=len(freq_band_fc_analysis.keys()))
+
+            for band_i, band in enumerate(freq_band_fc_analysis.keys()):
+
+                ax = axs[band_i]
+
+                #AL_i = 0
+                for AL_i in range(n_session):
+
+                    _times = dict_allband[band][f'AL{AL_i+1}']['times'].values / dict_allband[band][f'AL{AL_i+1}']['times'].values.max()
+                    ax.plot(_times, dict_allband[band][f'AL{AL_i+1}'].loc[mat_type, pair, :], label=f'AL{AL_i+1}')
+
+                if band_i == 0:
+                    ax.set_title(f'{pair} {mat_type}')
+                    ax.legend()
+                
+                ax.set_ylabel(band)
+
+            #plt.show()
+
+            fig.set_figheight(15)
+            fig.set_figwidth(15)
+            fig.savefig(f'{sujet}_{mat_type}_{pair}.png')
+
+            plt.close()
+
+
+
+
+
+
+
+
+
+
+
+
 ################################
 ######## EXECUTE ########
 ################################
@@ -558,3 +672,4 @@ if __name__ == '__main__':
 
     #### save fig
     save_fig_for_allsession(sujet)
+    save_fig_dfc(sujet)
