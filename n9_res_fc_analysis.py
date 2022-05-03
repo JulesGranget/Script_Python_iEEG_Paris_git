@@ -189,7 +189,7 @@ def get_pli_ispc_allsession(sujet):
                 ispc_allcond = {}
 
                 #cond_i, cond = 0, 'AC'
-                for cond_i, cond in enumerate(conditions_FC) :
+                for cond_i, cond in enumerate(['FR_CV']) :
 
                     print(band, cond)
 
@@ -215,7 +215,7 @@ def get_pli_ispc_allsession(sujet):
             
             for band, freq in freq_band_dict_FC[band_prep].items():
 
-                for cond_i, cond in enumerate(conditions_FC) :
+                for cond_i, cond in enumerate(['FR_CV']) :
 
                     print(band, cond, len(pli_allband[band][cond]))
                     print(band, cond, len(ispc_allband[band][cond]))
@@ -237,7 +237,7 @@ def get_pli_ispc_allsession(sujet):
             ispc_allband_reduced[band] = {}
             pli_allband_reduced[band] = {}
 
-            for cond_i, cond in enumerate(conditions_FC) :
+            for cond_i, cond in enumerate(['FR_CV']) :
 
                 ispc_allband_reduced[band][cond] = []
                 pli_allband_reduced[band][cond] = []
@@ -254,7 +254,7 @@ def get_pli_ispc_allsession(sujet):
 
             else:
 
-                for cond_i, cond in enumerate(conditions_FC) :
+                for cond_i, cond in enumerate(['FR_CV']) :
 
                     ispc_allband_reduced[band][cond] = ispc_allband[band][cond][0]
                     pli_allband_reduced[band][cond] = pli_allband[band][cond][0]
@@ -390,7 +390,7 @@ def mat_tresh(mat, percentile_thresh):
     
 
 
-def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, prms):
+def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, conditions_to_plot, prms):
 
     print('######## SAVEFIG FC ########')
 
@@ -415,7 +415,7 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, prms):
             band_ispc = {'min' : [], 'max' : []}
             band_pli = {'min' : [], 'max' : []}
 
-            for cond_i, cond in enumerate(conditions_FC):
+            for cond_i, cond in enumerate(conditions_to_plot):
                 band_ispc['max'].append(np.max(get_mat_mean(ispc_allband_reduced[band][cond], df_sorted)))
                 band_ispc['min'].append(np.min(get_mat_mean(ispc_allband_reduced[band][cond], df_sorted)))
                 
@@ -531,7 +531,7 @@ def save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, prms):
 
 
 
-def save_fig_for_allsession(sujet):
+def save_fig_for_allsession_FR_CV(sujet):
 
     prms = get_params(sujet)
 
@@ -539,7 +539,9 @@ def save_fig_for_allsession(sujet):
 
     pli_allband_reduced, ispc_allband_reduced = get_pli_ispc_allsession(sujet)
 
-    save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, prms)
+    conditions_to_plot = ['FR_CV']
+
+    save_fig_FC(pli_allband_reduced, ispc_allband_reduced, df_loca, conditions_to_plot, prms)
 
 
 
@@ -550,6 +552,8 @@ def save_fig_for_allsession(sujet):
 
 
 def save_fig_dfc_AL(sujet):
+
+    print('######## SAVE FIG AL ########')
 
     #### load data
     os.chdir(os.path.join(path_precompute, sujet, 'FC'))
@@ -654,6 +658,8 @@ def save_fig_dfc_AL(sujet):
 #cond, band_prep = 'SNIFF', 'hf'
 def save_fig_dfc_AC_SNIFF(sujet, cond, band_prep):
 
+    print(f'######## {cond} SAVEFIG ########')
+
     #### load data
     os.chdir(os.path.join(path_precompute, sujet, 'FC'))
 
@@ -733,7 +739,7 @@ if __name__ == '__main__':
 
 
     #### save fig
-    save_fig_for_allsession(sujet)
+    save_fig_for_allsession_FR_CV(sujet)
     save_fig_dfc_AL(sujet)
 
     for cond in ['AC', 'SNIFF']:

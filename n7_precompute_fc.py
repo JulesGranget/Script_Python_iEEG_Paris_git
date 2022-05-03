@@ -404,6 +404,7 @@ def compute_pli_ispc_allband(sujet, cond):
 def precompute_ispc_pli_DFC(sujet, cond, band_prep, band, freq):
 
     get_pli_ispc_dfc(sujet, cond, band_prep, band, freq)
+    print('done')
 
 
 
@@ -429,7 +430,7 @@ if __name__ == '__main__':
     for cond in ['AC', 'SNIFF']:
         #band, freq = 'h_gamma', [80, 120]
         for band, freq in freq_band_dict_FC_function[band_prep].items():
-            #precompute_ispc_pli_FC(sujet, cond)
+            #precompute_ispc_pli_DFC(sujet, cond)
             #execute_function_in_slurm_bash('n7_precompute_fc', 'precompute_ispc_pli_DFC', [sujet, cond, band_prep, band, freq])
             execute_function_in_slurm_bash_mem_choice('n7_precompute_fc', 'precompute_ispc_pli_DFC', [sujet, cond, band_prep, band, freq], '30G')
 

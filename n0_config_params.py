@@ -19,9 +19,9 @@ import scipy.signal
 ################################
 
 #### whole protocole
-sujet = 'pat_03083_1527'
+# sujet = 'pat_03083_1527'
 # sujet = 'pat_03105_1551'
-# sujet = 'pat_03128_1591'
+sujet = 'pat_03128_1591'
 # sujet = 'pat_03138_1601'
 
 

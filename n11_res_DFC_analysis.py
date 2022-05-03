@@ -286,7 +286,7 @@ def process_dfc_connectivity(cond):
 
         coords = {'chan_list' : chan_list_ieeg, 'AC' : [0]*len(ac_starts), 'time' : times}
 
-        xr_ac = xr.DataArray(data=data_AC, coords=coords)
+        xr_ac = xr.DataArray(data=data_AC, coords=coords.values(), dims=coords.keys())
         xr_ac = xr_ac.transpose('AC', 'chan_list', 'time')
         xr_ac['chan_list'] = df_loca['ROI'].values
 
