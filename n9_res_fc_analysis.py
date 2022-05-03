@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import mne
 import pandas as pd
-import respirationtools
 import joblib
 
 
@@ -615,7 +614,7 @@ def save_fig_dfc_AL(sujet):
             pairs = xr_load_dict['pairs'].values
 
     #### plot
-    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC', 'AL'))
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'DFC', 'AL'))
 
     #pair = pairs[0]
     for pair in pairs:
@@ -681,7 +680,7 @@ def save_fig_dfc_AC_SNIFF(sujet, cond, band_prep):
         dict_allband[band] = xr_load
 
     #### plot
-    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC', cond))
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'DFC', cond))
 
     pairs = dict_allband[band]['pairs'].values
 
@@ -709,7 +708,7 @@ def save_fig_dfc_AC_SNIFF(sujet, cond, band_prep):
 
             fig.set_figheight(15)
             fig.set_figwidth(15)
-            fig.savefig(f'{sujet}_{mat_type}_{pair}.png')
+            fig.savefig(f'{sujet}_{cond}_{mat_type}_{pair}.png')
 
             plt.close()
 

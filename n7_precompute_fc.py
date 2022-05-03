@@ -6,9 +6,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal
-import mne
-import pandas as pd
-import respirationtools
 import joblib
 
 import frites
@@ -428,7 +425,7 @@ if __name__ == '__main__':
         execute_function_in_slurm_bash('n7_precompute_fc', 'compute_pli_ispc_allband', [sujet, cond])
 
     band_prep = 'hf'
-    #cond = 'AC'
+    #cond = 'SNIFF'
     for cond in ['AC', 'SNIFF']:
         #band, freq = 'h_gamma', [80, 120]
         for band, freq in freq_band_dict_FC_function[band_prep].items():

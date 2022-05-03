@@ -111,10 +111,10 @@ def generate_folder_structure(sujet):
 
                 #### FC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC'))
-    construct_token = create_folder('GCMI_DFC', construct_token)
+    construct_token = create_folder('DFC', construct_token)
 
-                    #### GCMI_DFC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC', 'GCMI_DFC'))
+                    #### DFC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC', 'DFC'))
     construct_token = create_folder('SNIFF', construct_token)
     construct_token = create_folder('AC', construct_token)
     construct_token = create_folder('AL', construct_token)
@@ -167,7 +167,7 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC'))
     construct_token = create_folder('PLI', construct_token)
     construct_token = create_folder('ISPC', construct_token)
-    construct_token = create_folder('GCMI_DFC', construct_token)
+    construct_token = create_folder('DFC', construct_token)
 
                 #### PLI
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'PLI'))
@@ -179,8 +179,8 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('figures', construct_token)
     construct_token = create_folder('matrix', construct_token)
 
-                #### GCMI_DFC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'GCMI_DFC'))
+                #### DFC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'DFC'))
     construct_token = create_folder('SNIFF', construct_token)
     construct_token = create_folder('AC', construct_token)
     construct_token = create_folder('AL', construct_token)

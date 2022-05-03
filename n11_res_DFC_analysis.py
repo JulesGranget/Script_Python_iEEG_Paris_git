@@ -407,7 +407,7 @@ def process_dfc_connectivity(cond):
 
 
         #### go to results
-        os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC', cond))
+        os.chdir(os.path.join(path_results, sujet, 'FC', 'DFC', cond))
 
 
         #### plot
@@ -599,7 +599,7 @@ def process_dfc_connectivity(cond):
 
 
     #### plot and save fig
-    os.chdir(os.path.join(path_results, sujet, 'FC', 'GCMI_DFC', cond))
+    os.chdir(os.path.join(path_results, sujet, 'FC', 'DFC', cond))
 
     if cond == 'AC':
         times = np.linspace(t_start_AC, t_stop_AC, mat_dfc_time.shape[1])
@@ -616,7 +616,7 @@ def process_dfc_connectivity(cond):
         plt.title(f'{pair_name} count : {count_pairs[pair_i]}')
         # plt.show()
         
-        fig.savefig((f'{sujet}_{cond}_GCMI_alltime_{pair_name}.png'))
+        fig.savefig((f'{sujet}_{cond}_GCMI_{pair_name}.png'))
 
         plt.close()
     
