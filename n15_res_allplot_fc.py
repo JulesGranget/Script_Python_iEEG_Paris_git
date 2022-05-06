@@ -615,6 +615,243 @@ def process_dfc_connectivity(cond):
 
 
 
+################################
+######## DFC PLI ISPC ########
+################################
+
+def get_all_pairs(sujet_i):
+
+    prms = get_params(sujet_i)
+    df_loca = get_loca_df(sujet_i)
+
+    df_sorted = df_loca.sort_values(['lobes', 'ROI'])
+    index_sorted = df_sorted.index.values
+    chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+    roi_in_data = []
+    rep_count = 0
+    for i, name_i in enumerate(chan_name_sorted):
+        if i == 0:
+            roi_in_data.append(name_i)
+            continue
+        else:
+            if name_i == chan_name_sorted[i-(rep_count+1)]:
+                rep_count += 1
+                continue
+            if name_i != chan_name_sorted[i-(rep_count+1)]:
+                roi_in_data.append(name_i)
+                rep_count = 0
+                continue
+
+    #### compute index
+    pairs_possible = []
+    for pair_A_i, pair_A in enumerate(roi_in_data):
+        for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+            if pair_A == pair_B:
+                continue
+            pairs_possible.append(f'{pair_A}-{pair_B}')
+
+    pairs_to_compute = []
+    for pair_A_i, pair_A in enumerate(prms['chan_list_ieeg']):
+        for pair_B_i, pair_B in enumerate(prms['chan_list_ieeg']):
+            if pair_A == pair_B or f'{pair_A}-{pair_B}' in pairs_to_compute or f'{pair_B}-{pair_A}' in pairs_to_compute:
+                continue
+            pairs_to_compute.append(f'{pair_A}-{pair_B}')
+
+    name_modified = np.array([])
+    for pair_i in pairs_to_compute:
+        pair_A, pair_B = pair_i.split('-')
+        pair_A_name, pair_B_name = df_loca['ROI'][df_loca['name'] == pair_A].values[0], df_loca['ROI'][df_loca['name'] == pair_B].values[0]
+        pair_name_i = f'{pair_A_name}-{pair_B_name}'
+        name_modified = np.append(name_modified, pair_name_i)
+
+    #### identify number of each pair
+    count_pair = {}
+    #pair_possible_i = pairs_possible[0]
+    for pair_possible_i in pairs_possible:
+        name_modified_inv = f"{pair_possible_i.split('-')[1]}-{pair_possible_i.split('-')[0]}"
+        count_i = np.sum((name_modified == pair_possible_i) | (name_modified == name_modified_inv))
+        count_pair[pair_possible_i] = count_i
+
+    return count_pair
+
+
+
+
+#mat_type_i, band_i = 0, 0
+def reduce_dfc_pair(data_allsujet, mat_type_i, band_i, allplot_pairs, allplot_pairs_sujet, times):
+
+    #### generate res mat            
+    pairs_uniques, uniq_idx, counts = np.unique(allplot_pairs,return_index=True,return_counts=True)
+    allplot_dfc = np.zeros(( pairs_uniques.shape[0], len(times) ))
+
+    #### get all cond
+    count_pair_sujet = {}
+    for sujet_i in sujet_list:
+        count_pair_sujet[sujet_i] = get_all_pairs(sujet_i)
+
+    #pair_i, pair_name = np.where(pairs_uniques == 'insula post-parahippocampique')[0][0], 'insula post-parahippocampique' 
+    for pair_i, pair_name in enumerate(pairs_uniques):
+        counts_pair = counts[pair_i]
+        if counts_pair > 1:
+            #### identify which pair need to be mean
+            pair_all_i = np.where(allplot_pairs == pair_name)[0]
+
+            sujet_to_mean = [allplot_pairs_sujet[i] for i in pair_all_i]
+            count_pair = [count_pair_sujet[i][pair_name] for i in sujet_to_mean]
+
+            coord_in_data = []
+            for sujet_to_mean_i in sujet_to_mean:
+                coord_in_data.append( np.where((allplot_pairs_sujet == sujet_to_mean_i) & (allplot_pairs == pair_name))[0][0] )
+
+            #### ponderate each mean for each subject
+            final_division = 0
+            pair_reduced = np.zeros(( times.shape[0] ))
+            for i, pair_all_i_i in enumerate(coord_in_data):
+                final_division += count_pair[i]
+                pair_reduced += data_allsujet[band_i, mat_type_i, pair_all_i_i, :] * count_pair[i]
+
+            pair_reduced /= final_division
+
+            allplot_dfc[pair_i, :] = pair_reduced
+            
+        else:
+            #### identify which pair need to be mean
+            pair_all_i = np.where(allplot_pairs == pair_name)[0]
+            allplot_dfc[pair_i, :] = data_allsujet[band_i, mat_type_i, pair_all_i, :]
+
+    return allplot_dfc
+
+
+
+
+def get_all_count(pair_list_to_plot):
+
+    pair_list_to_plot_count = {}
+
+    count_pair_sujet = {}
+    for sujet_i in sujet_list:
+        count_pair_sujet[sujet_i] = get_all_pairs(sujet_i)
+
+    #pair_i, pair_name = 0, pair_list_to_plot[0]
+    for pair_i, pair_name in enumerate(pair_list_to_plot):
+
+        sujet_count = 0
+
+        for sujet_i in sujet_list:
+            if pair_name in list(count_pair_sujet[sujet_i].keys()):
+                sujet_count += count_pair_sujet[sujet_i][pair_name]
+
+        pair_list_to_plot_count[pair_name] = sujet_count
+
+    return pair_list_to_plot_count
+    
+
+
+
+
+
+#cond = 'SNIFF'
+def allplot_dfc_pli_ispc_SNIFF_AC(cond):
+
+    #### params
+    band_prep = 'hf'
+    band_names = list(freq_band_dict_FC[band_prep].keys())
+
+    #### containers
+    allplot_pairs = np.array(())
+    allplot_pairs_sujet = np.array(())
+    
+    #sujet_i = sujet_list[2]
+    for sujet_i in sujet_list:
+
+        count_pair = get_all_pairs(sujet_i)
+        allplot_pairs = np.append(allplot_pairs, list(count_pair.keys()))
+        allplot_pairs_sujet = np.append(allplot_pairs_sujet, [sujet_i]*len(list(count_pair.keys())))
+
+        #### load data
+        os.chdir(os.path.join(path_precompute, sujet_i, 'FC'))
+
+        #band_i, band = 0, 'l_gamma'
+        for band_i, band in enumerate(freq_band_dict_FC[band_prep].keys()):
+
+            #### open data
+            load_i = []
+            for i, session_name in enumerate(os.listdir()):
+                if (session_name.find(f'pli_ispc_{band}_{cond}') != -1):
+                    load_i.append(i)
+                else:
+                    continue
+
+            load_list = [os.listdir()[i] for i in load_i]
+
+            xr_load = xr.open_dataarray(load_list[0])
+
+            times = xr_load['times'].data 
+
+            #### generate mat
+            if sujet_i == sujet_list[0] and band == band_names[0]:
+                data_allsujet = np.zeros(( len(band_names), xr_load.shape[0], xr_load.shape[1], xr_load.shape[2] ))
+                data_allsujet[band_i, :, :, :] = xr_load.data
+            elif sujet_i == sujet_list[0] and band != band_names[0]:
+                data_allsujet[band_i, :, :, :] = xr_load.data
+            elif sujet_i != sujet_list[0] and band == band_names[0]:
+                data_to_concat = np.zeros(( len(band_names), xr_load.shape[0], xr_load.shape[1], xr_load.shape[2] ))
+                data_to_concat[band_i, :, :, :] = xr_load.data
+            elif sujet_i != sujet_list[0] and band != band_names[0]:
+                data_to_concat[band_i, :, :, :] = xr_load.data
+
+        if sujet_i != sujet_list[0]:
+            data_allsujet = np.concatenate([data_allsujet, data_to_concat], axis=2)
+
+    
+    #### reduce mat
+    pair_list_to_plot = np.unique(allplot_pairs)
+    data_to_export = np.zeros(( data_allsujet.shape[0], data_allsujet.shape[1], len(pair_list_to_plot), data_allsujet.shape[3] ))
+    for band_i, band in enumerate(band_names):
+        for mat_type_i, mat_type in enumerate(['pli', 'ispc']):
+            data_to_export[mat_type_i, band_i, :, :] = reduce_dfc_pair(data_allsujet, mat_type_i, band_i, allplot_pairs, allplot_pairs_sujet, times)
+
+    #### plot res
+    pair_list_to_plot_count = get_all_count(pair_list_to_plot)
+
+    os.chdir(os.path.join(path_results, 'allplot', 'FC', 'DFC', cond))
+
+    for mat_type_i, mat_type in enumerate(['pli', 'ispc']):
+
+        #pair_i, pair_name = 0, pair_list_to_plot[0]
+        for pair_i, pair_name in enumerate(pair_list_to_plot):
+
+            fig, axs = plt.subplots(nrows=len(band_names))
+
+            for band_i, band in enumerate(band_names):
+
+                ax = axs[band_i]
+
+                ax.plot(times, data_to_export[mat_type_i, band_i, pair_i, :])
+                ax.vlines(0, ymin=data_to_export[mat_type_i, band_i, pair_i, :].min(), ymax=data_to_export[mat_type_i, band_i, pair_i, :].max(), color='r')
+
+                if band_i == 0:
+                    ax.set_title(f'{pair_name} {mat_type} count : {pair_list_to_plot_count[pair_name]}')
+                
+                ax.set_ylabel(band)
+
+            #plt.show()
+
+            fig.set_figheight(15)
+            fig.set_figwidth(15)
+            fig.savefig(f'allplot_{cond}_{mat_type}_{pair_name}.png')
+
+            plt.close()
+
+
+
+        
+
+
+
+
+
 
 ################################
 ######## EXECUTE ########
@@ -629,9 +866,8 @@ if __name__ == '__main__':
         #process_dfc_connectivity(cond)
         execute_function_in_slurm_bash('n15_res_allplot_fc', 'process_dfc_connectivity', [cond])
         
-
-
-
+        #allplot_dfc_pli_ispc_SNIFF_AC(cond)
+        execute_function_in_slurm_bash('n15_res_allplot_fc', 'allplot_dfc_pli_ispc_SNIFF_AC', [cond])
 
 
 
