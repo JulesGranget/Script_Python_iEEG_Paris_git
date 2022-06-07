@@ -173,7 +173,7 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             #### save
             os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
-            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}.jpeg', dpi=150)
+            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}_{band_prep}.jpeg', dpi=150)
             plt.close()
 
     print('done')

@@ -1,4 +1,6 @@
 
+
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +12,10 @@ import respirationtools
 from n0_config_params import *
 
 debug = False
+
+
+
+
 
 ################################
 ######## LOAD DATA ########
@@ -411,10 +417,10 @@ if __name__ == '__main__':
 
     
     #### whole protocole
-    # sujet = 'pat_03083_1527'
+    sujet = 'pat_03083_1527'
     # sujet = 'pat_03105_1551'
     # sujet = 'pat_03128_1591'
-    sujet = 'pat_03138_1601'
+    # sujet = 'pat_03138_1601'
 
 
     #### FR_CV only
@@ -449,15 +455,15 @@ if __name__ == '__main__':
             respi_i = chan_list_all.index('nasal')
 
             respi = raw_allcond.get(band_prep)[cond][session_i].get_data()[respi_i, :]
-            if sujet == 'pat_03105_1551':
+            if sujet_respi_adjust[sujet] == 'inverse':
                 respi *= -1
             respi_clean = scipy.signal.detrend(respi)
             respi_clean = mne.filter.filter_data(respi, srate, 0, 0.5, verbose='CRITICAL')
             respi_clean = zscore(respi_clean)
 
             if debug:
-                plt.plot(respi, label='respi')
-                plt.plot(respi_clean, label='respi_clean')
+                plt.plot(zscore(respi), label='respi')
+                plt.plot(zscore(respi_clean), label='respi_clean')
                 plt.legend()
                 plt.show()
 

@@ -248,6 +248,9 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type):
 
         for band in band_names[4:] :
 
+            if band == 'l_gamma':
+                continue
+
             data = ROI_mat_dict[cond][band]
 
             scales_hf[cond]['vmin_val'] = np.append(scales_hf[cond]['vmin_val'], np.min(data))
@@ -312,9 +315,10 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type):
                     ax.set_ylabel(band)
                 if band_prep == 'lf':
                     ax.pcolormesh(time, frex, data, vmin=values_scales_lf[cond]['vmin'], vmax=values_scales_lf[cond]['vmax'], shading='gouraud', cmap=plt.get_cmap('seismic'))
-                if band_prep == 'hf':
+                elif band_prep == 'hf' and band == 'l_gamma':
                     ax.pcolormesh(time, frex, data, vmin=values_scales_hf[cond]['vmin'], vmax=values_scales_hf[cond]['vmax'], shading='gouraud', cmap=plt.get_cmap('seismic'))
-
+                else:
+                    ax.pcolormesh(time, frex, data, vmin=np.median(data), vmax=data.max(), shading='gouraud', cmap=plt.get_cmap('seismic'))
 
                 if cond == 'FR_CV':
                     ax.vlines(ratio_stretch_TF*stretch_point, ymin=freq[0], ymax=freq[1], colors='g')
@@ -426,6 +430,9 @@ def compute_for_one_Lobe_allcond(Lobe_name, mat_type):
 
         for band in band_names[4:] :
 
+            if band == 'l_gamma':
+                continue
+
             data = Lobe_mat_dict[cond][band]
 
             scales_hf[cond]['vmin_val'] = np.append(scales_hf[cond]['vmin_val'], np.min(data))
@@ -490,9 +497,10 @@ def compute_for_one_Lobe_allcond(Lobe_name, mat_type):
                     ax.set_ylabel(band)
                 if band_prep == 'lf':
                     ax.pcolormesh(time, frex, data, vmin=values_scales_lf[cond]['vmin'], vmax=values_scales_lf[cond]['vmax'], shading='gouraud', cmap=plt.get_cmap('seismic'))
-                if band_prep == 'hf':
+                elif band_prep == 'hf' and band == 'l_gamma':
                     ax.pcolormesh(time, frex, data, vmin=values_scales_hf[cond]['vmin'], vmax=values_scales_hf[cond]['vmax'], shading='gouraud', cmap=plt.get_cmap('seismic'))
-
+                else:
+                    ax.pcolormesh(time, frex, data, vmin=np.median(data), vmax=data.max(), shading='gouraud', cmap=plt.get_cmap('seismic'))
 
                 if cond == 'FR_CV':
                     ax.vlines(ratio_stretch_TF*stretch_point, ymin=freq[0], ymax=freq[1], colors='g')

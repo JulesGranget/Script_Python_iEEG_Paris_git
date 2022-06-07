@@ -598,9 +598,11 @@ def save_TF_ITPC_n_chan(n_chan, tf_mode, band_prep):
 
 
             if tf_mode == 'TF':
-                ax.pcolormesh(time, frex, data, vmin=vmins[cond], vmax=vmaxs[cond], shading='gouraud', cmap=plt.get_cmap('seismic'))
+                # ax.pcolormesh(time, frex, data, vmin=vmins[cond], vmax=vmaxs[cond], shading='gouraud', cmap=plt.get_cmap('seismic'))
+                ax.pcolormesh(time, frex, data, shading='gouraud', cmap=plt.get_cmap('seismic'))
             if tf_mode == 'ITPC':
-                ax.pcolormesh(time, frex, data, vmin=vmins[cond], vmax=vmaxs[cond], shading='gouraud', cmap=plt.get_cmap('seismic'))
+                # ax.pcolormesh(time, frex, data, vmin=vmins[cond], vmax=vmaxs[cond], shading='gouraud', cmap=plt.get_cmap('seismic'))
+                ax.pcolormesh(time, frex, data, shading='gouraud', cmap=plt.get_cmap('seismic'))
 
             if c == 0:
                 ax.set_ylabel(band)

@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import mne
 
+from matplotlib import cm
+
 import pandas as pd
 import respirationtools
 import joblib
@@ -812,6 +814,18 @@ def allplot_dfc_pli_ispc_SNIFF_AC(cond):
         for mat_type_i, mat_type in enumerate(['pli', 'ispc']):
             data_to_export[mat_type_i, band_i, :, :] = reduce_dfc_pair(data_allsujet, mat_type_i, band_i, allplot_pairs, allplot_pairs_sujet, times)
 
+    #### identify scale
+    scales = {'pli' : {'min' : np.array(()), 'max' : np.array(())}, 'ispc' : {'min' : np.array(()), 'max' : np.array(())}} 
+    for mat_type_i, mat_type in enumerate(['pli', 'ispc']):
+
+        for pair_i, pair_name in enumerate(pair_list_to_plot):
+
+            scales[mat_type]['min'] = np.append(scales[mat_type]['min'], data_to_export[mat_type_i, band_i, pair_i, :].min())
+            scales[mat_type]['max'] = np.append(scales[mat_type]['max'], data_to_export[mat_type_i, band_i, pair_i, :].max())
+
+    vmin = {'pli' : scales['pli']['min'].min(), 'ispc' : scales['ispc']['min'].min()}
+    vmax = {'pli' : scales['pli']['max'].max(), 'ispc' : scales['ispc']['max'].max()}
+
     #### plot res
     pair_list_to_plot_count = get_all_count(pair_list_to_plot)
 
@@ -829,7 +843,8 @@ def allplot_dfc_pli_ispc_SNIFF_AC(cond):
                 ax = axs[band_i]
 
                 ax.plot(times, data_to_export[mat_type_i, band_i, pair_i, :])
-                ax.vlines(0, ymin=data_to_export[mat_type_i, band_i, pair_i, :].min(), ymax=data_to_export[mat_type_i, band_i, pair_i, :].max(), color='r')
+                ax.set_ylim(vmin[mat_type], vmax[mat_type])
+                ax.vlines(0, ymin=vmin[mat_type], ymax=vmax[mat_type], color='r')
 
                 if band_i == 0:
                     ax.set_title(f'{pair_name} {mat_type} count : {pair_list_to_plot_count[pair_name]}')
@@ -845,8 +860,178 @@ def allplot_dfc_pli_ispc_SNIFF_AC(cond):
             plt.close()
 
 
+    if cond ==  'SNIFF':
 
+        #### segment time
+        time_pre = -0.5
+        time_inspi = 0
+        time_post = 0.5
+        time_final = 1
+        time_list = ['pre', 'sniff', 'post']
+        times_pre = [np.where((times > time_pre) & (times < time_inspi))[0][0], np.where((times > time_pre) & (times < time_inspi))[0][-1]]
+        times_inst = [np.where((times > time_inspi) & (times < time_post))[0][0], np.where((times > time_inspi) & (times < time_post))[0][-1]]
+        times_post = [np.where((times > time_post) & (times < time_final))[0][0], np.where((times > time_post) & (times < time_final))[0][-1]]
+
+        #### load params
+        df_loca_all = pd.DataFrame(columns=['name', 'ROI', 'lobes'])
+        chan_list_ieeg_all = []
+        len_sniff_allsujet = []
+        len_AC_allsujet = []
         
+        #sujet_i = sujet_list[1]
+        for sujet_i in sujet_list:
+
+            conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet_i)
+            df_loca = get_loca_df(sujet_i)
+            df_loca['ROI'] = df_loca['ROI'] + f'_{sujet_i[-4:]}' 
+
+            chan_list_ieeg_all.extend(chan_list_ieeg)
+            df_loca_all = pd.concat([df_loca_all, df_loca])
+
+            len_sniff_allsujet.append(len(get_sniff_starts(sujet_i)))
+            len_AC_allsujet.append(len(get_ac_starts(sujet_i)))
+
+        chan_list_ieeg_all_names = np.unique([i[:-5]for i in df_loca_all['ROI'].values])
+
+        df_loca_all.index = range(df_loca_all.index.shape[0])
+
+        df_sorted = df_loca_all.sort_values(['lobes', 'ROI'])
+        index_sorted = df_sorted.index.values
+        chan_name_sorted = df_sorted['ROI'].values.tolist()
+
+        #### identify roi in data
+        roi_in_data = []
+        rep_count = 0
+        for i, name_i in enumerate(chan_name_sorted):
+            name_i = name_i[:-5]
+            if name_i == 'WM' or name_i == 'ventricule':
+                continue
+            if i == 0:
+                roi_in_data.append(name_i)
+                continue
+            else:
+                if name_i == chan_name_sorted[i-(rep_count+1)][:-5]:
+                    rep_count += 1
+                    continue
+                if name_i != chan_name_sorted[i-(rep_count+1)][:-5]:
+                    roi_in_data.append(name_i)
+                    rep_count = 0
+                    continue
+
+        #### compute index
+        pairs_possible = []
+        for pair_A_i, pair_A in enumerate(roi_in_data):
+            for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
+                if pair_A == pair_B:
+                    continue
+                pairs_possible.append(f'{pair_A}-{pair_B}')
+
+
+        #### plot matrix
+        #mat_type_i, mat_type = 0, 'pli'
+        for mat_type_i, mat_type in enumerate(['pli', 'ispc']):
+            
+            #band_i, band = 0, 'l_gamma'
+            for band_i, band in enumerate(band_names): 
+                    
+                #### generate matrix for results and supress WM
+                chan_list_ieeg_all_names_clean = chan_list_ieeg_all_names[(chan_list_ieeg_all_names != 'WM') & (chan_list_ieeg_all_names != 'ventricule')]
+                mat_dfc_mean = np.zeros(( 3, len(chan_list_ieeg_all_names_clean), len(chan_list_ieeg_all_names_clean) ))
+                #pair_i = dfc_suj['roi'].values[0]
+                for time_sel_i, time_sel in enumerate([times_pre, times_inst, times_post]):
+                    for pair_i, pair_names in enumerate(pair_list_to_plot):
+                        if pair_names.find('WM') != -1 or pair_names.find('ventricule') != -1:
+                            continue
+                        pair_A, pair_B = pair_names.split('-')
+                        pair_A_i, pair_B_i = chan_list_ieeg_all_names_clean.tolist().index(pair_A), chan_list_ieeg_all_names_clean.tolist().index(pair_B)
+                        zscore_sig_i = zscore(data_to_export[mat_type_i, band_i, pair_i, :])
+                        mat_dfc_mean[time_sel_i, pair_A_i, pair_B_i] = np.mean(zscore_sig_i[time_sel[0]:time_sel[1]])
+                        mat_dfc_mean[time_sel_i, pair_B_i, pair_A_i] = np.mean(zscore_sig_i[time_sel[0]:time_sel[1]])
+
+                #### verif
+                if debug:
+                    plt.matshow(mat_dfc_mean[2])
+                    plt.show()
+
+                    plt.matshow(mat_dfc_mean[2] - mat_dfc_mean[1])
+                    plt.show()
+
+                #### plot with reduced ROI
+                fig, axs = plt.subplots(ncols=3, figsize=(15,15))
+                for c in range(3):
+                    ax = axs[c]
+                    ax.set_title(time_list[c])
+                    ax.matshow(mat_dfc_mean[c, :, :], vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean))
+                    if c == 0:
+                        ax.set_yticks(np.arange(len(chan_list_ieeg_all_names_clean)))
+                        ax.set_yticklabels(chan_list_ieeg_all_names_clean)
+                plt.suptitle(f'{cond}_{mat_type}_{band}')
+                # plt.show()
+                fig.savefig(f'allplot_{cond}_{mat_type}_{band}_MAT_reduced.png')
+                plt.close()
+
+                nrows, ncols = 1, 3
+                fig = plt.figure()
+                for chunk_i, chunk in enumerate(time_list):
+                    mne.viz.plot_connectivity_circle(mat_dfc_mean[chunk_i, :, :], node_names=chan_list_ieeg_all_names_clean, n_lines=None, 
+                                                    title=chunk, show=False, padding=7, fig=fig, subplot=(nrows, ncols, chunk_i+1),
+                                                    vmin=np.min(mat_dfc_mean), vmax=np.max(mat_dfc_mean), colormap=cm.seismic, facecolor='w', 
+                                                    textcolor='k')
+                plt.suptitle(f'{cond}_{mat_type}_{band}', color='k')
+                fig.set_figheight(10)
+                fig.set_figwidth(12)
+                # fig.show()
+                fig.savefig(f'allplot_{cond}_{mat_type}_{band}_CIRCLE_reduced.png')
+                plt.close()
+
+
+                #### thresh on previous plot
+                percentile_thresh_up = 99
+                percentile_thresh_down = 1
+                thresh_up = np.percentile(mat_dfc_mean.reshape(-1), percentile_thresh_up)
+                thresh_down = np.percentile(mat_dfc_mean.reshape(-1), percentile_thresh_down)
+
+                mat_dfc_clean = mat_dfc_mean.copy()
+
+                for chunk_i in range(3):
+                    for x in range(mat_dfc_clean.shape[1]):
+                        for y in range(mat_dfc_clean.shape[1]):
+                            if (mat_dfc_clean[chunk_i, x, y] < thresh_up) & (mat_dfc_clean[chunk_i, x, y] > thresh_down):
+                                mat_dfc_clean[chunk_i, x, y] = 0
+                            if (mat_dfc_clean[chunk_i, y, x] < thresh_up) & (mat_dfc_clean[chunk_i, y, x] > thresh_down):
+                                mat_dfc_clean[chunk_i, y, x] = 0
+
+
+                #### plot with thresh
+                fig, axs = plt.subplots(ncols=3, figsize=(15,15))
+                for c in range(3):
+                    ax = axs[c]
+                    ax.set_title(time_list[c])
+                    ax.matshow(mat_dfc_clean[c, :, :], vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean))
+                    if c == 0:
+                        ax.set_yticks(np.arange(len(chan_list_ieeg_all_names_clean)))
+                        ax.set_yticklabels(chan_list_ieeg_all_names_clean)
+                plt.suptitle(f'{cond}_{mat_type}_{band}_THRESH')
+                # plt.show()
+                fig.savefig(f'allplot_{cond}_{mat_type}_{band}_MAT_reduced_thresh.png')
+                plt.close()
+
+                nrows, ncols = 1, 3
+                fig = plt.figure()
+                for chunk_i, chunk in enumerate(time_list):
+                    mne.viz.plot_connectivity_circle(mat_dfc_clean[chunk_i, :, :], node_names=chan_list_ieeg_all_names_clean, n_lines=None, 
+                                                    title=chunk, show=False, padding=7, fig=fig, subplot=(nrows, ncols, chunk_i+1),
+                                                    vmin=np.min(mat_dfc_clean), vmax=np.max(mat_dfc_clean), colormap=cm.seismic, facecolor='w', 
+                                                    textcolor='k')
+                plt.suptitle(f'{cond}_{mat_type}_{band}_THRESH', color='k')
+                fig.set_figheight(10)
+                fig.set_figwidth(12)
+                # fig.show()
+                fig.savefig(f'allplot_{cond}_{mat_type}_{band}_CIRCLE_reduced_thresh.png')
+                plt.close()
+
+
+                
 
 
 
@@ -864,7 +1049,7 @@ if __name__ == '__main__':
     #cond = 'AC'
     for cond in ['SNIFF', 'AC']:
         #process_dfc_connectivity(cond)
-        execute_function_in_slurm_bash('n15_res_allplot_fc', 'process_dfc_connectivity', [cond])
+        # execute_function_in_slurm_bash('n15_res_allplot_fc', 'process_dfc_connectivity', [cond])
         
         #allplot_dfc_pli_ispc_SNIFF_AC(cond)
         execute_function_in_slurm_bash('n15_res_allplot_fc', 'allplot_dfc_pli_ispc_SNIFF_AC', [cond])
