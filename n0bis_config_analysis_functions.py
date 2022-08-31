@@ -44,6 +44,14 @@ def debug_memory():
 
 
 
+
+
+
+
+
+
+
+
 ########################################
 ######## GENERATE FOLDERS ########
 ########################################
@@ -90,8 +98,9 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('TF', construct_token)
     construct_token = create_folder('PSD_Coh', construct_token)
-    construct_token = create_folder('Baselines', construct_token)
+    construct_token = create_folder('baselines', construct_token)
     construct_token = create_folder('DFC', construct_token)
+    construct_token = create_folder('FC', construct_token)
 
         #### anatomy
     os.chdir(os.path.join(path_general, 'Analyses', 'anatomy'))
@@ -129,61 +138,62 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('Lobes', construct_token)
     construct_token = create_folder('ROI', construct_token)
 
-        #### results
+            #### sujet
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet))
     construct_token = create_folder('RESPI', construct_token)
     construct_token = create_folder('TF', construct_token)
     construct_token = create_folder('PSD_Coh', construct_token)
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('FC', construct_token)
+    construct_token = create_folder('DFC', construct_token)
+    construct_token = create_folder('df', construct_token)
     construct_token = create_folder('ERP', construct_token)
 
-            #### ERP
+                #### ERP
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'ERP'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
     
 
-            #### TF
+                #### TF
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'TF'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
 
-                #### summary
+                    #### summary
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'TF', 'summary'))
     construct_token = create_folder('AL', construct_token)
 
-            #### PSD_Coh
+                #### PSD_Coh
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'PSD_Coh'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
 
-            #### ITPC
+                #### ITPC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'ITPC'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
 
-            #### FC
+                #### FC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC'))
     construct_token = create_folder('PLI', construct_token)
     construct_token = create_folder('ISPC', construct_token)
     construct_token = create_folder('DFC', construct_token)
 
-                #### PLI
+                    #### PLI
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'PLI'))
     construct_token = create_folder('figures', construct_token)
     construct_token = create_folder('matrix', construct_token)
 
-                #### ISPC
+                    #### ISPC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'ISPC'))
     construct_token = create_folder('figures', construct_token)
     construct_token = create_folder('matrix', construct_token)
 
                 #### DFC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'DFC'))
-    construct_token = create_folder('SNIFF', construct_token)
-    construct_token = create_folder('AC', construct_token)
-    construct_token = create_folder('AL', construct_token)
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'DFC'))
+    construct_token = create_folder('allcond', construct_token)
+    construct_token = create_folder('summary', construct_token)
 
     #### Data
     os.chdir(os.path.join(path_general, 'Data'))
@@ -206,6 +216,15 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('ncs', construct_token)
 
     return construct_token
+
+
+
+
+
+
+
+
+
 
 
 ################################
@@ -333,7 +352,7 @@ def execute_function_in_slurm_bash(name_script, name_function, params):
     
     #### script text
     lines = ['#!/bin/bash']
-    lines += [f'#SBATCH --job-name={name_function}']
+    lines += [f'#SBATCH --job-name={name_function}_{params_str_name}']
     lines += [f'#SBATCH --output=%slurm_{name_function}_{params_str_name}.log']
     lines += [f'#SBATCH --cpus-per-task={n_core_slurms}']
     lines += [f'#SBATCH --mem={mem_crnl_cluster}']
@@ -422,7 +441,7 @@ def execute_function_in_slurm_bash_mem_choice(name_script, name_function, params
     
     #### script text
     lines = ['#!/bin/bash']
-    lines += [f'#SBATCH --job-name={name_function}']
+    lines += [f'#SBATCH --job-name={name_function}_{params_str_name}']
     lines += [f'#SBATCH --output=%slurm_{name_function}_{params_str_name}.log']
     lines += [f'#SBATCH --cpus-per-task={n_core_slurms}']
     lines += [f'#SBATCH --mem={mem_required}']
@@ -447,6 +466,15 @@ def execute_function_in_slurm_bash_mem_choice(name_script, name_function, params
 
     #### get back to original path
     os.chdir(scritp_path)
+
+
+
+
+
+
+
+
+
 
 
 
@@ -551,7 +579,7 @@ def extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubject
 
 
 
-def load_data(cond, band_prep=None):
+def load_data(sujet, cond, band_prep=None):
 
     path_source = os.getcwd()
     
@@ -727,12 +755,18 @@ def get_sniff_starts(sujet):
 
 
 
+
+
+
+
+
+
 ################################
 ######## WAVELETS ########
 ################################
 
 
-def get_wavelets(band_prep, freq):
+def get_wavelets(sujet, band_prep, freq):
 
     #### get params
     prms = get_params(sujet)
@@ -768,6 +802,18 @@ def get_wavelets(band_prep, freq):
         wavelets[fi,:] = mw
 
     return wavelets, nfrex
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ########################################
@@ -864,6 +910,113 @@ def get_all_respi_ratio(sujet):
     return respi_ratio_allcond
 
 
+
+
+
+
+
+
+
+
+
+########################################
+######## MI ANALYSIS FUNCTIONS ########
+########################################
+
+
+
+def shuffle_CycleFreq(x):
+
+    cut = int(np.random.randint(low=0, high=len(x), size=1))
+    x_cut1 = x[:cut]
+    x_cut2 = x[cut:]*-1
+    x_shift = np.concatenate((x_cut2, x_cut1), axis=0)
+
+    return x_shift
+    
+
+def shuffle_Cxy(x):
+   half_size = x.shape[0]//2
+   ind = np.random.randint(low=0, high=half_size)
+   x_shift = x.copy()
+   
+   x_shift[ind:ind+half_size] *= -1
+   if np.random.rand() >=0.5:
+       x_shift *= -1
+
+   return x_shift
+
+
+def Kullback_Leibler_Distance(a, b):
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    return np.sum(np.where(a != 0, a * np.log(a / b), 0))
+
+def Shannon_Entropy(a):
+    a = np.asarray(a, dtype=float)
+    return - np.sum(np.where(a != 0, a * np.log(a), 0))
+
+def Modulation_Index(distrib, show=False, verbose=False):
+    distrib = np.asarray(distrib, dtype = float)
+    
+    if verbose:
+        if np.sum(distrib) != 1:
+            print(f'(!)  The sum of all bins is not 1 (sum = {round(np.sum(distrib), 2)})  (!)')
+        
+    N = distrib.size
+    uniform_distrib = np.ones(N) * (1/N)
+    mi = Kullback_Leibler_Distance(distrib, uniform_distrib) / np.log(N)
+    
+    if show:
+        bin_width_deg = 360 / N
+        
+        doubled_distrib = np.concatenate([distrib,distrib] )
+        x = np.arange(0, doubled_distrib.size*bin_width_deg, bin_width_deg)
+        fig, ax = plt.subplots(figsize = (8,4))
+        
+        doubled_uniform_distrib = np.concatenate([uniform_distrib,uniform_distrib] )
+        ax.scatter(x, doubled_uniform_distrib, s=2, color='r')
+        
+        ax.bar(x=x, height=doubled_distrib, width = bin_width_deg/1.1, align = 'edge')
+        ax.set_title(f'Modulation Index = {round(mi, 4)}')
+        ax.set_xlabel(f'Phase (Deg)')
+        ax.set_ylabel(f'Amplitude (Normalized)')
+        ax.set_xticks([0,360,720])
+
+    return mi
+
+def Shannon_MI(a):
+    a = np.asarray(a, dtype = float)
+    N = a.size
+    kl_divergence_shannon = np.log(N) - Shannon_Entropy(a)
+    return kl_divergence_shannon / np.log(N)
+
+
+
+def get_MVL(x):
+    _phase = np.arange(0, x.shape[0])*2*np.pi/x.shape[0]
+    complex_vec = x*np.exp(1j*_phase)
+
+    MVL = np.abs(np.mean(complex_vec))
+    
+    if debug:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='polar')
+        ax.scatter(complex_vec.real, complex_vec.imag)
+        ax.scatter(np.mean(complex_vec.real), np.mean(complex_vec.imag), linewidth=3, color='r')
+        plt.show()
+
+    return MVL
+
+
+
+
+
+
+
+
+
+
 ################################
 ######## STRETCH ########
 ################################
@@ -901,6 +1054,60 @@ def stretch_data(resp_features, nb_point_by_cycle, data, srate):
         plt.show()
 
     return data_stretch, mean_inspi_ratio
+
+
+
+#resp_features, nb_point_by_cycle, data, srate = resp_features, stretch_point_TF, ispc_mat, 1/slwin_step
+def stretch_data_tf(resp_features, nb_point_by_cycle, data, srate):
+
+    # params
+    cycle_times = resp_features[['inspi_time', 'expi_time']].values
+    mean_cycle_duration = np.mean(resp_features[['insp_duration', 'exp_duration']].values, axis=0)
+    mean_inspi_ratio = mean_cycle_duration[0]/mean_cycle_duration.sum()
+    times = np.arange(0,data.shape[1])/srate
+
+    # stretch
+    if stretch_TF_auto:
+        clipped_times, times_to_cycles, cycles, cycle_points, data_stretch_linear = respirationtools.deform_to_cycle_template(
+                data.T, times, cycle_times, nb_point_by_cycle=nb_point_by_cycle, inspi_ratio=mean_inspi_ratio)
+    else:
+        clipped_times, times_to_cycles, cycles, cycle_points, data_stretch_linear = respirationtools.deform_to_cycle_template(
+                data.T, times, cycle_times, nb_point_by_cycle=nb_point_by_cycle, inspi_ratio=ratio_stretch_TF)
+
+    #### clean
+    mask = resp_features[resp_features['select'] == 1].index.values
+    cycle_clean = mask[np.isin(mask, cycles)]
+
+    #### reshape
+    if np.iscomplex(data[0,0]):
+        data_stretch = np.zeros(( cycle_clean.shape[0], data.shape[0], nb_point_by_cycle ), dtype='complex')
+    else:
+        data_stretch = np.zeros(( cycle_clean.shape[0], data.shape[0], nb_point_by_cycle ))
+    for cycle_i, cycle_val in enumerate(cycle_clean):
+        data_stretch[cycle_i, :, :] = data_stretch_linear.T[:, 1000*(cycle_val):1000*(cycle_val+1)]
+
+    # inspect
+    if debug == True:
+        plt.pcolormesh(data_stretch_linear.T)
+        plt.show()
+
+        plt.pcolormesh(np.mean(data_stretch, axis=0))
+        plt.show()
+
+    return data_stretch, mean_inspi_ratio
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -994,6 +1201,13 @@ def get_mni_loca():
         dict_mni[chan_name] = mni_nchan_convert
 
     return dict_mni
+
+
+
+
+
+
+
 
 
 ########################################
@@ -1092,5 +1306,28 @@ def print_advancement(i, i_final, steps=[25, 50, 75]):
 
 
 
+################################
+######## MISCALLENOUS ########
+################################
+
+
+def zscore(x):
+
+    x_zscore = (x - x.mean()) / x.std()
+
+    return x_zscore
+
+
+
+
+def zscore_mat(x):
+
+    _zscore_mat = np.zeros(( x.shape[0], x.shape[1] ))
+    
+    for i in range(x.shape[0]):
+
+        _zscore_mat[i,:] = zscore(x[i,:])
+
+    return _zscore_mat
 
 

@@ -30,7 +30,7 @@ def compute_and_save_baseline(sujet_i, band_prep):
     #### verify if already computed
     verif_band_compute = []
     for band in list(freq_band_dict[band_prep].keys()):
-        if os.path.exists(os.path.join(path_precompute, sujet_i, 'Baselines', f'{sujet_i}_{band}_baselines.npy')):
+        if os.path.exists(os.path.join(path_precompute, sujet_i, 'baselines', f'{sujet_i}_{band}_baselines.npy')):
             verif_band_compute.append(True)
 
     if np.sum(verif_band_compute) > 0:
@@ -66,49 +66,12 @@ def compute_and_save_baseline(sujet_i, band_prep):
     
     #### generate all wavelets to conv
     wavelets_to_conv = {}
-        
-    #### select wavelet parameters
-    if band_prep == 'lf' or band_prep == 'wb':
-        wavetime = np.arange(-2,2,1/srate)
-        nfrex = nfrex_lf
-        ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
-
-    if band_prep == 'hf':
-        wavetime = np.arange(-.5,.5,1/srate)
-        nfrex = nfrex_hf
-        ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
-
-    if band_prep == 'wb':
-        wavetime = np.arange(-2,2,1/srate)
-        nfrex = nfrex_hf
-        ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex)
-
+            
     #band, freq = 'theta', [2, 10]
     for band, freq in freq_band_dict[band_prep].items():
 
-        #### compute wavelets
-        frex  = np.linspace(freq[0],freq[1],nfrex)
-        wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
-
-        # create Morlet wavelet family
-        for fi in range(0,nfrex):
-            
-            s = ncycle_list[fi] / (2*np.pi*frex[fi])
-            gw = np.exp(-wavetime**2/ (2*s**2)) 
-            sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
-            mw =  gw * sw
-
-            wavelets[fi,:] = mw
-            
-        # plot all the wavelets
-        if debug == True:
-            plt.pcolormesh(wavetime,frex,np.real(wavelets))
-            plt.xlabel('Time (s)')
-            plt.ylabel('Frequency (Hz)')
-            plt.title('Real part of wavelets')
-            plt.show()
-
-        wavelets_to_conv[band] = wavelets
+        #### compute the wavelets
+        wavelets_to_conv[band], nfrex = get_wavelets(sujet_i, band_prep, freq)        
 
     # plot all the wavelets
     if debug == True:
@@ -148,7 +111,7 @@ def compute_and_save_baseline(sujet_i, band_prep):
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(baseline_convolutions)(n_chan) for n_chan in range(np.size(data,0)))
 
     #### save baseline
-    os.chdir(os.path.join(path_precompute, sujet_i, 'Baselines'))
+    os.chdir(os.path.join(path_precompute, sujet_i, 'baselines'))
 
     for band_i, band in enumerate(list(freq_band_dict[band_prep].keys())):
     

@@ -48,7 +48,7 @@ def check_status(sujet):
 
         if precompute_i == 'baselines':
 
-            os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
+            os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
 
             file_to_inspect = []
 

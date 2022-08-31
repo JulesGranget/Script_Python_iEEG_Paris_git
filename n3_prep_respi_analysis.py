@@ -403,9 +403,22 @@ def zscore(sig):
 
 
 
-########################################
-######## VERIF RESPIFEATURES ########
-########################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -564,6 +577,7 @@ if __name__ == '__main__':
         respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
         respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
         respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
 
         respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
@@ -577,6 +591,7 @@ if __name__ == '__main__':
         respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
         respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
         respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
 
         respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
@@ -590,6 +605,7 @@ if __name__ == '__main__':
         respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
         respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
         respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
 
         respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
@@ -603,6 +619,7 @@ if __name__ == '__main__':
         respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
         respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
         respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
 
         respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 

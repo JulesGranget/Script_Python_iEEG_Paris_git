@@ -26,7 +26,7 @@ prms = get_params(sujet)
 df_loca = get_loca_df(sujet)
 sniff = get_sniff_starts(sujet)
 
-data = load_data('SNIFF', band_prep='hf')
+data = load_data(sujet, 'SNIFF', band_prep='hf')
 x = data[0,:]
 y = data[10,:]
 

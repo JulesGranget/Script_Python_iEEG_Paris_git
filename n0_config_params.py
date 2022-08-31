@@ -19,10 +19,10 @@ import scipy.signal
 ################################
 
 #### whole protocole
-# sujet = 'pat_03083_1527'
+sujet = 'pat_03083_1527'
 # sujet = 'pat_03105_1551'
 # sujet = 'pat_03128_1591'
-sujet = 'pat_03138_1601'
+# sujet = 'pat_03138_1601'
 
 
 #### FR_CV only
@@ -47,6 +47,8 @@ conditions_FC = ['FR_CV', 'AL']
 band_prep_list = ['lf', 'hf']
 freq_band_list = [{'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]}, {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}]
 freq_band_whole = {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}
+
+freq_band_list_precompute = [{'theta_1' : [2,10], 'theta_2' : [4,8], 'alpha_1' : [8,12], 'alpha_2' : [8,14], 'beta_1' : [12,40], 'beta_2' : [10,40], 'whole_1' : [2,50]}, {'l_gamma_1' : [50, 80], 'h_gamma_1' : [80, 120]}]
 
 freq_band_dict = {'wb' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40]},
                 'lf' : {'theta' : [2,10], 'alpha' : [8,14], 'beta' : [10,40], 'whole' : [2,50]},
@@ -249,10 +251,10 @@ t_stop_AC = 15
 
 #### Pxx Cxy
 
-zero_pad_coeff = 15
+zero_pad_coeff = 2
 
 def get_params_spectral_analysis(srate):
-    nwind = int( 20*srate ) # window length in seconds*srate
+    nwind = int( 50*srate ) # window length in seconds*srate
     nfft = nwind*zero_pad_coeff # if no zero padding nfft = nwind
     noverlap = np.round(nwind/2) # number of points of overlap here 50%
     hannw = scipy.signal.windows.hann(nwind) # hann window
@@ -260,9 +262,7 @@ def get_params_spectral_analysis(srate):
     return nwind, nfft, noverlap, hannw
 
 #### plot Pxx Cxy  
-if zero_pad_coeff - 5 <= 0:
-    remove_zero_pad = 0
-remove_zero_pad = zero_pad_coeff - 5
+remove_zero_pad = 5
 
 #### stretch
 stretch_point_surrogates = 1000
@@ -278,7 +278,8 @@ percentile_cyclefreq_up = .99
 percentile_cyclefreq_dw = .01
 
 
-
+#### n bin for MI computation
+MI_n_bin = 18
 
 
 
@@ -289,7 +290,8 @@ percentile_cyclefreq_dw = .01
 #### stretch
 stretch_point_TF = 1000
 stretch_TF_auto = False
-ratio_stretch_TF = 0.45
+ratio_stretch_TF = 0.40
+resampled_points_AL = 10000
 
 #### TF & ITPC
 nfrex_hf = 50
@@ -310,17 +312,58 @@ srate_dw = 10
 coh_computation_interval = .02 #Hz around respi
 
 
+
+
+
+
 ################################
 ######## FC ANALYSIS ########
 ################################
 
+#### ROI for DFC
+ROI_for_DFC_df =    ['orbitofrontal', 'cingulaire ant rostral', 'cingulaire ant caudal', 'cingulaire post',
+                    'insula ant', 'insula post', 'parahippocampique', 'amygdala', 'hippocampus']
+
 #### band to remove
 freq_band_fc_analysis = {'theta' : [4, 8], 'alpha' : [9,12], 'beta' : [15,40], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}
 
+percentile_thresh = 90
 
-#### for AL DFC
-slwin_dict = {'theta' : 5, 'alpha' : 3, 'beta' : 2, 'l_gamma' : .5, 'h_gamma' : .5}
-slwin_step_coeff = .1  # in sec 10% move
+#### for DFC
+slwin_dict = {'theta' : 5, 'alpha' : 3, 'beta' : 1, 'l_gamma' : .3, 'h_gamma' : .3} # seconds
+slwin_step_coeff = .1  # in %, 10% move
+
+band_name_fc_dfc = ['beta', 'l_gamma', 'h_gamma']
+
+#### cond definition
+cond_FC_DFC = ['FR_CV', 'AL', 'SNIFF', 'AC']
+
+#### down sample for AL
+dw_srate_fc_AL = 10
+
+#### n points for AL interpolation
+n_points_AL_interpolation = 10000
+
+
+
+
+################################
+######## DF EXTRACTION ########
+################################
+
+stretch_point_IE = [300, 500]
+stretch_point_EI = [900, 100]
+stretch_point_I = [100, 300]
+stretch_point_E = [600, 800]
+
+sniff_extract_pre = [-1, 0]
+sniff_extract_post = [0, 1]
+
+AC_extract_pre = [-5, 0]
+AC_extract_post = [0, 10]
+
+AL_coeff_pre = .10 
+
 
 ################################
 ######## HRV ANALYSIS ########
@@ -337,10 +380,5 @@ f_RRI = (.1, .5)
 
 
 
-
-
-########################################
-######## COMPUTATIONAL NOTES ######## 
-########################################
 
 

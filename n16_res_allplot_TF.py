@@ -556,7 +556,7 @@ if __name__ == '__main__':
         for mat_type in ['TF', 'ITPC']:
             
             #compilation_slurm(anat_type, mat_type)
-            execute_function_in_slurm_bash('n13_res_allplot_TF', 'compilation_slurm', [anat_type, mat_type])
+            execute_function_in_slurm_bash('n16_res_allplot_TF', 'compilation_slurm', [anat_type, mat_type])
 
 
 

@@ -24,37 +24,43 @@ debug = False
 ################################
 
 
-def precompute_tf(cond, session_i, band_prep_list):
+def robust_zscore(data):
+    
+    _median = np.median(data) 
+    MAD = np.median(np.abs(data-np.median(data)))
+    data_zscore = (0.6745*(data-_median))/ MAD
+        
+    return data_zscore
+
+
+def precompute_tf(sujet, cond, session_i, band_prep_list):
 
     print('TF PRECOMPUTE')
 
-    respfeatures_allcond = load_respfeatures(sujet)
     conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     #### select prep to load
-    #band_prep = 'lf'
-    for band_prep in band_prep_list:
+    #band_prep_i, band_prep = 0, 'lf'
+    for band_prep_i, band_prep in enumerate(band_prep_list):
 
         #### select data without aux chan
-        data_allsession = load_data(cond, band_prep=band_prep)
+        data_allsession = load_data(sujet, cond, band_prep=band_prep)
 
         data = data_allsession[session_i][:-4,:]
         
-        freq_band = freq_band_dict[band_prep]
+        freq_band = freq_band_list_precompute[band_prep_i]
 
         tf_allband = {}
 
         #band, freq = list(freq_band.items())[0]
         for band, freq in freq_band.items():
 
-            #os.chdir(os.path.join(path_precompute, sujet, 'TF'))
-
             print(band, ' : ', freq)
         
             print('COMPUTE')
 
             #### select wavelet parameters
-            wavelets, nfrex = get_wavelets(band_prep, freq)
+            wavelets, nfrex = get_wavelets(sujet, band_prep, freq)
 
             def compute_tf_convolution_nchan(n_chan):
 
@@ -70,12 +76,12 @@ def precompute_tf(cond, session_i, band_prep_list):
 
                 return tf
 
-            tf_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(np.size(data,0)))
+            tf_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(data.shape[0]))
 
             #### fill tf_allchan 
             tf_allchan = np.zeros((len(tf_res), tf_res[0].shape[0], tf_res[0].shape[1]))
             
-            for n_chan in range(np.size(data,0)):
+            for n_chan, _ in enumerate(chan_list_ieeg):
 
                 tf_allchan[n_chan, :, :] = tf_res[n_chan]
 
@@ -83,14 +89,14 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             #### dB
             #### load baseline
-            os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
+            os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
             
-            baselines = np.load(f'{sujet}_{band}_baselines.npy')
+            baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
 
             #### apply baseline
-            for n_chan in range(np.size(tf_allchan,0)):
+            for n_chan in range(tf_allchan.shape[0]):
                 
-                for fi in range(np.size(tf_allchan,1)):
+                for fi in range(tf_allchan.shape[1]):
 
                     activity = tf_allchan[n_chan,fi,:]
                     baseline_fi = baselines[n_chan, fi]
@@ -108,16 +114,38 @@ def precompute_tf(cond, session_i, band_prep_list):
             # os.chdir(os.path.join(path_precompute, sujet, 'TF'))
             # np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy', tf_allchan)
 
+        #### resample TF AL
+        tf_allband_resampled = {}
 
+        for band in tf_allband:
+
+            for n_chan in range(data.shape[0]):
+
+                tf_allband_resampled[band] = scipy.signal.resample(tf_allband[band][n_chan,:,:], resampled_points_AL, axis=1)
+
+        #### export TF AL
+        os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+        for band, freq in freq_band.items():
+            np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{str(session_i+1)}.npy', tf_allband_resampled[band])
+        
+        del tf_allband_resampled
 
         #### plot and save all the tf for one session
         nrows = len(freq_band)
         df_loca = get_loca_df(sujet)
 
         #nchan = 0
-        for nchan in range(tf_allband[band].shape[0]):
+        for nchan, chan_name in enumerate(chan_list_ieeg):
 
-            freq_band = freq_band_dict[band_prep]
+            #### check if already computed
+            chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
+
+            os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
+            if os.path.exists(f'{sujet}_{chan_name}_{chan_loca}_AL{session_i+1}_{band_prep}.jpeg'):
+                print('ALREADY COMPUTED')
+                continue
+
+            freq_band = freq_band_list_precompute[band_prep_i]
 
             #### compute scales
             scales = {'vmin_val' : np.array(()), 'vmax_val' : np.array(()), 'median_val' : np.array(())}
@@ -140,9 +168,6 @@ def precompute_tf(cond, session_i, band_prep_list):
 
             #### initiate fig
             fig, axs = plt.subplots(nrows=nrows)
-
-            chan_name = chan_list_ieeg[nchan]
-            chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
             
             plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}_AL{session_i+1}')
 
@@ -166,14 +191,16 @@ def precompute_tf(cond, session_i, band_prep_list):
 
                 time = np.arange(data.shape[1])/srate
 
-                ax.pcolormesh(time, frex, data, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+                # ax.pcolormesh(time, frex, data, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+                ax.pcolormesh(time, frex, robust_zscore(data), vmin=-robust_zscore(data).max(), vmax=robust_zscore(data).max(), shading='gouraud', cmap=plt.get_cmap('seismic'))
+                
                 ax.set_ylabel(band)
 
             #plt.show()
 
             #### save
             os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
-            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AC{session_i+1}_{band_prep}.jpeg', dpi=150)
+            fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AL{session_i+1}_{band_prep}.jpeg', dpi=150)
             plt.close()
 
     print('done')
@@ -195,17 +222,18 @@ def precompute_tf(cond, session_i, band_prep_list):
 
 if __name__ == '__main__':
 
-    #### NEED BASELINES
+    #sujet = sujet_list[0]
+    for sujet in sujet_list:
 
-    #### load n_session
-    cond = 'AL'
-    n_session = len(load_data(cond, band_prep=band_prep_list[0]))
+        #### load n_session
+        cond = 'AL'
+        n_session = len(load_data(sujet, cond, band_prep=band_prep_list[0]))
 
-    #### compute and save tf
-    #session_i = 0
-    for session_i in range(n_session):
-        #precompute_tf(cond, session_i, band_prep_list)
-        execute_function_in_slurm_bash('n8_precompute_AL_analysis', 'precompute_tf', [cond, session_i, band_prep_list])
+        #### compute and save tf
+        #session_i = 0
+        for session_i in range(n_session):
+            #precompute_tf(sujet, cond, session_i, band_prep_list)
+            execute_function_in_slurm_bash_mem_choice('n7_precompute_AL', 'precompute_tf', [sujet, cond, session_i, band_prep_list], '15G')
         
 
 

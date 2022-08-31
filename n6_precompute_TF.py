@@ -23,18 +23,18 @@ debug = False
 
 
 
-#tf, cond, respfeatures_allcond, stretch_point_TF, band, band_prep, nfrex = tf_allchan, cond, respfeatures_allcond, stretch_point_TF, band, band_prep, nfrex
-def compute_stretch_tf_dB(tf, cond, respfeatures_allcond, stretch_point_TF, band, band_prep, nfrex, srate):
+#tf = tf_allchan
+#condition, resp_features, freq_band, stretch_point_TF = conditions[0], list(resp_features_allcond.values())[0], freq_band, stretch_point_TF
+def compute_stretch_tf_dB(sujet, tf, cond, respfeatures_allcond, stretch_point_TF, band, srate):
 
     #### load baseline
-    os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
-    
-    baselines = np.load(f'{sujet}_{band}_baselines.npy')
+    os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
+    baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
 
     #### apply baseline
-    for n_chan in range(np.size(tf,0)):
+    for n_chan in range(tf.shape[0]):
         
-        for fi in range(np.size(tf,1)):
+        for fi in range(tf.shape[1]):
 
             activity = tf[n_chan,fi,:]
             baseline_fi = baselines[n_chan, fi]
@@ -48,23 +48,16 @@ def compute_stretch_tf_dB(tf, cond, respfeatures_allcond, stretch_point_TF, band
 
     def stretch_tf_db_n_chan(n_chan):
 
-        if n_chan/np.size(tf,0) % .2 <= .01:
-            print('{:.2f}'.format(n_chan/np.size(tf,0)))
-
-        tf_mean = np.zeros((np.size(tf,1),int(stretch_point_TF)))
-        for fi in range(np.size(tf,1)):
-
-            x = tf[n_chan,fi,:]
-            x_stretch, ratio = stretch_data(respfeatures_allcond[cond][0], stretch_point_TF, x, srate)
-            tf_mean[fi,:] = np.mean(x_stretch, axis=0)
+        tf_mean = np.mean(stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf[n_chan,:,:], srate)[0], axis=0)
 
         return tf_mean
 
-    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(np.size(tf,0)))
+    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
-    tf_mean_allchan = np.zeros((np.size(tf,0), np.size(tf,1), stretch_point_TF))
+    #### extarct
+    tf_mean_allchan = np.zeros((tf.shape[0], tf.shape[1], stretch_point_TF))
 
-    for n_chan in range(np.size(tf,0)):
+    for n_chan in range(tf.shape[0]):
         tf_mean_allchan[n_chan,:,:] = stretch_tf_db_nchan_res[n_chan]
 
     return tf_mean_allchan
@@ -72,18 +65,21 @@ def compute_stretch_tf_dB(tf, cond, respfeatures_allcond, stretch_point_TF, band
 
 
 
-#tf, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate = tf_allchan, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate
-def compute_stretch_tf_dB_AC(tf, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate):
+
+
+
+#tf = tf_allchan
+def compute_chunk_tf_dB_AC(sujet, tf, ac_starts, band, srate):
 
     #### load baseline
-    os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
+    os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
     
-    baselines = np.load(f'{sujet}_{band}_baselines.npy')
+    baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
 
     #### apply baseline
-    for n_chan in range(np.size(tf,0)):
+    for n_chan in range(tf.shape[0]):
         
-        for fi in range(np.size(tf,1)):
+        for fi in range(tf.shape[1]):
 
             activity = tf[n_chan,fi,:]
             baseline_fi = baselines[n_chan, fi]
@@ -95,16 +91,16 @@ def compute_stretch_tf_dB_AC(tf, cond, ac_starts, stretch_point_TF, band, band_p
 
             tf[n_chan,fi,:] = 10*np.log10(activity/baseline_fi)
 
-    def stretch_tf_db_n_chan(n_chan):
+    #### chunk
+    def chunk_tf_db_n_chan(n_chan):
 
-        if n_chan/np.size(tf,0) % .2 <= .01:
-            print('{:.2f}'.format(n_chan/np.size(tf,0)))
+        print_advancement(n_chan, tf.shape[0], steps=[25, 50, 75])
 
         stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
 
-        tf_mean = np.zeros((np.size(tf,1),int(stretch_point_TF_ac)))
+        tf_mean = np.zeros((tf.shape[1],int(stretch_point_TF_ac)))
 
-        for fi in range(np.size(tf,1)):
+        for fi in range(tf.shape[1]):
 
             x = tf[n_chan,fi,:]
             data_chunk = np.zeros(( len(ac_starts), int(np.abs(t_start_AC)*srate +  t_stop_AC*srate) ))
@@ -120,31 +116,34 @@ def compute_stretch_tf_dB_AC(tf, cond, ac_starts, stretch_point_TF, band, band_p
 
         return tf_mean
 
-    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(np.size(tf,0)))
+    chunk_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
     stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
-    tf_mean_allchan = np.zeros((np.size(tf,0), np.size(tf,1), stretch_point_TF_ac))
+    tf_mean_allchan = np.zeros((tf.shape[0], tf.shape[1], stretch_point_TF_ac))
 
-    for n_chan in range(np.size(tf,0)):
-        tf_mean_allchan[n_chan,:,:] = stretch_tf_db_nchan_res[n_chan]
+    for n_chan in range(tf.shape[0]):
+        tf_mean_allchan[n_chan,:,:] = chunk_tf_db_nchan_res[n_chan]
+
+    #### free RAM
+    del chunk_tf_db_nchan_res
 
     return tf_mean_allchan
 
 
 
 
-#tf, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate = tf_allchan, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate
-def compute_stretch_tf_dB_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate):
+#tf = tf_allchan.copy()
+def compute_chunk_tf_dB_SNIFF(sujet, tf, sniff_starts, band, srate):
 
     #### load baseline
-    os.chdir(os.path.join(path_precompute, sujet, 'Baselines'))
+    os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
     
-    baselines = np.load(f'{sujet}_{band}_baselines.npy')
+    baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
 
     #### apply baseline
-    for n_chan in range(np.size(tf,0)):
+    for n_chan in range(tf.shape[0]):
         
-        for fi in range(np.size(tf,1)):
+        for fi in range(tf.shape[1]):
 
             activity = tf[n_chan,fi,:]
             baseline_fi = baselines[n_chan, fi]
@@ -156,16 +155,16 @@ def compute_stretch_tf_dB_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, 
 
             tf[n_chan,fi,:] = 10*np.log10(activity/baseline_fi)
 
-    def stretch_tf_db_n_chan(n_chan):
+    #n_chan = 0
+    def chunk_tf_db_n_chan(n_chan):
 
-        if n_chan/np.size(tf,0) % .2 <= .01:
-            print('{:.2f}'.format(n_chan/np.size(tf,0)))
+        print_advancement(n_chan, tf.shape[0], steps=[25, 50, 75])
 
         stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
 
-        tf_mean = np.zeros((np.size(tf,1),int(stretch_point_TF_sniff)))
+        tf_mean = np.zeros((tf.shape[1],int(stretch_point_TF_sniff)))
 
-        for fi in range(np.size(tf,1)):
+        for fi in range(tf.shape[1]):
 
             x = tf[n_chan,fi,:]
             data_chunk = np.zeros(( len(sniff_starts), int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate) ))
@@ -181,12 +180,12 @@ def compute_stretch_tf_dB_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, 
 
         return tf_mean
 
-    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(np.size(tf,0)))
+    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
     stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-    tf_mean_allchan = np.zeros((np.size(tf,0), np.size(tf,1), stretch_point_TF_sniff))
+    tf_mean_allchan = np.zeros((tf.shape[0], tf.shape[1], stretch_point_TF_sniff))
 
-    for n_chan in range(np.size(tf,0)):
+    for n_chan in range(tf.shape[0]):
         tf_mean_allchan[n_chan,:,:] = stretch_tf_db_nchan_res[n_chan]
 
     return tf_mean_allchan
@@ -198,34 +197,22 @@ def compute_stretch_tf_dB_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, 
 
 def compute_stretch_tf_itpc(tf, cond, respfeatures_allcond, stretch_point_TF, srate):
     
-    #### identify number stretch
-    x = tf[0,:]
-    x_stretch, ratio = stretch_data(respfeatures_allcond[cond][0], stretch_point_TF, x, srate)
-    nb_cycle = np.size(x_stretch, 0)
-    
-    #### compute tf
-    tf_stretch = np.zeros((nb_cycle, np.size(tf,0), int(stretch_point_TF)), dtype='complex')
-
-    for fi in range(np.size(tf,0)):
-
-        x = tf[fi,:]
-        x_stretch, ratio = stretch_data(respfeatures_allcond[cond][0], stretch_point_TF, x, srate)
-        tf_stretch[:,fi,:] = x_stretch
+    tf_stretch, ratio = stretch_data(respfeatures_allcond[cond][0], stretch_point_TF, tf, srate)
 
     return tf_stretch
 
 
 
-def compute_stretch_tf_itpc_ac(tf, cond, ac_starts, srate):
+def chunk_stretch_tf_itpc_ac(sujet, tf, cond, ac_starts, srate):
     
     #### identify number stretch
     nb_ac = len(ac_starts)
     stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
     
     #### compute tf
-    tf_stretch = np.zeros((nb_ac, np.size(tf,0), int(stretch_point_TF_ac)), dtype='complex')
+    tf_stretch = np.zeros((nb_ac, tf.shape[0], int(stretch_point_TF_ac)), dtype='complex')
 
-    for fi in range(np.size(tf,0)):
+    for fi in range(tf.shape[0]):
 
         x = tf[fi,:]
         data_chunk = np.zeros(( len(ac_starts), stretch_point_TF_ac ), dtype='complex')
@@ -244,16 +231,16 @@ def compute_stretch_tf_itpc_ac(tf, cond, ac_starts, srate):
 
 
 
-def compute_stretch_tf_itpc_sniff(tf, cond, sniff_starts, srate):
+def chunk_stretch_tf_itpc_sniff(sujet, tf, cond, sniff_starts, srate):
     
     #### identify number stretch
     nb_ac = len(sniff_starts)
     stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
     
     #### compute tf
-    tf_stretch = np.zeros((nb_ac, np.size(tf,0), int(stretch_point_TF_sniff)), dtype='complex')
+    tf_stretch = np.zeros((nb_ac, tf.shape[0], int(stretch_point_TF_sniff)), dtype='complex')
 
-    for fi in range(np.size(tf,0)):
+    for fi in range(tf.shape[0]):
 
         x = tf[fi,:]
         data_chunk = np.zeros(( len(sniff_starts), stretch_point_TF_sniff ), dtype='complex')
@@ -287,23 +274,23 @@ def precompute_tf(sujet, cond, band_prep_list):
     conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
 
     #### select prep to load
-    #band_prep = 'hf'
-    for band_prep in band_prep_list:
+    #band_prep = 'lf'
+    for band_prep_i, band_prep in enumerate(band_prep_list):
 
         #### select data without aux chan
-        data = load_data(cond, band_prep=band_prep)
+        data = load_data(sujet, cond, band_prep=band_prep)
 
         #### remove aux chan
         data = data[:-4,:]
 
-        freq_band = freq_band_dict[band_prep] 
+        freq_band = freq_band_list_precompute[band_prep_i] 
 
         #band, freq = list(freq_band.items())[0]
         for band, freq in freq_band.items():
 
             os.chdir(os.path.join(path_precompute, sujet, 'TF'))
 
-            if os.path.exists(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy') == True :
+            if os.path.exists(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy') :
                 print('ALREADY COMPUTED')
                 continue
             
@@ -311,19 +298,19 @@ def precompute_tf(sujet, cond, band_prep_list):
             print('COMPUTE')
 
             #### select wavelet parameters
-            wavelets, nfrex = get_wavelets(band_prep, freq)
+            wavelets, nfrex = get_wavelets(sujet, band_prep, freq)
 
             #### compute
             os.chdir(path_memmap)
-            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(np.size(data,0), nfrex, np.size(data,1)))
+            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(data.shape[0], nfrex, data.shape[1]))
 
             def compute_tf_convolution_nchan(n_chan):
 
-                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+                print_advancement(n_chan, data.shape[0], steps=[25, 50, 75])
 
                 x = data[n_chan,:]
 
-                tf = np.zeros((nfrex,np.size(x)))
+                tf = np.zeros((nfrex, x.shape[0]))
 
                 for fi in range(nfrex):
                     
@@ -333,23 +320,22 @@ def precompute_tf(sujet, cond, band_prep_list):
 
                 return
 
-            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(np.size(data,0)))
+            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(data.shape[0]))
 
-            #### stretch
+            #### stretch or chunk
             if cond == 'FR_CV':
                 print('STRETCH_VS')
-                tf_allband_stretched = compute_stretch_tf_dB(tf_allchan, cond, respfeatures_allcond, stretch_point_TF, band, band_prep, nfrex, srate)
+                tf_allband_stretched = compute_stretch_tf_dB(sujet, tf_allchan, cond, respfeatures_allcond, stretch_point_TF, band, srate)
 
             if cond == 'AC':
-                print('STRETCH_AC')
+                print('CHUNK_AC')
                 ac_starts = get_ac_starts(sujet)
-                tf_allband_stretched = compute_stretch_tf_dB_AC(tf_allchan, cond, ac_starts, stretch_point_TF, band, band_prep, nfrex, srate)
+                tf_allband_stretched = compute_chunk_tf_dB_AC(sujet, tf_allchan, ac_starts, band, srate)
 
             if cond == 'SNIFF':
-                print('STRETCH_SNIFF')
+                print('chunk_SNIFF')
                 sniff_starts = get_sniff_starts(sujet)
-                tf_allband_stretched = compute_stretch_tf_dB_SNIFF(tf_allchan, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate)
-
+                tf_allband_stretched = compute_chunk_tf_dB_SNIFF(sujet, tf_allchan, sniff_starts, band, srate)
             
             #### save
             print('SAVE')
@@ -369,7 +355,7 @@ def precompute_tf(sujet, cond, band_prep_list):
 
 
 
-def precompute_tf_itpc(sujet, cond, band_prep_list):
+def precompute_itpc(sujet, cond, band_prep_list):
 
     print('ITPC PRECOMPUTE')
 
@@ -377,15 +363,15 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
     conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
     
     #### select prep to load
-    for band_prep in band_prep_list:
+    for band_prep_i, band_prep in enumerate(band_prep_list):
 
         #### select data without aux chan
-        data = load_data(cond, band_prep=band_prep)
+        data = load_data(sujet, cond, band_prep=band_prep)
 
         #### remove aux chan
         data = data[:-4,:]
 
-        freq_band = freq_band_dict[band_prep]
+        freq_band = freq_band_list_precompute[band_prep_i]
 
         #band, freq = list(freq_band.items())[0]
         for band, freq in freq_band.items():
@@ -399,17 +385,18 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
             print(band, ' : ', freq)
 
             #### select wavelet parameters
-            wavelets, nfrex = get_wavelets(band_prep, freq)
+            wavelets, nfrex = get_wavelets(sujet, band_prep, freq)
 
             #### compute itpc
             print('COMPUTE, STRETCH & ITPC')
+            #n_chan = 0
             def compute_itpc_n_chan(n_chan):
 
-                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+                print_advancement(n_chan, data.shape[0], steps=[25, 50, 75])
 
                 x = data[n_chan,:]
 
-                tf = np.zeros((nfrex,np.size(x)), dtype='complex')
+                tf = np.zeros((nfrex, x.shape[0]), dtype='complex')
 
                 for fi in range(nfrex):
                     
@@ -417,15 +404,15 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
 
                 #### stretch
                 if cond == 'FR_CV':
-                    tf_stretch = compute_stretch_tf_itpc(tf, cond, respfeatures_allcond, stretch_point_TF, srate)
+                    tf_stretch = stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf, srate)[0]
 
                 elif cond == 'AC':
                     ac_starts = get_ac_starts(sujet)
-                    tf_stretch = compute_stretch_tf_itpc_ac(tf, cond, ac_starts, srate)
+                    tf_stretch = chunk_stretch_tf_itpc_ac(sujet, tf, cond, ac_starts, srate)
 
                 elif cond == 'SNIFF':
                     sniff_starts = get_sniff_starts(sujet)
-                    tf_stretch = compute_stretch_tf_itpc_sniff(tf, cond, sniff_starts, srate)
+                    tf_stretch = chunk_stretch_tf_itpc_sniff(sujet, tf, cond, sniff_starts, srate)
 
                 #### ITPC
                 tf_angle = np.angle(tf_stretch)
@@ -440,20 +427,20 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
 
                 return itpc 
 
-            compute_itpc_n_chan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_itpc_n_chan)(n_chan) for n_chan in range(np.size(data,0)))
+            compute_itpc_n_chan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_itpc_n_chan)(n_chan) for n_chan in range(data.shape[0]))
             
             if cond == 'FR_CV':
-                itpc_allchan = np.zeros((np.size(data,0),nfrex,stretch_point_TF))
+                itpc_allchan = np.zeros((data.shape[0],nfrex,stretch_point_TF))
 
             elif cond == 'AC':
                 stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
-                itpc_allchan = np.zeros((np.size(data,0),nfrex,stretch_point_TF_ac))
+                itpc_allchan = np.zeros((data.shape[0], nfrex, stretch_point_TF_ac))
 
             elif cond == 'SNIFF':
                 stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-                itpc_allchan = np.zeros((np.size(data,0),nfrex,stretch_point_TF_sniff))
+                itpc_allchan = np.zeros((data.shape[0], nfrex, stretch_point_TF_sniff))
 
-            for n_chan in range(np.size(data,0)):
+            for n_chan in range(data.shape[0]):
 
                 itpc_allchan[n_chan,:,:] = compute_itpc_n_chan_res[n_chan]
 
@@ -463,6 +450,12 @@ def precompute_tf_itpc(sujet, cond, band_prep_list):
             np.save(f'{sujet}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy', itpc_allchan)
 
             del itpc_allchan
+
+
+
+
+
+
 
 
 
@@ -476,14 +469,14 @@ def compute_tf_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, band_prep, 
 
     def chunk_tf_n_chan(n_chan):
 
-        if n_chan/np.size(tf,0) % .2 <= .01:
-            print('{:.2f}'.format(n_chan/np.size(tf,0)))
+        if n_chan/tf.shape[0] % .2 <= .01:
+            print('{:.2f}'.format(n_chan/tf.shape[0]))
 
         stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
 
-        tf_sniff = np.zeros(( len(sniff_starts), np.size(tf,1), int(stretch_point_TF_sniff) ))
+        tf_sniff = np.zeros(( len(sniff_starts), tf.shape[1], int(stretch_point_TF_sniff) ))
 
-        for fi in range(np.size(tf,1)):
+        for fi in range(tf.shape[1]):
 
             x = tf[n_chan,fi,:]
 
@@ -498,15 +491,19 @@ def compute_tf_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, band_prep, 
 
         return tf_sniff_mean
 
-    chunk_tf_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(np.size(tf,0)))
+    chunk_tf_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
     stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-    tf_sniff_allchan = np.zeros((np.size(tf,0), len(sniff_starts), stretch_point_TF_sniff))
+    tf_sniff_allchan = np.zeros((tf.shape[0], len(sniff_starts), stretch_point_TF_sniff))
 
-    for n_chan in range(np.size(tf,0)):
+    for n_chan in range(tf.shape[0]):
         tf_sniff_allchan[n_chan,:,:] = chunk_tf_nchan_res[n_chan]
 
     return tf_sniff_allchan
+
+
+
+
 
 
 def precompute_tf_sniff(sujet, cond, band_prep_list):
@@ -520,15 +517,15 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
     #### select prep to load
     #band_prep = 'lf'
-    for band_prep in band_prep_list:
+    for band_prep_i, band_prep in enumerate(band_prep_list):
 
         #### select data without aux chan
-        data = load_data(cond, band_prep=band_prep)
+        data = load_data(sujet, cond, band_prep=band_prep)
 
         #### remove aux chan
         data = data[:-4,:]
 
-        freq_band = freq_band_dict[band_prep] 
+        freq_band = freq_band_list_precompute[band_prep_i] 
 
         #band, freq = list(freq_band.items())[0]
         for band, freq in freq_band.items():
@@ -547,15 +544,15 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
             #### compute
             os.chdir(path_memmap)
-            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(np.size(data,0), nfrex, np.size(data,1)))
+            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(data.shape[0], nfrex, data.shape[1]))
 
             def compute_tf_convolution_nchan(n_chan):
 
-                print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
+                print_advancement(n_chan, data.shape[0], steps=[25, 50, 75])
 
                 x = data[n_chan,:]
 
-                tf = np.zeros((nfrex,np.size(x)))
+                tf = np.zeros((nfrex, x.shape[0]))
 
                 for fi in range(nfrex):
                     
@@ -565,7 +562,7 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
                 return
 
-            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(np.size(data,0)))
+            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(data.shape[0]))
 
             #### stretch
             print('CHUNK_SNIFF')
@@ -598,21 +595,23 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
 if __name__ == '__main__':
 
+    #sujet = sujet_list[1]
+    for sujet in sujet_list:
 
-    #### compute and save tf
-    #cond = 'AC'
-    for cond in conditions_compute_TF:
+        #### compute and save tf
+        #cond = 'SNIFF'
+        for cond in conditions_compute_TF:
 
-        print(cond)
-    
-        #precompute_tf(session_eeg, cond, 0, band_prep_list)
-        execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf', [sujet, cond, band_prep_list])
-        #precompute_tf_itpc(session_eeg, cond, 0, band_prep_list)
-        execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_itpc', [sujet, cond, band_prep_list])
-    
-    #### compute sniff chunks
-    #precompute_tf_sniff(sujet, 'SNIFF', band_prep_list)
-    #execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_sniff', [sujet, 'SNIFF', band_prep_list])
+            print(cond)
+        
+            #precompute_tf(session_eeg, cond, 0, band_prep_list)
+            execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf', [sujet, cond, band_prep_list], '18G')
+            #precompute_itpc(session_eeg, cond, 0, band_prep_list)
+            execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_itpc', [sujet, cond, band_prep_list], '18G')
+        
+        #### compute sniff chunks
+        #precompute_tf_sniff(sujet, 'SNIFF', band_prep_list)
+        #execute_function_in_slurm_bash('n6_precompute_TF', 'precompute_tf_sniff', [sujet, 'SNIFF', band_prep_list])
 
 
 
