@@ -139,6 +139,9 @@ def from_dfc_to_mat_conn_mean(data_dfc, pairs, roi_in_data):
     #### fill mat
     mat_cf = np.zeros(( len(roi_in_data), len(roi_in_data) ))
 
+    #### transform in array for indexing
+    pairs = np.array(pairs)
+
     #x_i, x_name = 0, roi_in_data[0]
     for x_i, x_name in enumerate(roi_in_data):
         #y_i, y_name = 2, roi_in_data[2]
@@ -366,7 +369,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i):
             # compute ISPC and PLI (and average over trials!)
             _ispc_dfc_i = np.abs(np.mean(cdd))
             # pli_dfc_i[slwin_values_i] = np.abs(np.mean(np.sign(np.imag(cdd))))
-            _wpli_dfc_i = np.mean( np.abs(np.imag(cdd))*np.sign(np.imag(cdd)) ) / np.mean(np.abs(np.imag(cdd)))
+            _wpli_dfc_i = np.abs( np.mean(np.imag(cdd)) ) / np.mean(np.abs(np.imag(cdd)))
 
             return _ispc_dfc_i, _wpli_dfc_i
 
@@ -431,20 +434,24 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i):
                 ##### compute ISPC and WPLI (and average over trials!)
                 ispc_dfc_i[slwin_values_i] = np.abs(np.mean(cdd))
                 # pli_dfc_i[slwin_values_i] = np.abs(np.mean(np.sign(np.imag(cdd))))
-                wpli_dfc_i[slwin_values_i] = np.mean( np.imag(cdd) ) / np.mean( np.abs(np.imag(cdd)) )
+                wpli_dfc_i[slwin_values_i] = np.abs( np.mean( np.imag(cdd) ) ) / np.mean( np.abs( np.imag(cdd) ) )
 
             return ispc_dfc_i, wpli_dfc_i
 
         compute_ispc_pli_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_wpli)(pair_to_compute_i, pair_to_compute) for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute))
 
         #### extract
-        wpli_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
-        ispc_mat = np.zeros((len(pairs_to_compute),np.size(win_sample,0)))
+        wpli_mat = np.zeros((len(pairs_to_compute),win_sample.shape[0]))
+        ispc_mat = np.zeros((len(pairs_to_compute),win_sample.shape[0]))
 
         for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute):
 
             ispc_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][0]
             wpli_mat[pair_to_compute_i,:] = compute_ispc_pli_res[pair_to_compute_i][1]
+
+        #### simulate mat data
+        # wpli_mat = np.random.random(len(pairs_to_compute) * win_sample.shape[0]).reshape(len(pairs_to_compute), win_sample.shape[0])
+        # ispc_mat = np.random.random(len(pairs_to_compute) * win_sample.shape[0]).reshape(len(pairs_to_compute), win_sample.shape[0])
 
         #### resample for stretch
         os.chdir(path_memmap)
@@ -477,6 +484,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i):
 
         print('RESAMPLE')
 
+        #pair_i = 0
         for pair_i, _ in enumerate(pairs_to_compute):
 
             # print_advancement(pair_i, len(pairs_to_compute), steps=[25, 50, 75])
@@ -486,6 +494,9 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i):
 
         #### free memory
         del compute_ispc_pli_res, ispc_mat, wpli_mat
+
+        #### simulate resampled data
+        #matrix_resampled = np.random.random(2 * len(pairs_to_compute) * convolutions.shape[-1]).reshape(2, len(pairs_to_compute), convolutions.shape[-1])
 
         #### stretch
         if cond == 'FR_CV':
@@ -498,10 +509,12 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i):
         if cond == 'AL':
             mat_dfc_stretch = np.zeros(( 2, len(pairs_to_compute), n_points_AL_interpolation ))
 
+        #pair_i = 0
         for pair_i, _ in enumerate(pairs_to_compute):
 
-            # print_advancement(pair_i, len(pairs_to_compute), steps=[25, 50, 75])
+            print_advancement(pair_i, len(pairs_to_compute), steps=[25, 50, 75])
 
+            #metric_i = 0
             for metric_i, _ in enumerate(['ispc_mat_i', 'wpli_mat_i']):
                 
                 x = matrix_resampled[metric_i,pair_i,:]
@@ -511,12 +524,10 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i):
                     mat_dfc_stretch[metric_i,pair_i,:] = np.mean(x_stretch, axis=0)
                 if cond == 'AC':
                     ac_starts = get_ac_starts(sujet)
-                    x_stretch = chunk_data_AC(x, ac_starts, prms)
-                    mat_dfc_stretch[metric_i,pair_i,:] = np.mean(x_stretch, axis=0)
+                    mat_dfc_stretch[metric_i,pair_i,:] = chunk_data_AC(x, ac_starts, prms)
                 if cond == 'SNIFF':
                     sniff_starts = get_sniff_starts(sujet)
-                    x_stretch = chunk_data_sniff(x, sniff_starts, prms)
-                    mat_dfc_stretch[metric_i,pair_i,:] = np.mean(x_stretch, axis=0)
+                    mat_dfc_stretch[metric_i,pair_i,:] = chunk_data_sniff(x, sniff_starts, prms)
                 if cond == 'AL':
                     x_stretch = scipy.signal.resample(x, n_points_AL_interpolation)
                     mat_dfc_stretch[metric_i,pair_i,:] = x_stretch
@@ -715,9 +726,9 @@ if __name__ == '__main__':
     print('######## PRECOMPUTE DFC ########') 
     # cond = 'AC'
     for cond in cond_FC_DFC:
-        #band_prep = 'hf'
+        #band_prep = 'lf'
         for band_prep in band_prep_list:
-            #band, freq = 'h_gamma', [80,120]
+            #band, freq = 'beta', [12,40]
             for band, freq in freq_band_dict_FC_function[band_prep].items():
 
                 # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq)

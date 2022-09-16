@@ -36,8 +36,8 @@ def compilation_export_df_allplot(sujet_list):
         print(sujet)
 
         os.chdir(os.path.join(path_results, sujet, 'df'))
-        df_export_TF_i = pd.read_excel(f'{sujet}_df_TF_IE.xlsx')
-        df_export_ITPC_i = pd.read_excel(f'{sujet}_df_ITPC_IE.xlsx')
+        df_export_TF_i = pd.read_excel(f'{sujet}_df_TF.xlsx')
+        df_export_ITPC_i = pd.read_excel(f'{sujet}_df_ITPC.xlsx')
         # df_export_Cxy_MVL_i = pd.read_excel(f'{sujet}_df_Cxy_MVL.xlsx')
         df_export_graph_DFC_i = pd.read_excel(f'{sujet}_df_graph_DFC.xlsx')
         df_export_graph_FC_i = pd.read_excel(f'{sujet}_df_graph_FC.xlsx')
@@ -55,15 +55,15 @@ def compilation_export_df_allplot(sujet_list):
     #### save
     os.chdir(os.path.join(path_results, 'allplot', 'df'))
 
-    if os.path.exists('allplot_df_TF_IE.xlsx'):
-        print('TF_IE : ALREADY COMPUTED')
+    if os.path.exists('allplot_df_TF.xlsx'):
+        print('TF : ALREADY COMPUTED')
     else:
-        df_export_TF.to_excel('allplot_df_TF_IE.xlsx')
+        df_export_TF.to_excel('allplot_df_TF.xlsx')
 
-    if os.path.exists('allplot_df_ITPC_IE.xlsx'):
-        print('ITPC_IE : ALREADY COMPUTED')
+    if os.path.exists('allplot_df_ITPC.xlsx'):
+        print('ITPC : ALREADY COMPUTED')
     else:
-        df_export_ITPC.to_excel('allplot_df_ITPC_IE.xlsx')
+        df_export_ITPC.to_excel('allplot_df_ITPC.xlsx')
     
     # if os.path.exists('allplot_df_Cxy_MVL.xlsx'):
     #     print('Cxy_MVL : ALREADY COMPUTED')
@@ -107,7 +107,6 @@ if __name__ == '__main__':
 
         
     #### export df
-    sujet_list = sujet_list_FR_CV
     compilation_export_df_allplot(sujet_list)
     
     

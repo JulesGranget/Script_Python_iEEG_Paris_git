@@ -202,6 +202,7 @@ def export_TF_in_df(sujet, prms):
                     Pxx = np.mean(data, axis=0)
 
                     if cond == 'FR_CV':
+
                         Pxx_whole = Pxx.mean()
                         Pxx_inspi = np.mean(Pxx[stretch_point_I[0]:stretch_point_I[1]])
                         Pxx_expi = np.mean(Pxx[stretch_point_E[0]:stretch_point_E[1]])
@@ -217,10 +218,11 @@ def export_TF_in_df(sujet, prms):
                         time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
 
                         Pxx_pre = np.mean(Pxx[(time_vec >= sniff_extract_pre[0]) & (time_vec <= sniff_extract_pre[1])])
+                        Pxx_resp_evnmt = np.mean(Pxx[(time_vec >= sniff_extract_resp_evnmt[0]) & (time_vec <= sniff_extract_resp_evnmt[1])])
                         Pxx_post = np.mean(Pxx[(time_vec >= sniff_extract_post[0]) & (time_vec <= sniff_extract_post[1])])
 
-                        phase_list = ['SNIFF_pre', 'SNIFF_post']
-                        Pxx_list = [Pxx_pre, Pxx_post]
+                        phase_list = ['SNIFF_pre', 'SNIFF_resp_evnmt', 'SNIFF_post']
+                        Pxx_list = [Pxx_pre, Pxx_resp_evnmt, Pxx_post]
                     
                     if cond == 'AC':
 
@@ -228,10 +230,12 @@ def export_TF_in_df(sujet, prms):
                         time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
 
                         Pxx_pre = np.mean(Pxx[(time_vec >= AC_extract_pre[0]) & (time_vec <= AC_extract_pre[1])])
+                        Pxx_resp_evnmt_1 = np.mean(Pxx[(time_vec >= AC_extract_resp_evnmt_1[0]) & (time_vec <= AC_extract_resp_evnmt_1[1])])
+                        Pxx_resp_evnmt_2 = np.mean(Pxx[(time_vec >= AC_extract_resp_evnmt_2[0]) & (time_vec <= AC_extract_resp_evnmt_2[1])])
                         Pxx_post = np.mean(Pxx[(time_vec >= AC_extract_post[0]) & (time_vec <= AC_extract_post[1])])
 
-                        phase_list = ['AC_pre', 'AC_post']
-                        Pxx_list = [Pxx_pre, Pxx_post]
+                        phase_list = ['AC_pre', 'AC_resp_evnmt_1', 'AC_resp_evnmt_2', 'AC_post']
+                        Pxx_list = [Pxx_pre, Pxx_resp_evnmt_1, Pxx_resp_evnmt_2, Pxx_post]
                     
                     if cond == 'AL':
 
@@ -324,10 +328,11 @@ def export_ITPC_in_df(sujet, prms):
                         time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
 
                         Pxx_pre = np.mean(Pxx[(time_vec >= sniff_extract_pre[0]) & (time_vec <= sniff_extract_pre[1])])
+                        Pxx_resp_evnmt = np.mean(Pxx[(time_vec >= sniff_extract_resp_evnmt[0]) & (time_vec <= sniff_extract_resp_evnmt[1])])
                         Pxx_post = np.mean(Pxx[(time_vec >= sniff_extract_post[0]) & (time_vec <= sniff_extract_post[1])])
 
-                        phase_list = ['SNIFF_pre', 'SNIFF_post']
-                        Pxx_list = [Pxx_pre, Pxx_post]
+                        phase_list = ['SNIFF_pre', 'SNIFF_resp_evnmt', 'SNIFF_post']
+                        Pxx_list = [Pxx_pre, Pxx_resp_evnmt, Pxx_post]
                     
                     if cond == 'AC':
 
@@ -335,10 +340,12 @@ def export_ITPC_in_df(sujet, prms):
                         time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
 
                         Pxx_pre = np.mean(Pxx[(time_vec >= AC_extract_pre[0]) & (time_vec <= AC_extract_pre[1])])
+                        Pxx_resp_evnmt_1 = np.mean(Pxx[(time_vec >= AC_extract_resp_evnmt_1[0]) & (time_vec <= AC_extract_resp_evnmt_1[1])])
+                        Pxx_resp_evnmt_2 = np.mean(Pxx[(time_vec >= AC_extract_resp_evnmt_2[0]) & (time_vec <= AC_extract_resp_evnmt_2[1])])
                         Pxx_post = np.mean(Pxx[(time_vec >= AC_extract_post[0]) & (time_vec <= AC_extract_post[1])])
 
-                        phase_list = ['AC_pre', 'AC_post']
-                        Pxx_list = [Pxx_pre, Pxx_post]
+                        phase_list = ['AC_pre', 'AC_resp_evnmt_1', 'AC_resp_evnmt_2', 'AC_post']
+                        Pxx_list = [Pxx_pre, Pxx_resp_evnmt_1, Pxx_resp_evnmt_2, Pxx_post]
                     
                     if cond == 'AL':
 
@@ -450,23 +457,22 @@ def compute_graph_metric_dfc(sujet, prms):
 
                         if cond == 'SNIFF':
 
-                            stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
-
                             dfc_pre = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, sniff_extract_pre[0]:sniff_extract_pre[1]], pairs, roi_in_data)
+                            dfc_resp_evnmt = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, sniff_extract_resp_evnmt[0]:sniff_extract_resp_evnmt[1]], pairs, roi_in_data)
                             dfc_post = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, sniff_extract_post[0]:sniff_extract_post[1]], pairs, roi_in_data)
 
-                            phase_list = ['pre', 'post']
-                            mat_cf = [dfc_pre, dfc_post]
+                            phase_list = ['pre', 'resp_evnt', 'post']
+                            mat_cf = [dfc_pre, dfc_resp_evnmt, dfc_post]
                         
                         if cond == 'AC':
 
-                            stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
-
                             dfc_pre = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, AC_extract_pre[0]:AC_extract_pre[1]], pairs, roi_in_data)
+                            dfc_resp_evnmt_1 = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, AC_extract_resp_evnmt_1[0]:AC_extract_resp_evnmt_1[1]], pairs, roi_in_data)
+                            dfc_resp_evnmt_2 = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, AC_extract_resp_evnmt_2[0]:AC_extract_resp_evnmt_2[1]], pairs, roi_in_data)
                             dfc_post = from_dfc_to_mat_conn_trpz(xr_graph.loc[cf_metric, :, AC_extract_post[0]:AC_extract_post[1]], pairs, roi_in_data)
 
-                            phase_list = ['pre', 'post']
-                            mat_cf = [dfc_pre, dfc_post]
+                            phase_list = ['pre', 'resp_evnt_1', 'resp_evnt_2', 'post']
+                            mat_cf = [dfc_pre, dfc_resp_evnmt_1, dfc_resp_evnmt_2, dfc_post]
 
                         if cond == 'AL':
 
@@ -757,18 +763,34 @@ def compute_dfc_values(sujet, prms):
                                     stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
                                     time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
                                     select_time_vec_pre = (time_vec >= sniff_extract_pre[0]) & (time_vec <= sniff_extract_pre[1])
+                                    select_time_vec_resp_evnmt = (time_vec >= sniff_extract_resp_evnmt[0]) & (time_vec <= sniff_extract_resp_evnmt[1])
                                     select_time_vec_post = (time_vec >= sniff_extract_post[0]) & (time_vec <= sniff_extract_post[1])
 
-                                    phase_list = ['whole', 'pre', 'post']
+                                    phase_list = ['whole', 'pre', 'resp_evnmt', 'post']
+
+                                    value_list =    [np.mean(xr_dfc[cf_metric_i, pair_i, :].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_pre].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_resp_evnmt].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_post].data)
+                                                ]
                                 
                                 if cond == 'AC':
 
                                     stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
                                     time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
                                     select_time_vec_pre = (time_vec >= AC_extract_pre[0]) & (time_vec <= AC_extract_pre[1])
+                                    select_time_vec_resp_evnmt_1 = (time_vec >= AC_extract_resp_evnmt_1[0]) & (time_vec <= AC_extract_resp_evnmt_1[1])
+                                    select_time_vec_resp_evnmt_2 = (time_vec >= AC_extract_resp_evnmt_2[0]) & (time_vec <= AC_extract_resp_evnmt_2[1])
                                     select_time_vec_post = (time_vec >= AC_extract_post[0]) & (time_vec <= AC_extract_post[1])
 
-                                    phase_list = ['whole', 'pre', 'post']
+                                    phase_list = ['whole', 'pre', 'resp_evnmt_1', 'resp_evnmt_2', 'post']
+
+                                    value_list =    [np.mean(xr_dfc[cf_metric_i, pair_i, :].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_pre].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_resp_evnmt_1].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_resp_evnmt_2].data),
+                                                np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_post].data)
+                                                ]
 
                                 if cond == 'AL':
 
@@ -779,13 +801,14 @@ def compute_dfc_values(sujet, prms):
 
                                     phase_list = ['whole', 'pre', 'post']
 
-                                value_list =    [np.mean(xr_dfc[cf_metric_i, pair_i, :].data),
+                                    value_list =    [np.mean(xr_dfc[cf_metric_i, pair_i, :].data),
                                                 np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_pre].data),
                                                 np.mean(xr_dfc[cf_metric_i, pair_i, select_time_vec_post].data)
                                                 ]
 
-                                data_export_i =    {'sujet' : [sujet]*3, 'cond' : [cond]*3, 'band' : [band]*3, 'metric' : [cf_metric]*3, 
-                                        'phase' : phase_list, 'pair' : [pairs[pair_i]]*3, 'value' : value_list}
+                                data_export_i =    {'sujet' : [sujet]*len(phase_list), 'cond' : [cond]*len(phase_list), 'band' : [band]*len(phase_list), 
+                                        'metric' : [cf_metric]*len(phase_list), 'phase' : phase_list, 'pair' : [pairs[pair_i]]*len(phase_list), 
+                                        'value' : value_list}
 
                                 df_export_i = pd.DataFrame.from_dict(data_export_i)
 

@@ -357,10 +357,13 @@ stretch_point_I = [100, 300]
 stretch_point_E = [600, 800]
 
 sniff_extract_pre = [-1, 0]
-sniff_extract_post = [0, 1]
+sniff_extract_resp_evnmt = [0, 1]
+sniff_extract_post = [1, 2]
 
 AC_extract_pre = [-5, 0]
-AC_extract_post = [0, 10]
+AC_extract_resp_evnmt_1 = [0, 5]
+AC_extract_resp_evnmt_2 = [5, 10]
+AC_extract_post = [10, 15]
 
 AL_coeff_pre = .10 
 

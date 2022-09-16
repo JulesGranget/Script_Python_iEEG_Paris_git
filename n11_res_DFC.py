@@ -1,4 +1,5 @@
 
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,6 +13,15 @@ from n0_config_params import *
 from n0bis_config_analysis_functions import *
 
 debug = False
+
+
+
+
+
+
+
+
+
 
 
 ################################################
@@ -65,8 +75,18 @@ def get_data_for_phase(sujet, cond):
     #### load data 
     allband_data = {}
 
-    #export_type = 'inspi'
-    for export_type in ['pre', 'post']:
+    #### prepare export
+    if cond == 'AC':
+        export_type_list = ['pre', 'resp_evnmt_1', 'resp_evnmt_2', 'post']
+
+    if cond == 'SNIFF': 
+        export_type_list = ['pre', 'resp_evnmt', 'post']
+
+    if cond == 'AL':
+        export_type_list = ['pre', 'post']
+
+    #export_type = 'pre'
+    for export_type in export_type_list:
 
         allband_data[export_type] = {}
 
@@ -81,6 +101,7 @@ def get_data_for_phase(sujet, cond):
                 stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
                 time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
                 select_time_vec_pre = (time_vec >= sniff_extract_pre[0]) & (time_vec <= sniff_extract_pre[1])
+                select_time_vec_resp_evnmt = (time_vec >= sniff_extract_resp_evnmt[0]) & (time_vec <= sniff_extract_resp_evnmt[1])
                 select_time_vec_post = (time_vec >= sniff_extract_post[0]) & (time_vec <= sniff_extract_post[1])
             
             if cond == 'AC':
@@ -88,6 +109,8 @@ def get_data_for_phase(sujet, cond):
                 stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
                 time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
                 select_time_vec_pre = (time_vec >= AC_extract_pre[0]) & (time_vec <= AC_extract_pre[1])
+                select_time_vec_resp_evnmt_1 = (time_vec >= AC_extract_resp_evnmt_1[0]) & (time_vec <= AC_extract_resp_evnmt_1[1])
+                select_time_vec_resp_evnmt_2 = (time_vec >= AC_extract_resp_evnmt_2[0]) & (time_vec <= AC_extract_resp_evnmt_2[1])
                 select_time_vec_post = (time_vec >= AC_extract_post[0]) & (time_vec <= AC_extract_post[1])
 
             if cond == 'AL':
@@ -99,6 +122,12 @@ def get_data_for_phase(sujet, cond):
 
             if export_type == 'pre':
                 data_chunk = data[:, :, select_time_vec_pre]
+            elif export_type == 'resp_evnmt':
+                data_chunk = data[:, :, select_time_vec_resp_evnmt]
+            elif export_type == 'resp_evnmt_1':
+                data_chunk = data[:, :, select_time_vec_resp_evnmt_1]
+            elif export_type == 'resp_evnmt_2':
+                data_chunk = data[:, :, select_time_vec_resp_evnmt_2]
             elif export_type == 'post':
                 data_chunk = data[:, :, select_time_vec_post]
 
@@ -118,6 +147,11 @@ def get_data_for_phase(sujet, cond):
 
 
 
+
+
+
+
+
 ################################
 ######## SAVE FIG ########
 ################################
@@ -127,8 +161,6 @@ def process_dfc_res(sujet, cond, export_type):
 
     print(f'######## {cond} DFC {export_type} ########')
 
-    #### CONNECTIVITY PLOT ####
-
     #### get params
     os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
     file_to_load = [i for i in os.listdir() if ( i.find('reducedpairs') != -1 and i.find(band_name_fc_dfc[0]) != -1)]
@@ -136,6 +168,8 @@ def process_dfc_res(sujet, cond, export_type):
     cf_metrics_list = xr.open_dataarray(file_to_load[0])['mat_type'].data
     n_band = len(band_name_fc_dfc)
     plot_list = ['no_thresh', 'thresh']
+
+    ######## WHOLE ########
 
     if export_type == 'whole':
             
@@ -212,7 +246,7 @@ def process_dfc_res(sujet, cond, export_type):
 
             #### mat plot
             fig, axs = plt.subplots(nrows=len(plot_list), ncols=n_band, figsize=(15,15))
-            plt.suptitle(mat_type)
+            plt.suptitle(f'{cond} {mat_type}')
             for r, plot_type in enumerate(plot_list):
                 for c, band in enumerate(band_name_fc_dfc):
                     ax = axs[r, c]
@@ -267,21 +301,42 @@ def process_dfc_res(sujet, cond, export_type):
             fig.savefig(f'{cond}_CIRCLE_{sujet}_{mat_type}.png')
             plt.close('all')
 
+    ######## PHASE ########
 
     elif export_type == 'phase':
 
         #### load data 
         allband_data = get_data_for_phase(sujet, cond)
-        phase_list = ['pre', 'post']
-        phase_plot_list = ['pre', 'post', 'diff']
-        n_rows = len(phase_plot_list)
+
+        #### define diff and phase to plot
+        if cond == 'AC':
+            phase_list = ['pre', 'resp_evnmt_1', 'resp_evnmt_2', 'post']
+            phase_list_diff = ['pre-resp_evnmt_1', 'pre-post', 'resp_evnmt_1-resp_evnmt_2', 'resp_evnmt_2-post']
+
+        if cond == 'SNIFF':
+            phase_list = ['pre', 'resp_evnmt', 'post']
+            phase_list_diff = ['pre-resp_evnmt', 'pre-post', 'resp_evnmt-post']
+
+        if cond == 'AL':
+            phase_list = ['pre', 'post']
+            phase_list_diff = ['pre-post']
+
+        n_cols_raw = len(phase_list)
+        n_cols_diff = len(phase_list_diff)
 
         #### substract data
         allband_data_diff = {}
-            
-        for band in band_name_fc_dfc:
 
-            allband_data_diff[band] = allband_data['pre'][band] - allband_data['post'][band]
+        #phase_diff = 'pre-post'
+        for phase_diff in phase_list_diff:
+
+            allband_data_diff[phase_diff] = {}
+
+            phase_diff_A, phase_diff_B = phase_diff.split('-')[0], phase_diff.split('-')[1]
+                
+            for band in band_name_fc_dfc:
+
+                allband_data_diff[phase_diff][band] = allband_data[phase_diff_A][band] - allband_data[phase_diff_B][band]
 
         #### go to results
         os.chdir(os.path.join(path_results, sujet, 'DFC', 'allcond'))
@@ -355,147 +410,248 @@ def process_dfc_res(sujet, cond, export_type):
 
         for mat_type_i, mat_type in enumerate(cf_metrics_list):
 
-            for band in band_name_fc_dfc:
+            for phase_diff in phase_list_diff:
 
-                thresh_up = np.percentile(allband_data_diff[band][mat_type_i,:,:].reshape(-1), percentile_thresh_up)
-                thresh_down = np.percentile(allband_data_diff[band][mat_type_i,:,:].reshape(-1), percentile_thresh_down)
+                for band in band_name_fc_dfc:
 
-                for x in range(mat_dfc_clean_diff[band][mat_type_i,:,:].shape[1]):
-                    for y in range(mat_dfc_clean_diff[band][mat_type_i,:,:].shape[1]):
-                        if (mat_dfc_clean_diff[band][mat_type_i,x,y] < thresh_up) & (mat_dfc_clean_diff[band][mat_type_i,x,y] > thresh_down):
-                            mat_dfc_clean_diff[band][mat_type_i,x,y] = 0
+                    thresh_up = np.percentile(allband_data_diff[phase_diff][band][mat_type_i,:,:].reshape(-1), percentile_thresh_up)
+                    thresh_down = np.percentile(allband_data_diff[phase_diff][band][mat_type_i,:,:].reshape(-1), percentile_thresh_down)
 
-        #### plot
-        for r, plot_type in enumerate(plot_list):
+                    for x in range(mat_dfc_clean_diff[phase_diff][band][mat_type_i,:,:].shape[1]):
+                        for y in range(mat_dfc_clean_diff[phase_diff][band][mat_type_i,:,:].shape[1]):
+                            if (mat_dfc_clean_diff[phase_diff][band][mat_type_i,x,y] < thresh_up) & (mat_dfc_clean_diff[phase_diff][band][mat_type_i,x,y] > thresh_down):
+                                mat_dfc_clean_diff[phase_diff][band][mat_type_i,x,y] = 0
+
+
+        ######## PLOT ########
         
-            #mat_type_i, mat_type = 0, 'ispc'
-            for mat_type_i, mat_type in enumerate(cf_metrics_list):
+        #mat_type_i, mat_type = 1, 'wpli'
+        for mat_type_i, mat_type in enumerate(cf_metrics_list):
 
-                #### mat plot
-                fig, axs = plt.subplots(nrows=n_rows, ncols=n_band, figsize=(15,15))
-                plt.suptitle(f'{cond} {mat_type}')
-                for r, phase in enumerate(phase_plot_list):
-                    for c, band in enumerate(band_name_fc_dfc):
+            ######## NO THRESH ########
+
+            #### mat plot raw 
+            fig, axs = plt.subplots(nrows=n_band, ncols=n_cols_raw, figsize=(15,15))
+            plt.suptitle(f'{cond} {mat_type}')
+            for r, band in enumerate(band_name_fc_dfc):
+                for c, phase in enumerate(phase_list):
+
+                    ax = axs[r, c]
+
+                    if c == 0:
+                        ax.set_ylabel(band)
+                    if r == 0:
+                        ax.set_title(f'{phase}')
+                    
+                    ax.matshow(allband_data[phase][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
+                    # ax.matshow(allband_data[phase][band][mat_type_i,:,:], vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'])
+                    # ax.matshow(allband_data[phase][band][mat_type_i,:,:])
+
+                    ax.set_yticks(np.arange(roi_names.shape[0]))
+                    ax.set_yticklabels(roi_names)
+            # plt.show()
+            fig.savefig(f'{cond}_MAT_RAW_{mat_type}.png')
+            plt.close('all')
+
+            #### mat plot DIFF 
+            fig, axs = plt.subplots(nrows=n_band, ncols=n_cols_diff, figsize=(15,15))
+            plt.suptitle(f'{cond} {mat_type}')
+            for r, band in enumerate(band_name_fc_dfc):
+                for c, phase in enumerate(phase_list_diff):
+
+                    if n_cols_diff == 1:
+                        ax = axs[r]
+                    else:
                         ax = axs[r, c]
-                        if c == 0:
-                            ax.set_ylabel(phase)
-                        ax.set_title(f'{band}')
-                        if phase in phase_list:
-                            ax.matshow(allband_data[phase][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
-                            # ax.matshow(allband_data[phase][band][mat_type_i,:,:], vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'])
-                            # ax.matshow(allband_data[phase][band][mat_type_i,:,:])
-                        else:
-                            ax.matshow(allband_data_diff[band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
-                        if c == 0:
-                            ax.set_yticks(np.arange(roi_names.shape[0]))
-                            ax.set_yticklabels(roi_names)
-                # plt.show()
-                fig.savefig(f'{cond}_MAT_DIFF_{sujet}_{mat_type}.png')
-                plt.close('all')
 
-                #### circle plot
-                nrows, ncols = n_rows, n_band
-                fig = plt.figure()
-                _position = 0
+                    if c == 0:
+                        ax.set_ylabel(band)
+                    if r == 0:
+                        ax.set_title(f'{phase}')
 
-                for r, phase in enumerate(phase_plot_list):
+                    ax.matshow(allband_data_diff[phase_diff][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
+                    
+                    ax.set_yticks(np.arange(roi_names.shape[0]))
+                    ax.set_yticklabels(roi_names)
+            # plt.show()
+            fig.savefig(f'{cond}_MAT_DIFF_{mat_type}.png')
+            plt.close('all')
 
-                    for c, band in enumerate(band_name_fc_dfc):
 
-                        _position += 1
+            #### circle plot RAW
+            nrows, ncols = n_band, n_cols_raw
+            fig = plt.figure()
+            _position = 0
 
-                        if phase in phase_list:
+            for r, band in enumerate(band_name_fc_dfc):
 
-                            # mne.viz.plot_connectivity_circle(allband_data[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                            #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
-                            #                                 vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'], colormap=mat_type_color[mat_type], facecolor='w', 
-                            #                                 textcolor='k')
-                            # mne.viz.plot_connectivity_circle(allband_data[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                            #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
-                            #                                 colormap=mat_type_color[mat_type], facecolor='w', 
-                            #                                 textcolor='k')
-                            mne.viz.plot_connectivity_circle(allband_data[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                                                        title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
-                                                        vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
-                                                        textcolor='k')
+                for c, phase in enumerate(phase_list):
 
-                        else:
+                    _position += 1
 
-                            mne.viz.plot_connectivity_circle(allband_data_diff[band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                                                        title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
-                                                        vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
-                                                        textcolor='k')
+                    # mne.viz.plot_connectivity_circle(allband_data[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                    #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
+                    #                                 vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'], colormap=mat_type_color[mat_type], facecolor='w', 
+                    #                                 textcolor='k')
+                    # mne.viz.plot_connectivity_circle(allband_data[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                    #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
+                    #                                 colormap=mat_type_color[mat_type], facecolor='w', 
+                    #                                 textcolor='k')
+                    mne.viz.plot_connectivity_circle(allband_data[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                                                title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
+                                                vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
+                                                textcolor='k')
 
-                plt.suptitle(f'{cond}_{mat_type}', color='k')
-                fig.set_figheight(10)
-                fig.set_figwidth(12)
-                # fig.show()
-                fig.savefig(f'{cond}_CIRCLE_DIFF_{sujet}_{mat_type}.png')
-                plt.close('all')
+            plt.suptitle(f'{cond}_{mat_type}', color='k')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            # fig.show()
+            fig.savefig(f'{cond}_CIRCLE_RAW_{mat_type}.png')
+            plt.close('all')
 
-                #### THRESH
 
-                #### mat plot
-                fig, axs = plt.subplots(nrows=n_rows, ncols=n_band, figsize=(15,15))
-                plt.suptitle(f'{cond} {mat_type} THRESH')
-                for r, phase in enumerate(phase_plot_list):
-                    for c, band in enumerate(band_name_fc_dfc):
+            #### circle plot DIFF
+            nrows, ncols = n_band, n_cols_diff
+            fig = plt.figure()
+            _position = 0
+
+            for r, band in enumerate(band_name_fc_dfc):
+
+                for c, phase in enumerate(phase_list_diff):
+
+                    _position += 1
+
+                    mne.viz.plot_connectivity_circle(allband_data_diff[phase_diff][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                                                title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
+                                                vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
+                                                textcolor='k')
+
+            plt.suptitle(f'{cond}_{mat_type}', color='k')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            # fig.show()
+            fig.savefig(f'{cond}_CIRCLE_DIFF_{mat_type}.png')
+            plt.close('all')
+
+
+
+            ######### THRESH #########
+
+            #### mat plot raw 
+            fig, axs = plt.subplots(nrows=n_band, ncols=n_cols_raw, figsize=(15,15))
+            plt.suptitle(f'{cond} {mat_type} THRESH')
+            for r, band in enumerate(band_name_fc_dfc):
+                for c, phase in enumerate(phase_list):
+                    
+                    ax = axs[r, c]
+
+                    if c == 0:
+                        ax.set_ylabel(band)
+                    if r == 0:
+                        ax.set_title(f'{phase}')
+                    
+                    ax.matshow(mat_dfc_clean[phase][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
+                    # ax.matshow(mat_dfc_clean[phase][band][mat_type_i,:,:], vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'])
+                    # ax.matshow(mat_dfc_clean[phase][band][mat_type_i,:,:])
+
+                    ax.set_yticks(np.arange(roi_names.shape[0]))
+                    ax.set_yticklabels(roi_names)
+            # plt.show()
+            fig.savefig(f'{cond}_MAT_RAW_THRESH_{mat_type}.png')
+            plt.close('all')
+
+            #### mat plot DIFF 
+            fig, axs = plt.subplots(nrows=n_band, ncols=n_cols_diff, figsize=(15,15))
+            plt.suptitle(f'{cond} {mat_type} THRESH')
+            for r, band in enumerate(band_name_fc_dfc):
+                for c, phase in enumerate(phase_list_diff):
+                    
+                    if n_cols_diff == 1:
+                        ax = axs[r]
+                    else:
                         ax = axs[r, c]
-                        if c == 0:
-                            ax.set_ylabel(phase)
-                        ax.set_title(f'{band}')
-                        if phase in phase_list:
-                            ax.matshow(mat_dfc_clean[phase][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
-                            # ax.matshow(mat_dfc_clean[phase][band][mat_type_i,:,:], vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'])
-                            # ax.matshow(mat_dfc_clean[phase][band][mat_type_i,:,:])
-                        else:
-                            ax.matshow(mat_dfc_clean_diff[band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
-                        if c == 0:
-                            ax.set_yticks(np.arange(roi_names.shape[0]))
-                            ax.set_yticklabels(roi_names)
-                # plt.show()
-                fig.savefig(f'{cond}_MAT_DIFF_TRESH_{sujet}_{mat_type}.png')
-                plt.close('all')
 
-                #### circle plot
-                nrows, ncols = n_rows, n_band
-                fig = plt.figure()
-                _position = 0
+                    if c == 0:
+                        ax.set_ylabel(band)
+                    if r == 0:
+                        ax.set_title(f'{phase}')
 
-                for r, phase in enumerate(phase_plot_list):
+                    ax.matshow(mat_dfc_clean_diff[phase_diff][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
+                    
+                    ax.set_yticks(np.arange(roi_names.shape[0]))
+                    ax.set_yticklabels(roi_names)
+            # plt.show()
+            fig.savefig(f'{cond}_MAT_DIFF_THRESH_{mat_type}.png')
+            plt.close('all')
 
-                    for c, band in enumerate(band_name_fc_dfc):
 
-                        _position += 1
+            #### circle plot RAW
+            nrows, ncols = n_band, n_cols_raw
+            fig = plt.figure()
+            _position = 0
 
-                        if phase in phase_list:
+            for r, band in enumerate(band_name_fc_dfc):
 
-                            # mne.viz.plot_connectivity_circle(mat_dfc_clean[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                            #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
-                            #                                 vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'], colormap=mat_type_color[mat_type], facecolor='w', 
-                            #                                 textcolor='k')
-                            # mne.viz.plot_connectivity_circle(mat_dfc_clean[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                            #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
-                            #                                 colormap=mat_type_color[mat_type], facecolor='w', 
-                            #                                 textcolor='k')
-                            mne.viz.plot_connectivity_circle(mat_dfc_clean[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                                                        title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
-                                                        vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
-                                                        textcolor='k')
+                for c, phase in enumerate(phase_list):
 
-                        else:
+                    _position += 1
 
-                            mne.viz.plot_connectivity_circle(mat_dfc_clean_diff[band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                                                        title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
-                                                        vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
-                                                        textcolor='k')
+                    # mne.viz.plot_connectivity_circle(mat_dfc_clean[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                    #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
+                    #                                 vmin=scales[mat_type]['vmin'], vmax=scales[mat_type]['vmax'], colormap=mat_type_color[mat_type], facecolor='w', 
+                    #                                 textcolor='k')
+                    # mne.viz.plot_connectivity_circle(mat_dfc_clean[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                    #                                 title=band, show=False, padding=7, fig=fig, subplot=(nrows, ncols, r+c+1),
+                    #                                 colormap=mat_type_color[mat_type], facecolor='w', 
+                    #                                 textcolor='k')
+                    mne.viz.plot_connectivity_circle(mat_dfc_clean[phase][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                                                title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
+                                                vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
+                                                textcolor='k')
 
-                plt.suptitle(f'{cond}_{mat_type}_THRESH', color='k')
-                fig.set_figheight(10)
-                fig.set_figwidth(12)
-                # fig.show()
-                fig.savefig(f'{cond}_CIRCLE_DIFF_THRESH_{sujet}_{mat_type}.png')
-                plt.close('all')
+            plt.suptitle(f'{cond}_{mat_type} THRESH', color='k')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            # fig.show()
+            fig.savefig(f'{cond}_CIRCLE_RAW_THRESH_{mat_type}.png')
+            plt.close('all')
+
+
+            #### circle plot DIFF
+            nrows, ncols = n_band, n_cols_diff 
+            fig = plt.figure()
+            _position = 0
+
+            for r, band in enumerate(band_name_fc_dfc):
+
+                for c, phase in enumerate(phase_list_diff):
+
+                    _position += 1
+
+                    mne.viz.plot_connectivity_circle(mat_dfc_clean_diff[phase_diff][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                                                title=f'{band} {phase}', show=False, padding=7, fig=fig, subplot=(nrows, ncols, _position),
+                                                vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
+                                                textcolor='k')
+
+            plt.suptitle(f'{cond}_{mat_type} THRESH', color='k')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            # fig.show()
+            fig.savefig(f'{cond}_CIRCLE_DIFF_THRESH_{mat_type}.png')
+            plt.close('all')
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             
@@ -514,7 +670,6 @@ def process_dfc_res_summary(sujet):
     file_to_load = [i for i in os.listdir() if ( i.find('reducedpairs') != -1 and i.find(band_name_fc_dfc[0]) != -1)]
     roi_names = xr.open_dataarray(file_to_load[0])['x'].data
     cf_metrics_list = xr.open_dataarray(file_to_load[0])['mat_type'].data
-    phase_list = ['pre', 'post']
     prms = get_params(sujet)
 
     #### load allcond data 
@@ -525,6 +680,19 @@ def process_dfc_res_summary(sujet):
     conditions = [cond for cond in prms['conditions'] if cond != 'FR_CV']
 
     for cond in conditions:
+
+        #### define diff and phase to plot
+        if cond == 'AC':
+            phase_list = ['pre', 'resp_evnmt_1', 'resp_evnmt_2', 'post']
+            phase_list_diff = ['pre-resp_evnmt_1', 'pre-post', 'resp_evnmt_1-resp_evnmt_2', 'resp_evnmt_2-post']
+
+        if cond == 'SNIFF':
+            phase_list = ['pre', 'resp_evnmt', 'post']
+            phase_list_diff = ['pre-resp_evnmt', 'pre-post', 'resp_evnmt-post']
+
+        if cond == 'AL':
+            phase_list = ['pre', 'post']
+            phase_list_diff = ['pre-post']
 
         #### load data
         allcond_data_i = get_data_for_phase(sujet, cond)
@@ -552,9 +720,16 @@ def process_dfc_res_summary(sujet):
         #### conpute diff
         allcond_data_diff_i = {}
 
-        for band in band_name_fc_dfc:
+        #phase_diff = 'pre-post'
+        for phase_diff in phase_list_diff:
 
-            allcond_data_diff_i[band] = allcond_data_i['pre'][band] - allcond_data_i['post'][band]
+            allcond_data_diff_i[phase_diff] = {}
+
+            phase_diff_A, phase_diff_B = phase_diff.split('-')[0], phase_diff.split('-')[1]
+                
+            for band in band_name_fc_dfc:
+
+                allcond_data_diff_i[phase_diff][band] = allcond_data_i[phase_diff_A][band] - allcond_data_i[phase_diff_B][band]
 
         #### thresh
         percentile_thresh_up = 99
@@ -565,15 +740,17 @@ def process_dfc_res_summary(sujet):
         #mat_type_i, mat_type = 0, 'ispc'
         for mat_type_i, mat_type in enumerate(cf_metrics_list):
 
-            for band in band_name_fc_dfc:
+            for phase_diff in phase_list_diff:
 
-                thresh_up = np.percentile(allcond_data_diff_i[band][mat_type_i,:,:].reshape(-1), percentile_thresh_up)
-                thresh_down = np.percentile(allcond_data_diff_i[band][mat_type_i,:,:].reshape(-1), percentile_thresh_down)
+                for band in band_name_fc_dfc:
 
-                for x in range(mat_dfc_clean_i[band][mat_type_i,:,:].shape[1]):
-                    for y in range(mat_dfc_clean_i[band][mat_type_i,:,:].shape[1]):
-                        if (mat_dfc_clean_i[band][mat_type_i,x,y] < thresh_up) & (mat_dfc_clean_i[band][mat_type_i,x,y] > thresh_down):
-                            mat_dfc_clean_i[band][mat_type_i,x,y] = 0
+                    thresh_up = np.percentile(allcond_data_diff_i[phase_diff][band][mat_type_i,:,:].reshape(-1), percentile_thresh_up)
+                    thresh_down = np.percentile(allcond_data_diff_i[phase_diff][band][mat_type_i,:,:].reshape(-1), percentile_thresh_down)
+
+                    for x in range(mat_dfc_clean_i[phase_diff][band][mat_type_i,:,:].shape[1]):
+                        for y in range(mat_dfc_clean_i[phase_diff][band][mat_type_i,:,:].shape[1]):
+                            if (mat_dfc_clean_i[phase_diff][band][mat_type_i,x,y] < thresh_up) & (mat_dfc_clean_i[phase_diff][band][mat_type_i,x,y] > thresh_down):
+                                mat_dfc_clean_i[phase_diff][band][mat_type_i,x,y] = 0
 
         #### fill res containers
         allcond_data[cond] = mat_dfc_clean_i
@@ -604,52 +781,116 @@ def process_dfc_res_summary(sujet):
     #mat_type_i, mat_type = 0, 'ispc'
     for mat_type_i, mat_type in enumerate(cf_metrics_list):
 
-        #### mat
-        fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(15,15))
-        plt.suptitle(f'{mat_type} summary THRESH : pre - post')
-        for r, band in enumerate(band_name_fc_dfc):
-            for c, cond in enumerate(conditions):
+        #phase_diff = phase_list_diff[0]
+        for phase_diff in phase_list_diff:
 
-                if n_cols == 1:
-                    ax = axs[r]    
-                else:
-                    ax = axs[r, c]
+            #### mat
+            fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(15,15))
+            plt.suptitle(f'{mat_type} summary THRESH : {phase_diff}')
+            for r, band in enumerate(band_name_fc_dfc):
+                for c, cond in enumerate(conditions):
 
-                if c == 0:
-                    ax.set_ylabel(band)
-                if r == 0:
-                    ax.set_title(f'{cond}')
+                    if cond == 'AL' and phase_diff.find('resp') != -1:
+                        continue
 
-                ax.matshow(allcond_data[cond][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
-                
-                if c == 0:
-                    ax.set_yticks(np.arange(roi_names.shape[0]))
-                    ax.set_yticklabels(roi_names)
-        # plt.show()
-        fig.savefig(f'{sujet}_summary_MAT_DIFF_TRESH_{mat_type}.png')
-        plt.close('all')
+                    elif cond != 'AC' and phase_diff.find('1') != -1 and phase_diff.find('2') == -1:
+                        phase_diff_list = []
+                        for phase_diff_i in phase_diff.split('-'):
+                            if phase_diff_i.find('resp_evnmt') != -1:
+                                phase_diff_list.append('resp_evnmt')
+                            else:
+                                phase_diff_list.append(phase_diff_i)
+                        
+                        phase_diff_sel = f'{phase_diff_list[0]}-{phase_diff_list[1]}'
 
-        #### circle plot
-        fig = plt.figure()
-        _position = 0
+                    elif cond != 'AC' and phase_diff.find('1') != -1 and phase_diff.find('2') != -1:
+                        continue
 
-        for r, band in enumerate(band_name_fc_dfc):
+                    elif cond != 'AC' and phase_diff.find('1') == -1 and phase_diff.find('2') != -1:
+                        continue
 
-            for c, cond in enumerate(conditions):
+                    else:
+                        phase_diff_sel = phase_diff
 
-                _position += 1
+                    if n_cols == 1:
+                        ax = axs[r]    
+                    else:
+                        ax = axs[r, c]
 
-                mne.viz.plot_connectivity_circle(allcond_data[cond][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
-                                            title=f'{cond} {band}', show=False, padding=7, fig=fig, subplot=(n_rows, n_cols, _position),
-                                            vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
-                                            textcolor='k')
+                    if c == 0:
+                        ax.set_ylabel(band)
+                    if r == 0:
+                        ax.set_title(f'{cond}')
 
-        plt.suptitle(f'{cond}_{mat_type}_THRESH : pre - post', color='k')
-        fig.set_figheight(10)
-        fig.set_figwidth(12)
-        # fig.show()
-        fig.savefig(f'{sujet}_summary_CIRCLE_DIFF_TRESH_{mat_type}.png')
-        plt.close('all')
+                    ax.matshow(allcond_data[cond][phase_diff_sel][band][mat_type_i,:,:], vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], cmap=cm.seismic)
+                    
+                    if c == 0:
+                        ax.set_yticks(np.arange(roi_names.shape[0]))
+                        ax.set_yticklabels(roi_names)
+            # plt.show()
+            fig.savefig(f'{sujet}_summary_MAT_{phase_diff}_TRESH_{mat_type}.png')
+            plt.close('all')
+
+            #### circle plot
+            fig = plt.figure()
+            _position = 0
+
+            for r, band in enumerate(band_name_fc_dfc):
+
+                for c, cond in enumerate(conditions):
+
+                    if cond == 'AL' and phase_diff.find('resp') != -1:
+                        _position += 1
+                        continue
+
+                    elif cond != 'AC' and phase_diff.find('1') != -1 and phase_diff.find('2') == -1:
+                        phase_diff_list = []
+                        for phase_diff_i in phase_diff.split('-'):
+                            if phase_diff_i.find('resp_evnmt') != -1:
+                                phase_diff_list.append('resp_evnmt')
+                            else:
+                                phase_diff_list.append(phase_diff_i)
+                        
+                        phase_diff_sel = f'{phase_diff_list[0]}-{phase_diff_list[1]}'
+                        _position += 1
+
+                    elif cond != 'AC' and phase_diff.find('1') != -1 and phase_diff.find('2') != -1:
+                        _position += 1
+                        continue
+
+                    elif cond != 'AC' and phase_diff.find('1') == -1 and phase_diff.find('2') != -1:
+                        _position += 1
+                        continue
+
+                    else:
+                        phase_diff_sel = phase_diff
+                        _position += 1
+
+                    mne.viz.plot_connectivity_circle(allcond_data[cond][phase_diff_sel][band][mat_type_i,:,:], node_names=roi_names, n_lines=None, 
+                                                title=f'{cond} {band}', show=False, padding=7, fig=fig, subplot=(n_rows, n_cols, _position),
+                                                vmin=-scales_abs[mat_type][band], vmax=scales_abs[mat_type][band], colormap=cm.seismic, facecolor='w', 
+                                                textcolor='k')
+
+            plt.suptitle(f'{cond}_{mat_type}_THRESH : {phase_diff}', color='k')
+            fig.set_figheight(10)
+            fig.set_figwidth(12)
+            # fig.show()
+            fig.savefig(f'{sujet}_summary_CIRCLE_{phase_diff}_TRESH_{mat_type}.png')
+            plt.close('all')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -671,7 +912,7 @@ if __name__ == '__main__':
         for cond in prms['conditions']:
             if cond == 'FR_CV':
                 continue
-            #export_type = 'whole'
+            #export_type = 'phase'
             for export_type in ['whole', 'phase']:
                 process_dfc_res(sujet, cond, export_type)
         

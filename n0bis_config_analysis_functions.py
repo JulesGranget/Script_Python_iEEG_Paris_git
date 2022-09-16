@@ -113,10 +113,28 @@ def generate_folder_structure(sujet):
 
             #### allplot
     os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot'))
-    construct_token = create_folder('TF', construct_token)
-    construct_token = create_folder('ITPC', construct_token)
+    construct_token = create_folder('df', construct_token)
+    construct_token = create_folder('allcond', construct_token)
     construct_token = create_folder('anatomy', construct_token)
-    construct_token = create_folder('FC', construct_token)
+
+                #### allcond
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'allcond'))
+    construct_token = create_folder('DFC', construct_token)
+    construct_token = create_folder('ITPC', construct_token)
+    construct_token = create_folder('TF', construct_token)
+
+                    #### TF/ITPC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'allcond', 'TF'))
+    construct_token = create_folder('ROI', construct_token)
+    construct_token = create_folder('Lobes', construct_token)
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'allcond', 'ITPC'))
+    construct_token = create_folder('ROI', construct_token)
+    construct_token = create_folder('Lobes', construct_token)
+
+                    #### DFC
+    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'allcond', 'DFC'))
+    construct_token = create_folder('allcond', construct_token)
+    construct_token = create_folder('summary', construct_token)
 
                 #### FC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC'))
