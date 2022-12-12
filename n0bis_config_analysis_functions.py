@@ -97,10 +97,8 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'precompute', sujet))
     construct_token = create_folder('ITPC', construct_token)
     construct_token = create_folder('TF', construct_token)
-    construct_token = create_folder('PSD_Coh', construct_token)
     construct_token = create_folder('baselines', construct_token)
     construct_token = create_folder('DFC', construct_token)
-    construct_token = create_folder('FC', construct_token)
 
         #### anatomy
     os.chdir(os.path.join(path_general, 'Analyses', 'anatomy'))
@@ -136,33 +134,11 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('allcond', construct_token)
     construct_token = create_folder('summary', construct_token)
 
-                #### FC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC'))
-    construct_token = create_folder('DFC', construct_token)
-
-                    #### DFC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'FC', 'DFC'))
-    construct_token = create_folder('SNIFF', construct_token)
-    construct_token = create_folder('AC', construct_token)
-    construct_token = create_folder('AL', construct_token)
-
-                #### TF
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'TF'))
-    construct_token = create_folder('Lobes', construct_token)
-    construct_token = create_folder('ROI', construct_token)
-                
-                ####ITPC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', 'allplot', 'ITPC'))
-    construct_token = create_folder('Lobes', construct_token)
-    construct_token = create_folder('ROI', construct_token)
-
             #### sujet
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet))
     construct_token = create_folder('RESPI', construct_token)
     construct_token = create_folder('TF', construct_token)
-    construct_token = create_folder('PSD_Coh', construct_token)
     construct_token = create_folder('ITPC', construct_token)
-    construct_token = create_folder('FC', construct_token)
     construct_token = create_folder('DFC', construct_token)
     construct_token = create_folder('df', construct_token)
     construct_token = create_folder('ERP', construct_token)
@@ -182,36 +158,16 @@ def generate_folder_structure(sujet):
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'TF', 'summary'))
     construct_token = create_folder('AL', construct_token)
 
-                #### PSD_Coh
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'PSD_Coh'))
-    construct_token = create_folder('summary', construct_token)
-    construct_token = create_folder('allcond', construct_token)
-
                 #### ITPC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'ITPC'))
     construct_token = create_folder('summary', construct_token)
     construct_token = create_folder('allcond', construct_token)
 
-                #### FC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC'))
-    construct_token = create_folder('PLI', construct_token)
-    construct_token = create_folder('ISPC', construct_token)
-    construct_token = create_folder('DFC', construct_token)
-
-                    #### PLI
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'PLI'))
-    construct_token = create_folder('figures', construct_token)
-    construct_token = create_folder('matrix', construct_token)
-
-                    #### ISPC
-    os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'FC', 'ISPC'))
-    construct_token = create_folder('figures', construct_token)
-    construct_token = create_folder('matrix', construct_token)
-
                 #### DFC
     os.chdir(os.path.join(path_general, 'Analyses', 'results', sujet, 'DFC'))
     construct_token = create_folder('allcond', construct_token)
     construct_token = create_folder('summary', construct_token)
+    construct_token = create_folder('verif', construct_token)
 
     #### Data
     os.chdir(os.path.join(path_general, 'Data'))
@@ -504,9 +460,9 @@ def execute_function_in_slurm_bash_mem_choice(name_script, name_function, params
 
 
 
-def get_params(sujet):
+def get_params(sujet, electrode_recording_type):
 
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet)
+    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet, electrode_recording_type)
     respi_ratio_allcond = get_all_respi_ratio(sujet)
     nwind, nfft, noverlap, hannw = get_params_spectral_analysis(srate)
 
@@ -520,46 +476,13 @@ def get_params(sujet):
 
 
 
-def extract_chanlist_srate_conditions(sujet):
+def extract_chanlist_srate_conditions(sujet, electrode_recording_type):
 
     path_source = os.getcwd()
     
     #### select conditions to keep
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
 
-    conditions = conditions_allsubjects
-
-    #### extract data
-    band_prep = band_prep_list[0]
-    cond = 'FR_CV'
-
-    load_i = []
-    for session_i, session_name in enumerate(os.listdir()):
-        if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
-            load_i.append(session_i)
-        else:
-            continue
-
-    load_name = [os.listdir()[i] for i in load_i][0]
-
-    raw = mne.io.read_raw_fif(load_name, preload=True, verbose='critical')
-
-    srate = int(raw.info['sfreq'])
-    chan_list = raw.info['ch_names']
-    chan_list_ieeg = chan_list[:-4] # on enlève : nasal, ventral, ECG, ECG_cR
-
-    #### go back to path source
-    os.chdir(path_source)
-
-    return conditions, chan_list, chan_list_ieeg, srate
-
-
-def extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubjects):
-
-    path_source = os.getcwd()
-    
-    #### select conditions to keep
-    os.chdir(os.path.join(path_prep, sujet_tmp, 'sections'))
     dirlist_subject = os.listdir()
 
     conditions = []
@@ -573,11 +496,14 @@ def extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubject
 
     #### extract data
     band_prep = band_prep_list[0]
-    cond = conditions[0]
+    if electrode_recording_type == 'monopolaire':
+        file_to_search = f'{sujet}_FR_CV_{band_prep}.fif'
+    if electrode_recording_type == 'bipolaire':
+        file_to_search = f'{sujet}_FR_CV_{band_prep}_bi.fif'
 
     load_i = []
     for session_i, session_name in enumerate(os.listdir()):
-        if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
+        if ( session_name.find(file_to_search) != -1 ) :
             load_i.append(session_i)
         else:
             continue
@@ -597,7 +523,9 @@ def extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubject
 
 
 
-def load_data(sujet, cond, band_prep=None):
+
+
+def load_data(sujet, cond, electrode_recording_type, band_prep=None):
 
     path_source = os.getcwd()
     
@@ -607,8 +535,12 @@ def load_data(sujet, cond, band_prep=None):
 
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ):
-                load_i.append(i)
+            if electrode_recording_type == 'bipolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                    load_i.append(i)
+            elif electrode_recording_type == 'monopolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                    load_i.append(i)
             else:
                 continue
 
@@ -624,12 +556,16 @@ def load_data(sujet, cond, band_prep=None):
 
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if (session_name.find(cond) != -1) and (session_name.find('session') != -1) and ( session_name.find(band_prep) != -1 ):
-                load_i.append(i)
+            if electrode_recording_type == 'bipolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                    load_i.append(i)
+            elif electrode_recording_type == 'monopolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                    load_i.append(i)
             else:
                 continue
 
-        load_list = [os.listdir()[i] for i in load_i]
+        load_list = [os.listdir()[i] for i in load_i if os.listdir()[i].find('.nc') == -1]
 
         raw = mne.io.read_raw_fif(load_list[0], preload=True, verbose='critical')
 
@@ -642,8 +578,12 @@ def load_data(sujet, cond, band_prep=None):
     
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if ( session_name.find(cond) != -1 ) and ( session_name.find(band_prep) != -1 ) and ( session_name.find('session') == -1 ):
-                load_i.append(i)
+            if electrode_recording_type == 'bipolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                    load_i.append(i)
+            elif electrode_recording_type == 'monopolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                    load_i.append(i)
             else:
                 continue
 
@@ -662,8 +602,12 @@ def load_data(sujet, cond, band_prep=None):
     
         load_i = []
         for i, session_name in enumerate(os.listdir()):
-            if (session_name.find(cond) != -1) and ( session_name.find(band_prep) != -1 ) :
-                load_i.append(i)
+            if electrode_recording_type == 'bipolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                    load_i.append(i)
+            elif electrode_recording_type == 'monopolaire':
+                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                    load_i.append(i)
             else:
                 continue
 
@@ -680,39 +624,8 @@ def load_data(sujet, cond, band_prep=None):
 
     return data
 
-#band_prep, cond, session_i = 'lf', cond, 0
-def load_data_sujet(sujet_tmp, band_prep, cond, session_i):
 
-    path_source = os.getcwd()
-    
-    os.chdir(os.path.join(path_prep, sujet_tmp, 'sections'))
 
-    if cond == 'SNIFF':
-        cond_search = 'SNIFF_session'
-    else:
-        cond_search = cond
-
-    load_i = []
-    for i, session_name in enumerate(os.listdir()):
-        if ( session_name.find(cond_search) != -1 ) & ( session_name.find(band_prep) != -1 ):
-            load_i.append(i)
-        else:
-            continue
-
-    load_list = [os.listdir()[i] for i in load_i]
-    load_name = load_list[session_i]
-
-    raw = mne.io.read_raw_fif(load_name, preload=True, verbose='critical')
-
-    data = raw.get_data() 
-
-    #### go back to path source
-    os.chdir(path_source)
-
-    #### free memory
-    del raw
-
-    return data
 
 
 def get_srate(sujet):
@@ -784,10 +697,10 @@ def get_sniff_starts(sujet):
 ################################
 
 
-def get_wavelets(sujet, band_prep, freq):
+def get_wavelets(sujet, band_prep, freq, electrode_recording_type):
 
     #### get params
-    prms = get_params(sujet)
+    prms = get_params(sujet, electrode_recording_type)
 
     #### select wavelet parameters
     if band_prep == 'wb':
@@ -1075,7 +988,7 @@ def stretch_data(resp_features, nb_point_by_cycle, data, srate):
 
 
 
-#resp_features, nb_point_by_cycle, data, srate = resp_features, stretch_point_TF, ispc_mat, 1/slwin_step
+#resp_features, nb_point_by_cycle, data, srate = respfeatures_allcond[cond][0], stretch_point_TF, tf[n_chan,:,:], srate
 def stretch_data_tf(resp_features, nb_point_by_cycle, data, srate):
 
     # params
@@ -1163,13 +1076,16 @@ def get_electrode_loca():
 
 
 
-def get_loca_df(sujet):
+def get_loca_df(sujet, electrode_recording_type):
 
     path_source = os.getcwd()
 
     os.chdir(os.path.join(path_anatomy, sujet))
 
-    file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
+    if electrode_recording_type == 'monopolaire':
+        file_plot_select = pd.read_excel(sujet + '_plot_loca.xlsx')
+    if electrode_recording_type == 'bipolaire':
+        file_plot_select = pd.read_excel(sujet + '_plot_loca_bi.xlsx')
 
     chan_list_ieeg_trc = file_plot_select['plot'][file_plot_select['select'] == 1].values.tolist()
 
@@ -1348,4 +1264,26 @@ def zscore_mat(x):
 
     return _zscore_mat
 
+
+
+def rscore(x):
+
+    mad = np.median( np.abs(x-np.median(x)) ) * 1.4826 # median_absolute_deviation
+
+    rzscore_x = (x-np.median(x)) / mad
+
+    return rzscore_x
+    
+
+
+
+def rscore_mat(x):
+
+    _zscore_mat = np.zeros(( x.shape[0], x.shape[1] ))
+    
+    for i in range(x.shape[0]):
+
+        _zscore_mat[i,:] = rscore(x[i,:])
+
+    return _zscore_mat
 

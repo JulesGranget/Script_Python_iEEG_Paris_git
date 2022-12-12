@@ -51,7 +51,7 @@ def get_all_ROI_and_Lobes_name():
 
 
 
-def get_ROI_Lobes_list_and_Plots(cond):
+def get_ROI_Lobes_list_and_Plots(cond, electrode_recording_type):
 
     #### generate anat list
     os.chdir(os.path.join(path_anatomy, 'nomenclature'))
@@ -77,7 +77,7 @@ def get_ROI_Lobes_list_and_Plots(cond):
     #### filter only sujet with correct cond
     sujet_list_selected = []
     for sujet_i in sujet_list:
-        prms_i = get_params(sujet_i)
+        prms_i = get_params(sujet_i, electrode_recording_type)
         if cond in prms_i['conditions']:
             sujet_list_selected.append(sujet_i)
 
@@ -86,7 +86,11 @@ def get_ROI_Lobes_list_and_Plots(cond):
     for sujet_i in sujet_list_selected:
 
         os.chdir(os.path.join(path_anatomy, sujet_i))
-        plot_loca_df = pd.read_excel(sujet_i + '_plot_loca.xlsx')
+
+        if electrode_recording_type == 'monopolaire':
+            plot_loca_df = pd.read_excel(sujet_i + '_plot_loca.xlsx')
+        if electrode_recording_type == 'bipolaire':
+            plot_loca_df = pd.read_excel(sujet_i + '_plot_loca_bi.xlsx')
 
         chan_list_ieeg = plot_loca_df['plot'][plot_loca_df['select'] == 1].values
 
@@ -130,14 +134,14 @@ def get_ROI_Lobes_list_and_Plots(cond):
 ################################
 
 
-#ROI_to_process = ROI_to_include[22]
-def get_TF_and_ITPC_for_ROI(ROI_to_process, cond):
+#ROI_to_process = ROI_to_include[0]
+def get_TF_and_ITPC_for_ROI(ROI_to_process, cond, electrode_recording_type):
 
     #### load srate
-    srate = get_params(sujet_list[0])['srate']
+    srate = get_params(sujet_list[0], electrode_recording_type)['srate']
 
     #### load anat
-    ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond)
+    ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond, electrode_recording_type)
 
     #### identify stretch point
     if cond == 'FR_CV':
@@ -195,7 +199,8 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond):
         plot_tmp_mod = plot_to_process_i[1]
 
         #### load subject params
-        conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubjects)
+        conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet_tmp, electrode_recording_type)
+        
         if sujet_tmp[:3] != 'pat':
             chan_list_ieeg, chan_list_keep = modify_name(chan_list_ieeg)
 
@@ -205,13 +210,17 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond):
         plot_tmp_i = chan_list_ieeg.index(plot_tmp)
 
         #### add length recorded
-        len_recorded.append(load_data_sujet(sujet_tmp, 'lf', cond, 0)[plot_tmp_i,:].shape[0]/srate/60)
+        len_recorded.append(load_data(sujet_tmp, cond, electrode_recording_type, band_prep='lf')[plot_tmp_i,:].shape[0]/srate/60)
 
         os.chdir(os.path.join(path_precompute, sujet_tmp, 'TF'))
 
         #### identify trial number
         band, freq = list(dict_freq_band.items())[0]
-        n_trials = len([i for i in os.listdir() if i.find(f'{freq[0]}_{freq[1]}_{cond}') != -1])
+
+        if electrode_recording_type == 'monopolaire':
+            n_trials = len([i for i in os.listdir() if i.find(f'{freq[0]}_{freq[1]}_{cond}') != -1 and i.find('bi') == -1])
+        if electrode_recording_type == 'bipolaire':
+            n_trials = len([i for i in os.listdir() if i.find(f'{freq[0]}_{freq[1]}_{cond}') != -1 and i.find('bi') != -1])
 
         #### load TF and mean trial
         #band, freq = 'l_gamma', [50, 80]
@@ -222,11 +231,17 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond):
                 
                 if trial_i == 0:
 
-                    TF_load = np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        TF_load = np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        TF_load = np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
 
                 else:
 
-                    TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
             
             #### average trials TF
             TF_load /= n_trials
@@ -247,11 +262,17 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond):
                 
                 if trial_i == 0:
 
-                    ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
 
                 else:
 
-                    ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
             
             #### average trials ITPC
             ITPC_load /= n_trials
@@ -279,15 +300,15 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond):
 
 
 # Lobe_to_process = 'Occipital'
-def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond):
+def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond, electrode_recording_type):
 
     #### load srate
-    srate = get_params(sujet_list[0])['srate']
+    srate = get_params(sujet_list[0], electrode_recording_type)['srate']
 
     #### load anat
     ROI_list_allband, Lobe_list_allband = get_all_ROI_and_Lobes_name()
     len_ROI, len_Lobes = len(list(ROI_list_allband.keys())), len(list(Lobe_list_allband.keys()))
-    ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond)
+    ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond, electrode_recording_type)
 
     #### identify stretch point
     if cond == 'FR_CV':
@@ -343,7 +364,7 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond):
         plot_tmp_mod = plot_to_process_i[1]
 
         #### load subject params
-        conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions_for_sujet(sujet_tmp, conditions_allsubjects)
+        conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet_tmp, electrode_recording_type)
         chan_list_modified, chan_list_keep = modify_name(chan_list_ieeg)
 
         #### identify plot name in trc
@@ -356,13 +377,17 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond):
         plot_tmp_i = chan_list_ieeg.index(plot_tmp)
 
         #### add length recorded
-        len_recorded.append(load_data_sujet(sujet_tmp, 'lf', cond, 0)[plot_tmp_i,:].shape[0]/srate/60)
+        len_recorded.append(load_data(sujet_tmp, cond, electrode_recording_type, band_prep='lf')[plot_tmp_i,:].shape[0]/srate/60)
 
         os.chdir(os.path.join(path_precompute, sujet_tmp, 'TF'))
 
         #### identify trial number
         band, freq = list(dict_freq_band.items())[0]
-        n_trials = len([i for i in os.listdir() if i.find(f'{freq[0]}_{freq[1]}_{cond}') != -1])
+
+        if electrode_recording_type == 'monopolaire':
+            n_trials = len([i for i in os.listdir() if i.find(f'{freq[0]}_{freq[1]}_{cond}') != -1 and i.find('bi') == -1])
+        if electrode_recording_type == 'bipolaire':
+            n_trials = len([i for i in os.listdir() if i.find(f'{freq[0]}_{freq[1]}_{cond}') != -1 and i.find('bi') != -1])
 
         #### load TF and mean trial
         for band, freq in dict_freq_band.items():
@@ -371,11 +396,17 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond):
                 
                 if trial_i == 0:
 
-                   TF_load = np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        TF_load = np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        TF_load = np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
 
                 else:
 
-                    TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
             
             #### average trials TF and normalize
             TF_load /= n_trials
@@ -391,11 +422,17 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond):
                 
                 if trial_i == 0:
 
-                   ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
 
                 else:
 
-                    ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'monopolaire':
+                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                    if electrode_recording_type == 'bipolaire':
+                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
             
             #### average trials ITPC
             ITPC_load /= n_trials
@@ -433,10 +470,10 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond):
 
 
 
-def compilation_allplot_analysis(cond):
+def compilation_allplot_analysis(cond, electrode_recording_type):
 
     #### verify if all srate are the same
-    srates_verif = np.array([get_params(sujet)['srate'] for sujet in sujet_list])
+    srates_verif = np.array([get_params(sujet, electrode_recording_type)['srate'] for sujet in sujet_list])
     if np.unique(srates_verif).shape[0] != 1:
         raise ValueError('srate are different for every subjects')
     else:
@@ -445,14 +482,20 @@ def compilation_allplot_analysis(cond):
     #### verify computation
     os.chdir(os.path.join(path_precompute, 'allplot'))
     band = list(freq_band_list[0].keys())[0]
-    if os.path.exists(f'ROI_TF_ITPC_{cond}_allband.nc') and os.path.exists(f'Lobes_TF_ITPC_{cond}_allband.nc'):
-        print(f'ALREADY COMPUTED {cond}')
-        return
+
+    if electrode_recording_type == 'monopolaire':
+        if os.path.exists(f'ROI_TF_ITPC_{cond}_allband.nc') and os.path.exists(f'Lobes_TF_ITPC_{cond}_allband.nc'):
+            print(f'ALREADY COMPUTED {cond}')
+            return
+    if electrode_recording_type == 'bipolaire':
+        if os.path.exists(f'ROI_TF_ITPC_{cond}_allband_bi.nc') and os.path.exists(f'Lobes_TF_ITPC_{cond}_allband_bi.nc'):
+            print(f'ALREADY COMPUTED {cond}')
+            return
 
     print(cond)
 
     #### load anat
-    ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond)
+    ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond, electrode_recording_type)
         
     #### identify stretch point
     if cond == 'FR_CV':
@@ -464,7 +507,7 @@ def compilation_allplot_analysis(cond):
     
     #### compute TF & ITPC for ROI
     print('#### TF and ITPC for ROI ####')
-    res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(get_TF_and_ITPC_for_ROI)(ROI_to_process, cond) for ROI_to_process in ROI_to_include)
+    res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(get_TF_and_ITPC_for_ROI)(ROI_to_process, cond, electrode_recording_type) for ROI_to_process in ROI_to_include)
 
     #### generate all band to save
     dict_freq_band = {}
@@ -500,13 +543,17 @@ def compilation_allplot_analysis(cond):
 
     dict_xr = {'roi' : ROI_to_include, 'band' : band_to_export, 'TF_type' : ['ITPC', 'TF'], 'nfrex' : np.arange(0, nfrex_hf), 'times' : np.arange(0, stretch_point)}
     xr_export = xr.DataArray(ROI_data_xr, coords=dict_xr.values(), dims=dict_xr.keys())
-    xr_export.to_netcdf(f'ROI_TF_ITPC_{cond}_allband.nc')
+
+    if electrode_recording_type == 'monopolaire':
+        xr_export.to_netcdf(f'ROI_TF_ITPC_{cond}_allband.nc')
+    if electrode_recording_type == 'bipolaire':
+        xr_export.to_netcdf(f'ROI_TF_ITPC_{cond}_allband_bi.nc')
 
     print('done')
 
     #### compute TF & ITPC for Lobes
     print('#### TF and ITPC for Lobe ####')
-    res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(get_TF_and_ITPC_for_Lobe)(Lobe_to_process, cond) for Lobe_to_process in lobe_to_include)
+    res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(get_TF_and_ITPC_for_Lobe)(Lobe_to_process, cond, electrode_recording_type) for Lobe_to_process in lobe_to_include)
 
     #### generate all band to save
     dict_freq_band = {}
@@ -542,7 +589,11 @@ def compilation_allplot_analysis(cond):
 
     dict_xr = {'lobe' : lobe_to_include, 'band' : band_to_export, 'TF_type' : ['ITPC', 'TF'], 'nfrex' : np.arange(0, nfrex_hf), 'times' : np.arange(0, stretch_point)}
     xr_export = xr.DataArray(Lobe_data_xr, coords=dict_xr.values(), dims=dict_xr.keys())
-    xr_export.to_netcdf(f'Lobes_TF_ITPC_{cond}_allband.nc')
+
+    if electrode_recording_type == 'monopolaire':
+        xr_export.to_netcdf(f'Lobes_TF_ITPC_{cond}_allband.nc')
+    if electrode_recording_type == 'bipolaire':
+        xr_export.to_netcdf(f'Lobes_TF_ITPC_{cond}_allband_bi.nc')
 
     print('done')
 
@@ -564,15 +615,18 @@ def compilation_allplot_analysis(cond):
 
 if __name__ == '__main__':
 
-    #cond = 'SNIFF'
-    for cond in conditions_allsubjects:
+    #electrode_recording_type = 'bipolaire'
+    for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
-        if cond == 'AL':
-            continue
+        #cond = 'SNIFF'
+        for cond in conditions_allsubjects:
 
-        # compilation_allplot_analysis(cond)
-        execute_function_in_slurm_bash('n12_precompute_allplot_TF', 'compilation_allplot_analysis', [cond])
-    
+            if cond == 'AL':
+                continue
+
+            # compilation_allplot_analysis(cond, electrode_recording_type)
+            execute_function_in_slurm_bash('n12_precompute_allplot_TF', 'compilation_allplot_analysis', [cond, electrode_recording_type])
+        
 
 
 

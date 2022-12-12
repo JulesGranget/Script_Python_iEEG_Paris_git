@@ -434,7 +434,8 @@ if __name__ == '__main__':
     # sujet = 'pat_03105_1551'
     # sujet = 'pat_03128_1591'
     # sujet = 'pat_03138_1601'
-
+    # sujet = 'pat_03146_1608'
+    # sujet = 'pat_03174_1634'
 
     #### FR_CV only
     #sujet = 'pat_02459_0912'
@@ -570,58 +571,37 @@ if __name__ == '__main__':
     if sujet == 'pat_03083_1527':
         cond, session_i = 'FR_CV', 0
         corrected_time_inspi = [0.9, 5.24, 10.01, 14.29, 18.71, 23.36, 28.32, 33.21, 35.29, 38.03, 43.18, 47.75, 50.06, 55.74, 57.17, 61.22, 68.74, 73.88, 80.18, 86.50, 92.60, 98.23, 103.80, 108.82, 113.27, 118.05, 123.50, 128.48, 133.27, 137.76, 142.60, 148.44, 154.26, 159.55, 165.23, 170.04, 175.44, 178.20, 180.79, 190.16, 195.63, 200.92, 202.60, 206.21, 209.48, 213.83, 216.73, 221.92, 226.09, 230.54, 234.68, 239.54, 242.90, 247.51, 253.09, 257.91, 263.16, 266.81, 269.50, 273.88, 277.86, 281.15, 284.66, 288.86, 292.34, 298.65]
-        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
-        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
-        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
-        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
-        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
-        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
-        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
-        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
-
-        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
     if sujet == 'pat_03105_1551':
         cond, session_i = 'FR_CV', 0
         corrected_time_inspi = [1.91, 6.24, 10.13, 14.46, 17.79, 20.30, 24.24, 26.45, 29.81, 32.97, 36.57, 39.94, 42.87, 46.08, 49.23, 53.61, 56.78, 60.89, 64.38, 66.17, 68.95, 72.76, 76.14, 79.06, 83.09, 86.67, 89.92, 93, 97.12, 99.91, 103.13, 106.19, 109.39, 112.82, 116.18, 119.38, 122.94, 125.71, 129.97, 133.09, 136.65, 140.22, 143.50, 146.85, 149.44, 152.82, 156.04, 159.04, 161.68, 165.54, 168.15, 171.23, 174.31, 177.38, 180.73, 183.14, 186.38, 189.28, 193.11, 197.85, 203.07, 206.42, 209.82, 212.73, 216.36, 219.61, 222.12, 226.30, 231.25, 235.47, 238.47, 241.65, 244.69, 247.81, 251.90, 254.88, 257.82, 260.32, 263.17, 266.07, 269.01, 272.02, 274.83, 277.47, 287.60, 280.81, 283.83, 290.64, 293.60, 297.02]
-        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
-        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
-        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
-        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
-        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
-        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
-        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
-        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
-
-        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
     if sujet == 'pat_03128_1591':
         cond, session_i = 'FR_CV', 0
         corrected_time_inspi = [5.02, 9.83, 18.17, 24.39, 30.33, 34.95, 40.70, 45.47, 51.72, 57.34, 63.12, 68.92, 73.67, 78.31, 83.38, 88.50, 94.06, 98.44, 103.85, 109.02, 114.40, 120.52, 125.85, 131.57, 137.85, 142.63, 148.17, 153.02, 158.46, 163.31, 168.45, 173.25, 177.87, 183.15, 189.13, 194.44, 199.45, 204.12, 209.08, 214.22, 219.02, 224.11, 228.65, 233.90, 239.36, 244.61, 249.75, 254.34, 258.99, 264.13, 269.04, 274.18, 279.01, 283.92, 289.07, 293.49, 298.35]
-        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
-        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
-        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
-        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
-        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
-        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
-        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
-        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
-
-        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
     if sujet == 'pat_03138_1601':
         cond, session_i = 'FR_CV', 0
         corrected_time_inspi = [3.02, 8.41, 12.38, 16.88, 20.89, 24.72, 28.73, 32.52, 36.03, 40.62, 44.84, 49.96, 54.39, 58.96, 63.36, 67.61, 72.46, 76.99, 81.85, 87.19, 91.68, 96.055, 100.08, 104.15, 108.31, 112.04, 116.43, 121.22, 124.49, 128.35, 131.69, 136.98, 142.06, 146.52, 152.43, 157.28, 161.52, 165.72, 170.50, 174.50, 178.29, 182.71, 187.40, 192.17, 196.91, 200.80, 205.45, 210.35, 215.62, 220.95, 225.58, 229.73, 233.61, 238.20, 243.16, 246.85, 250.14, 254.61, 258.34, 262.70, 267.10, 271.57, 275.80, 279.36, 284.22, 289.14, 294.19, 298.12]
-        corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
-        corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
-        corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
-        respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
-        respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
-        respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
-        respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
-        respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
+        
+    if sujet == 'pat_03146_1608':
+        cond, session_i = 'FR_CV', 0
+        corrected_time_inspi = []
+        
+    if sujet == 'pat_03174_1634':
+        cond, session_i = 'FR_CV', 0
+        corrected_time_inspi = []
+        
+    corrected_index_inspi = [int(i*srate) for i in corrected_time_inspi]
+    corrected_time_expi = respi_allcond[cond][session_i][0]['expi_time']
+    corrected_index_expi = [int(i*srate) for i in corrected_time_expi]
+    respi_allcond[cond][session_i][0]['inspi_time'] = corrected_time_inspi
+    respi_allcond[cond][session_i][0]['inspi_index'] = corrected_index_inspi
+    respi_allcond[cond][session_i][0]['expi_time'] = corrected_time_expi
+    respi_allcond[cond][session_i][0]['expi_index'] = corrected_index_expi
+    respi_allcond[cond][session_i][0]['select'] = [1] * len(corrected_index_expi)
 
-        respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
+    respi_allcond = correct_resp_features(respi_allcond, respi_sig, srate)
 
     
 

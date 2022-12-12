@@ -18,11 +18,17 @@ import scipy.signal
 ######## GENERAL PARAMS ######## 
 ################################
 
+#### data analysis type
+electrode_recording_type = 'monopolaire'
+# electrode_recording_type = 'bipolaire'
+
 #### whole protocole
-sujet = 'pat_03083_1527'
+# sujet = 'pat_03083_1527'
 # sujet = 'pat_03105_1551'
 # sujet = 'pat_03128_1591'
 # sujet = 'pat_03138_1601'
+sujet = 'pat_03146_1608'
+# sujet = 'pat_03174_1634'
 
 
 #### FR_CV only
@@ -33,7 +39,7 @@ sujet = 'pat_03083_1527'
 #sujet = 'DEBUG'
 
 #### whole protocole
-sujet_list = ['pat_03083_1527', 'pat_03105_1551', 'pat_03128_1591', 'pat_03138_1601']
+sujet_list = ['pat_03083_1527', 'pat_03105_1551', 'pat_03128_1591', 'pat_03138_1601', 'pat_03146_1608', 'pat_03174_1634']
 
 #### FR_CV
 sujet_list_FR_CV = ['CHEe', 'GOBc', 'MAZm', 'TREt', 'MUGa', 'BANc', 'KOFs', 'LEMl', 'pat_02459_0912', 'pat_02476_0929', 'pat_02495_0949']
@@ -145,6 +151,8 @@ electrodes_to_remove = {
 'pat_03105_1551' : [],
 'pat_03128_1591' : [],
 'pat_03138_1601' : [],
+'pat_03146_1608' : [],
+'pat_03174_1634' : []
 
 }
 
@@ -168,6 +176,8 @@ aux_chan = {
 'pat_03105_1551' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
 'pat_03128_1591' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'}, # OK
 'pat_03138_1601' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1', 'EMG' : 'EMG1'},
+'pat_03146_1608' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1'},
+'pat_03174_1634' : {'nasal': 'PRES1', 'ventral' : 'BELT1', 'ECG' : 'ECG1'},
 
 'DEBUG' : {'nasal': 'p20+', 'ventral' : 'p19+', 'ECG' : 'ECG'}, # OK
 }
@@ -203,6 +213,8 @@ sujet_respi_adjust = {
 'pat_03105_1551' : 'inverse',
 'pat_03128_1591' : 'normal',
 'pat_03138_1601' : 'normal',
+'pat_03146_1608' : 'normal',
+'pat_03174_1634' : 'normal'
 }
 
 
@@ -218,6 +230,8 @@ sujet_ecg_adjust = {
 'pat_03105_1551' : 'normal',
 'pat_03128_1591' : 'normal',
 'pat_03138_1601' : 'normal',
+'pat_03146_1608' : 'normal',
+'pat_03174_1634' : 'normal'
 }
 
 
@@ -342,9 +356,11 @@ cond_FC_DFC = ['FR_CV', 'AL', 'SNIFF', 'AC']
 dw_srate_fc_AL = 10
 
 #### n points for AL interpolation
-n_points_AL_interpolation = 10000
+n_points_AL_interpolation = 5000
+n_points_AL_chunk = 1000
 
-
+#### for df computation
+percentile_graph_metric = 25
 
 
 ################################
@@ -365,7 +381,7 @@ AC_extract_resp_evnmt_1 = [0, 5]
 AC_extract_resp_evnmt_2 = [5, 10]
 AC_extract_post = [10, 15]
 
-AL_coeff_pre = .10 
+AL_extract_time = 5 
 
 
 ################################

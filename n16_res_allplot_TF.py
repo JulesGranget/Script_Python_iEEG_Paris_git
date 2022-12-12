@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import joblib
+import xarray as xr
 
 from n0_config_params import *
 from n0bis_config_analysis_functions import *
@@ -127,14 +128,18 @@ def robust_zscore(data):
 
 
 #struct_name, cond, mat_type, anat_type = ROI_name, 'FR_CV', 'TF', 'ROI'
-def open_TForITPC_data(struct_name, cond, mat_type, anat_type):
+def open_TForITPC_data(struct_name, cond, mat_type, anat_type, electrode_recording_type):
     
     #### open file
     os.chdir(os.path.join(path_precompute, 'allplot'))
     
     listdir = os.listdir()
     file_to_open = []
-    [file_to_open.append(file_i) for file_i in listdir if file_i.find(cond) != -1 and file_i.find(anat_type) != -1]
+
+    if electrode_recording_type == 'monopolaire':
+        [file_to_open.append(file_i) for file_i in listdir if file_i.find(cond) != -1 and file_i.find(anat_type) != -1 and file_i.find('bi') == -1]
+    if electrode_recording_type == 'bipolaire':
+        [file_to_open.append(file_i) for file_i in listdir if file_i.find(cond) != -1 and file_i.find(anat_type) != -1 and file_i.find('bi') != -1]
 
     #### extract band names
     band_names = []
@@ -153,7 +158,7 @@ def open_TForITPC_data(struct_name, cond, mat_type, anat_type):
     #### filter only sujet with correct cond
     sujet_list_selected = []
     for sujet_i in sujet_list:
-        prms_i = get_params(sujet_i)
+        prms_i = get_params(sujet_i, electrode_recording_type)
         if cond in prms_i['conditions']:
             sujet_list_selected.append(sujet_i)
 
@@ -164,7 +169,11 @@ def open_TForITPC_data(struct_name, cond, mat_type, anat_type):
     for sujet_i in sujet_list_selected:
 
         os.chdir(os.path.join(path_anatomy, sujet_i))
-        plot_loca_df = pd.read_excel(sujet_i + '_plot_loca.xlsx')
+
+        if electrode_recording_type == 'monopolaire':
+            plot_loca_df = pd.read_excel(sujet_i + '_plot_loca.xlsx')
+        if electrode_recording_type == 'bipolaire':
+            plot_loca_df = pd.read_excel(sujet_i + '_plot_loca_bi.xlsx')
 
         if anat_type == 'ROI':
             n_count += np.sum(plot_loca_df['localisation_corrected'] == struct_name)
@@ -180,7 +189,7 @@ def open_TForITPC_data(struct_name, cond, mat_type, anat_type):
 
 
 #ROI_name, mat_type = 'amygdala', 'TF'
-def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate):
+def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate, electrode_recording_type):
 
     print(ROI_name)
 
@@ -199,7 +208,7 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate):
     #cond = 'FR_CV'
     for cond in cond_to_compute:
 
-        allcond_TF[cond], allcond_count[cond] = open_TForITPC_data(ROI_name, cond, mat_type, anat_type)
+        allcond_TF[cond], allcond_count[cond] = open_TForITPC_data(ROI_name, cond, mat_type, anat_type, electrode_recording_type)
 
     #### plot & save
     if mat_type == 'TF':
@@ -229,7 +238,10 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate):
                 freq_band_reversed[key_i] = freq_band[key_i]
             freq_band = freq_band_reversed
 
-        plt.suptitle(ROI_name)
+        if electrode_recording_type == 'monopolaire':
+            plt.suptitle(ROI_name)
+        if electrode_recording_type == 'bipolaire':
+            plt.suptitle(f'{ROI_name} bi')
 
         #cond_i, cond = 0, 'FR_CV'
         for c, cond in enumerate(cond_to_compute):
@@ -258,6 +270,7 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate):
                     ax.set_title(f' {cond} : {TF_count_i}')
                 if c == 0:
                     ax.set_ylabel(band)
+                    
                 ax.pcolormesh(time_vec, frex, robust_zscore(TF_i), vmin=-robust_zscore(TF_i).max(), vmax=robust_zscore(TF_i).max(), shading='gouraud', cmap=plt.get_cmap('seismic'))
 
                 if cond == 'FR_CV':
@@ -270,10 +283,11 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate):
         #plt.show()
                     
         #### save
-        if band_prep == 'lf':
-            fig.savefig(ROI_name + '_allcond_lf.jpeg', dpi=150)
-        if band_prep == 'hf':
-            fig.savefig(ROI_name + '_allcond_hf.jpeg', dpi=150)
+        if electrode_recording_type == 'monopolaire':
+            fig.savefig(f'{ROI_name}_allcond_{band_prep}.jpeg', dpi=150)
+        if electrode_recording_type == 'bipolaire':
+            fig.savefig(f'{ROI_name}_allcond_{band_prep}_bi.jpeg', dpi=150)
+        
         plt.close('all')
 
 
@@ -285,7 +299,7 @@ def compute_for_one_ROI_allcond(ROI_name, mat_type, cond_to_compute, srate):
 
 
 #Lobe_name, mat_type = 'Temporal', 'TF'
-def compute_for_one_Lobe_allcond(Lobe_name, mat_type, cond_to_compute, srate):
+def compute_for_one_Lobe_allcond(Lobe_name, mat_type, cond_to_compute, srate, electrode_recording_type):
 
     print(Lobe_name)
 
@@ -304,7 +318,7 @@ def compute_for_one_Lobe_allcond(Lobe_name, mat_type, cond_to_compute, srate):
     #cond = 'FR_CV'
     for cond in cond_to_compute:
 
-        allcond_TF[cond], allcond_count[cond] = open_TForITPC_data(Lobe_name, cond, mat_type, anat_type)
+        allcond_TF[cond], allcond_count[cond] = open_TForITPC_data(Lobe_name, cond, mat_type, anat_type, electrode_recording_type)
 
     #### plot & save
     if mat_type == 'TF':
@@ -334,7 +348,10 @@ def compute_for_one_Lobe_allcond(Lobe_name, mat_type, cond_to_compute, srate):
                 freq_band_reversed[key_i] = freq_band[key_i]
             freq_band = freq_band_reversed
 
-        plt.suptitle(Lobe_name)
+        if electrode_recording_type == 'monopolaire':
+            plt.suptitle(Lobe_name)
+        if electrode_recording_type == 'bipolaire':
+            plt.suptitle(f'{Lobe_name} bi')
 
         #cond_i, cond = 0, 'FR_CV'
         for c, cond in enumerate(cond_to_compute):
@@ -377,10 +394,11 @@ def compute_for_one_Lobe_allcond(Lobe_name, mat_type, cond_to_compute, srate):
         #plt.show()
                     
         #### save
-        if band_prep == 'lf':
-            fig.savefig(Lobe_name + '_allcond_lf.jpeg', dpi=150)
-        if band_prep == 'hf':
-            fig.savefig(Lobe_name + '_allcond_hf.jpeg', dpi=150)
+        if electrode_recording_type == 'monopolaire':
+            fig.savefig(f'{Lobe_name} _allcond_{band_prep}.jpeg', dpi=150)
+        if electrode_recording_type == 'bipolaire':
+            fig.savefig(f'{Lobe_name} _allcond_{band_prep}_bi.jpeg', dpi=150)
+
         plt.close('all')
 
 
@@ -392,13 +410,13 @@ def compute_for_one_Lobe_allcond(Lobe_name, mat_type, cond_to_compute, srate):
 ######## COMPILATION ########
 ################################
 
-def compilation_slurm(anat_type, mat_type):
+def compilation_slurm(anat_type, mat_type, electrode_recording_type):
 
     print(f'#### {anat_type} {mat_type} ####')
 
     #### verify srate for all sujet
-    if np.unique(np.array([get_params(sujet)['srate'] for sujet in sujet_list])).shape[0] == 1:
-        srate = get_params(sujet_list[0])['srate']
+    if np.unique(np.array([get_params(sujet, electrode_recording_type)['srate'] for sujet in sujet_list])).shape[0] == 1:
+        srate = get_params(sujet_list[0], electrode_recording_type)['srate']
 
     cond_to_compute = conditions_compute_TF
 
@@ -406,13 +424,13 @@ def compilation_slurm(anat_type, mat_type):
 
     if anat_type == 'ROI':
 
-        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_for_one_ROI_allcond)(ROI_i, mat_type, cond_to_compute, srate) for ROI_i in ROI_to_include)
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_for_one_ROI_allcond)(ROI_i, mat_type, cond_to_compute, srate, electrode_recording_type) for ROI_i in ROI_to_include)
         # for ROI_i in ROI_to_include:
         #     compute_for_one_ROI_allcond(ROI_i, mat_type, cond_to_compute, srate)
 
     if anat_type == 'Lobes':
 
-        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_for_one_Lobe_allcond)(Lobe_i, mat_type, cond_to_compute, srate) for Lobe_i in lobe_to_include)
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_for_one_Lobe_allcond)(Lobe_i, mat_type, cond_to_compute, srate, electrode_recording_type) for Lobe_i in lobe_to_include)
         # for Lobe_i in lobe_to_include:
         #     compute_for_one_Lobe_allcond(Lobe_i, mat_type, cond_to_compute, srate)
 
@@ -425,14 +443,17 @@ def compilation_slurm(anat_type, mat_type):
 
 if __name__ == '__main__':
 
-    #anat_type = 'ROI'
-    for anat_type in ['ROI', 'Lobes']:
-    
-        #mat_type = 'TF'
-        for mat_type in ['TF', 'ITPC']:
-            
-            # compilation_slurm(anat_type, mat_type)
-            execute_function_in_slurm_bash('n16_res_allplot_TF', 'compilation_slurm', [anat_type, mat_type])
+    #electrode_recording_type = 'monopolaire'
+    for electrode_recording_type in ['monopolaire', 'bipolaire']:
+
+        #anat_type = 'ROI'
+        for anat_type in ['ROI', 'Lobes']:
+        
+            #mat_type = 'TF'
+            for mat_type in ['TF', 'ITPC']:
+                
+                # compilation_slurm(anat_type, mat_type, electrode_recording_type)
+                execute_function_in_slurm_bash('n16_res_allplot_TF', 'compilation_slurm', [anat_type, mat_type, electrode_recording_type])
 
 
 
