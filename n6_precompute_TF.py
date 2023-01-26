@@ -621,22 +621,22 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'bipolaire'
+    #electrode_recording_type = 'monopolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
-        #sujet = sujet_list[-1]
+        #sujet = sujet_list[1]
         for sujet in sujet_list:
 
             #### compute and save tf
-            #cond = 'SNIFF'
+            #cond = 'AC'
             for cond in conditions_compute_TF:
 
                 print(cond)
             
                 #precompute_tf(sujet, cond, band_prep_list, electrode_recording_type)
-                execute_function_in_slurm_bash_mem_choice('n5_precompute_TF', 'precompute_tf', [sujet, cond, band_prep_list, electrode_recording_type], '30G')
+                execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf', [sujet, cond, band_prep_list, electrode_recording_type], '30G')
                 #precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type)
-                execute_function_in_slurm_bash_mem_choice('n5_precompute_TF', 'precompute_itpc', [sujet, cond, band_prep_list, electrode_recording_type], '30G')
+                # execute_function_in_slurm_bash_mem_choice('n5_precompute_TF', 'precompute_itpc', [sujet, cond, band_prep_list, electrode_recording_type], '30G')
             
             #### compute sniff chunks
             #precompute_tf_sniff(sujet, 'SNIFF', band_prep_list)

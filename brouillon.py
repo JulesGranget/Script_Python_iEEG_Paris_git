@@ -311,11 +311,20 @@ plt.show()
 
 
 
+sujet = sujet_list[0]
+data = load_data(sujet, 'AC', electrode_recording_type, band_prep='lf')
+prms = get_params(sujet, electrode_recording_type)
+nchan_i = prms['chan_list'].index('AmT2_1')
+x = data[nchan_i,:]
+time_vec = np.arange(0,x.shape[0])/prms['srate']
+erp_times = get_ac_starts(sujet)
 
+for chan_i in range(1,4):
+    plt.plot(time_vec, zscore(data[chan_i,:])+chan_i*3)
+plt.plot(time_vec, zscore(data[-3,:])-chan_i*3)
+plt.vlines(erp_times/prms['srate'], ymax=3, ymin=-3, color='r')
+plt.show()
 
-
-
-
-
-
-
+plt.plot(time_vec, data[-3,:])
+plt.vlines(erp_times/prms['srate'], ymax=data[-3,:].max(), ymin=data[-3,:].min(), color='r')
+plt.show()

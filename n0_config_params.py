@@ -188,7 +188,7 @@ prep_step_lf = {
 'line_noise_removing' : {'execute': True},
 'high_pass' : {'execute': False, 'params' : {'l_freq' : None, 'h_freq': None}},
 'low_pass' : {'execute': True, 'params' : {'l_freq' : 0, 'h_freq': 45}},
-'average_reref' : {'execute': False},
+'average_reref' : {'execute': True},
 }
 
 prep_step_hf = {
@@ -196,7 +196,7 @@ prep_step_hf = {
 'line_noise_removing' : {'execute': True},
 'high_pass' : {'execute': True, 'params' : {'l_freq' : 55, 'h_freq': None}},
 'low_pass' : {'execute': False, 'params' : {'l_freq' : 0, 'h_freq': 45}},
-'average_reref' : {'execute': False},
+'average_reref' : {'execute': True},
 }
 
 
@@ -252,10 +252,12 @@ t_start_SNIFF = -3
 t_stop_SNIFF = 3
 
 
-t_start_AC = -5
-t_stop_AC = 15
+t_start_AC = -12
+t_stop_AC = 24
 
 
+SNIFF_length = 3
+AC_length = 12
 
 
 
@@ -302,10 +304,10 @@ MI_n_bin = 18
 ################################
 
 #### stretch
-stretch_point_TF = 1000
+stretch_point_TF = 500
 stretch_TF_auto = False
-ratio_stretch_TF = 0.40
-resampled_points_AL = 10000
+ratio_stretch_TF = 0.5
+resampled_points_AL = 1000
 
 #### TF & ITPC
 nfrex_hf = 50
@@ -315,6 +317,9 @@ ncycle_list_lf = [7, 15]
 ncycle_list_hf = [20, 30]
 ncycle_list_wb = [7, 30]
 srate_dw = 10
+
+#### STATS
+n_surrogates_tf = 1000
 
 
 
@@ -376,10 +381,12 @@ sniff_extract_pre = [-1, 0]
 sniff_extract_resp_evnmt = [0, 1]
 sniff_extract_post = [1, 2]
 
-AC_extract_pre = [-5, 0]
-AC_extract_resp_evnmt_1 = [0, 5]
-AC_extract_resp_evnmt_2 = [5, 10]
-AC_extract_post = [10, 15]
+AC_extract_pre = [-AC_length, 0]
+AC_extract_resp_evnmt_1 = [0, 6]
+AC_extract_resp_evnmt_2 = [6, AC_length]
+AC_extract_post = [AC_length, AC_length*2]
+
+srate_dw_stats = 100
 
 AL_extract_time = 5 
 

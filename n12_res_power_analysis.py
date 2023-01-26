@@ -449,7 +449,7 @@ if __name__ == '__main__':
 
             #### TF & ITPC
             compilation_compute_TF_ITPC(sujet, electrode_recording_type)
-            # execute_function_in_slurm_bash_mem_choice('n8_res_power_analysis', 'compilation_compute_TF_ITPC', [sujet, electrode_recording_type], '30G')
+            # execute_function_in_slurm_bash_mem_choice('n12_res_power_analysis', 'compilation_compute_TF_ITPC', [sujet, electrode_recording_type], '30G')
 
 
 

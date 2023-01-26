@@ -256,7 +256,7 @@ if __name__ == '__main__':
             #session_i = 0
             for session_i in range(n_session):
                 #precompute_tf(sujet, cond, session_i, band_prep_list)
-                execute_function_in_slurm_bash_mem_choice('n6_precompute_AL', 'precompute_tf_AL', [sujet, cond, session_i, band_prep_list, electrode_recording_type], '20G')
+                execute_function_in_slurm_bash_mem_choice('n8_precompute_AL', 'precompute_tf_AL', [sujet, cond, session_i, band_prep_list, electrode_recording_type], '20G')
         
 
 

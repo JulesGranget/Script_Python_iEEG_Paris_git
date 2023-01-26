@@ -587,372 +587,389 @@ def generate_final_raw(data_preproc, chan_list_ieeg, data_aux, chan_list_aux, sr
 
 if __name__ == '__main__':
 
+    #electrode_recording_type = 'monopolaire'
+    for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
+        #sujet = sujet_list[0]
+        for sujet in sujet_list:
 
-    ################################
-    ######## EXTRACT NLX ########
-    ################################
+            #### check if already computed
+            print(f'######## COMPUTE {sujet} : {electrode_recording_type} ########')
 
-    # electrode_recording_type = 'monopolaire'
-    electrode_recording_type = 'bipolaire'
+            os.chdir(os.path.join(path_prep, sujet, 'sections'))
+            if os.path.exists(f'{sujet}_allcond_lf.fif') and electrode_recording_type == 'monopolaire':
+                print('ALREADY COMPUTED')
+                continue
 
-    #### whole protocole
-    # sujet = 'pat_03083_1527'
-    # sujet = 'pat_03105_1551'
-    # sujet = 'pat_03128_1591'
-    # sujet = 'pat_03138_1601'
-    # sujet = 'pat_03146_1608'
-    sujet = 'pat_03174_1634'
+            if os.path.exists(f'{sujet}_allcond_lf_bi.fif') and electrode_recording_type == 'bipolaire':
+                print('ALREADY COMPUTED')
+                continue
 
-    #### load data
-    raw = import_raw_data(sujet)
+            ################################
+            ######## EXTRACT NLX ########
+            ################################
 
-    if electrode_recording_type == 'bipolaire':
-    
-        data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw_bi(sujet, raw)
+            # electrode_recording_type = 'monopolaire'
+            # electrode_recording_type = 'bipolaire'
 
-    if electrode_recording_type == 'monopolaire':
-    
-        data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw(sujet, raw)
+            #### whole protocole
+            # sujet = 'pat_03083_1527'
+            # sujet = 'pat_03105_1551'
+            # sujet = 'pat_03128_1591'
+            # sujet = 'pat_03138_1601'
+            # sujet = 'pat_03146_1608'
+            # sujet = 'pat_03174_1634'
 
-    info = mne.create_info(ch_names=chan_list_ieeg, ch_types=['eeg']*data_ieeg.shape[0], sfreq=srate)
-    raw_ieeg = mne.io.RawArray(data_ieeg, info)
+            #### load data
+            raw = import_raw_data(sujet)
 
-    del raw
-
-
-
-    ################################
-    ######## AUX PROCESSING ########
-    ################################
-
-    raw_aux, chan_list_aux, ecg_events_time = ecg_detection(data_aux, chan_list_aux, srate)
-
-
-
-    ################################
-    ######## TIRGGER EXPORT ########
-    ################################
-
-
-    #### load trig
-    os.chdir(os.path.join(path_raw, sujet, 'events', 'mat'))
-
-    if sujet == 'pat_03146_1608':
-
-        trig = get_trigger_from_ncs(scipy.io.loadmat(f'{sujet}_1_events.mat')['ts'])
-
-    else:
-
-        trig = get_trigger_from_ncs(scipy.io.loadmat(f'{sujet}_events.mat')['ts'])
-
-    #### adjust trig
-    if debug:
-        
-        #### all trig
-        verif_trig(raw_aux, trig['time'].values)
-
-        #### VS
-        vs_starts = [1062, 1362]
-        verif_trig(raw_aux, vs_starts)
-        
-        #### sniff trig
-        sniff_allsession = [1880, 3150]
-        verif_trig(raw_aux, sniff_allsession)
-
-        raw_sniff = raw_aux.copy()
-        raw_sniff.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
-
-        respi_i = chan_list_aux.index('nasal')
-        respi = raw_sniff.get_data()[respi_i,:]
-        height = np.max(respi)*0.6
-
-        plt.plot(respi)
-        plt.show()
-
-        sniff_peaks = scipy.signal.find_peaks(respi*-1, height=height, threshold=None, distance=srate, rel_height=0.5)[0]
-
-        sniff_peaks = [11690, 16639, 22067, 28218, 36059, 46448, 55871, 66084, 78150, 87843, 99638, 108351, 117956, 128798, 143108, 157681, 169808, 289990, 292836, 301279, 308435, 312378, 319786, 326674, 335955, 344749, 350285, 359802, 371881, 379452, 389489, 394762, 400358, 404401, 408740, 414330, 418217, 423949, 431127, 438434, 446627, 477538, 483479, 489853, 499283, 503825, 510578, 517425, 524462, 538373, 542962, 548505, 553216, 557738, 563105, 571088, 576144, 580856, 586466, 593084, 599938, 607211, 611638, 619891, 626299, 631383]
-
-        verif_trig(raw_sniff, (np.array(sniff_peaks)/srate))
-
-        #### all trig
-        verif_trig(raw_aux, trig['time'].values)
-        
-        #### AC trig
-        ac_allsession = [4463, 5600]
-        verif_trig(raw_aux, ac_allsession)
-
-        raw_ac = raw_aux.copy()
-        raw_ac.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
-
-        respi_i = chan_list_aux.index('nasal')
-        respi = raw_ac.get_data()[respi_i,:]
-
-        plt.plot(respi)
-        plt.show()
-
-        ac_starts = [5919, 31154, 47101, 59260, 71555, 84199, 98025, 108631, 120055, 131570, 142298, 155714, 196752, 208101, 221820, 233108, 247411, 258953, 271332, 283100, 295198, 308759, 320060, 332005, 344239, 394685, 401778, 412801, 424203, 435853, 446855, 458611, 470438, 482613, 496419, 507508, 520524, 533426, 543810]
-        
-        verif_trig(raw_ac, [int(i)/srate for i in ac_starts])
-
-        #### all trig
-        verif_trig(raw_aux, trig['time'].values)
-        
-        #### AL trig
-        al_allsession = [3397, 4268]
-        verif_trig(raw_aux, al_allsession)
-
-        raw_al = raw_aux.copy()
-        raw_al.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
-
-        respi_i = chan_list_aux.index('nasal')
-        respi = raw_al.get_data()[respi_i,:]
-        plt.plot(respi)
-        plt.show()
-
-        al_starts = [18303, 148594, 330040]
-        al_stops = [65939, 225389, 411280]
-
-        verif_trig(raw_al, [int(i)/srate for i in al_starts])
-        verif_trig(raw_al, [int(i)/srate for i in al_stops])
-
-
-    #### correct values
-    vs_starts, sniff_allsession, sniff_peaks, ac_allsession, ac_starts, al_allsession, al_starts, al_stops = get_trig_time_for_sujet(sujet)
-
-    #### verif ECG
-    if debug:
-        ecg_i = chan_list_aux.index('ECG')
-        ecg = raw_aux.get_data()[ecg_i,:]
-        times = np.arange(ecg.shape[0])/srate
-        plt.plot(times, ecg)
-        plt.vlines([int(i)/srate for i in ecg_events_time], ymin=min(ecg), ymax=max(ecg), colors='k')
-        trig_plot = [vs_starts, sniff_allsession, ac_allsession, al_allsession]
-        for cond_i in range(4):
-            plt.vlines(trig_plot[cond_i], ymin=min(ecg), ymax=max(ecg), colors='r', linewidth=3)
-        plt.show()
-
-        #### add events if necessary
-        corrected = []
-        cR_init = trig['time'].values
-        ecg_events_corrected = cR_init + corrected
-
-        #### verify add events
-        plt.plot(ecg)
-        plt.vlines(ecg_events_time, ymin=min(ecg), ymax=max(ecg), colors='k')
-        plt.vlines(ecg_events_corrected, ymin=min(ecg), ymax=max(ecg), colors='r', linewidth=3)
-        plt.legend()
-        plt.show()
-
-    #### adjust trig for some patients
-    if debug:
-        ecg_events_corrected = [807.477, 1005.575, 1013.808, 1029.236, 1044.353, 1060.154, 1068.274, 1094.088, 1102.949, 1111.021, 1168.914, 1200.529, 1201.315, 1209.257, 1217.05, 1224.98, 1233.673, 1241.987, 1251.478, 1259.322, 1267.724, 1277.123, 1283.784, 2330.470, 2338.375, 2346.012, 2354.411, 2362.824, 2372.09, 2380.129, 2388.978, 2407.518, 2417.976, 2426.805, 2436.726, 2446.832, 2458.523, 2469.778, 2488, 2507.286, 2517.201, 2525.579, 2534.69, 2543.681, 2554.103, 2571.197, 2608.240, 2617.033, 2625.784]
-        ecg_events_time += ecg_events_corrected
-        ecg_events_time.sort()
-
-    #### adjust
-    ecg_events_time += ecg_events_corrected_allsujet[sujet]
-    ecg_events_time.sort()
-
-
-
-
-    ################################
-    ######## PREPROCESSING ########
-    ################################
-    
-    # band_prep = 'hf'
-    for band_prep in band_prep_list:
-
-        #### choose preproc
-        if band_prep == 'lf':
-            data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
-
-        if band_prep == 'hf':
-            data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_hf)
-
-        #### verif
-        if debug == True:
-            compare_pre_post(data_ieeg, data_preproc.get_data(), 0)
-
-
-        ################################
-        ######## EXPORT DATA ########
-        ################################
-
-        #### generate raw_all
-        raw_all = generate_final_raw(data_preproc, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
-
-        #### make RAM space
-        del data_preproc
-
-        #### initiate count session :
-
-        count_session = {
-            'FR_CV' : [],
-            'SNIFF' : [],
-            'AC' : [],
-            }
-
-        for al_i in range(len(al_starts)):
-            count_session[f'AL_{al_i+1}'] = []
-
-        #### save folder
-        os.chdir(os.path.join(path_prep, sujet, 'sections'))
-        
-        #### Export all preproc
-        if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_allcond_{band_prep}.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_allcond_{band_prep}_bi.fif')) == False:
-            raw_vs_ieeg = raw_all.copy()
-            
-            if electrode_recording_type == 'monopolaire':
-                raw_vs_ieeg.save(f'{sujet}_allcond_{band_prep}.fif')
             if electrode_recording_type == 'bipolaire':
-                raw_vs_ieeg.save(f'{sujet}_allcond_{band_prep}_bi.fif')
-        
-            del raw_vs_ieeg
-        
-        #### Export VS
-        if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_FR_CV_{band_prep}.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_FR_CV_{band_prep}_bi.fif')) == False:
-            raw_vs_ieeg = raw_all.copy()
-            raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
-
-            count_session['FR_CV'].append(raw_vs_ieeg.get_data().shape[1]/srate)
             
+                data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw_bi(sujet, raw)
+
             if electrode_recording_type == 'monopolaire':
-                raw_vs_ieeg.save(f'{sujet}_FR_CV_{band_prep}.fif')
-            if electrode_recording_type == 'bipolaire':
-                raw_vs_ieeg.save(f'{sujet}_FR_CV_{band_prep}_bi.fif')
-        
-            del raw_vs_ieeg
+            
+                data_ieeg, chan_list_ieeg, data_aux, chan_list_aux, srate = organize_raw(sujet, raw)
+
+            info = mne.create_info(ch_names=chan_list_ieeg, ch_types=['eeg']*data_ieeg.shape[0], sfreq=srate)
+            raw_ieeg = mne.io.RawArray(data_ieeg, info)
+
+            del raw
 
 
-        #### generate AL
-        if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_{band_prep}.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_{band_prep}_bi.fif')) == False:
-            raw_al_ieeg = raw_all.copy()
-            raw_al_ieeg.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
-            for trig_i in range(len(al_starts)):
-                raw_al_ieeg_i = raw_al_ieeg.copy()
-                raw_al_ieeg_i.crop( tmin = int(al_starts[trig_i]/srate) , tmax= int(al_stops[trig_i]/srate) )
+
+            ################################
+            ######## AUX PROCESSING ########
+            ################################
+
+            raw_aux, chan_list_aux, ecg_events_time = ecg_detection(data_aux, chan_list_aux, srate)
+
+
+
+            ################################
+            ######## TIRGGER EXPORT ########
+            ################################
+
+
+            #### load trig
+            os.chdir(os.path.join(path_raw, sujet, 'events', 'mat'))
+
+            if sujet == 'pat_03146_1608':
+
+                trig = get_trigger_from_ncs(scipy.io.loadmat(f'{sujet}_1_events.mat')['ts'])
+
+            else:
+
+                trig = get_trigger_from_ncs(scipy.io.loadmat(f'{sujet}_events.mat')['ts'])
+
+            #### adjust trig
+            if debug:
                 
-                if electrode_recording_type == 'monopolaire':
-                    raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_{band_prep}.fif')
-                if electrode_recording_type == 'bipolaire':
-                    raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_{band_prep}_bi.fif')
+                #### all trig
+                verif_trig(raw_aux, trig['time'].values)
 
-                count_session[f'AL_{trig_i+1}'].append(raw_al_ieeg_i.get_data().shape[1]/srate)
-                del raw_al_ieeg_i
+                #### VS
+                vs_starts = [1062, 1362]
+                verif_trig(raw_aux, vs_starts)
+                
+                #### sniff trig
+                sniff_allsession = [1880, 3150]
+                verif_trig(raw_aux, sniff_allsession)
 
+                raw_sniff = raw_aux.copy()
+                raw_sniff.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
 
-        #### generate xr SNIFF
-        if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_{band_prep}.nc")) == False or os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_{band_prep}_bi.nc")) == False:
-            raw_sniff_ieeg = raw_all.copy()
-            raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+                respi_i = chan_list_aux.index('nasal')
+                respi = raw_sniff.get_data()[respi_i,:]
+                height = np.max(respi)*0.6
 
-            data = raw_sniff_ieeg.get_data()
-            times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
-            data_epoch = np.zeros((len(chan_list_ieeg), len(sniff_peaks), len(times)))
-            for nchan in range(len(chan_list_ieeg)):
-                for sniff_i, sniff_time in enumerate(sniff_peaks):
-                    _t_start = sniff_time + int(t_start_SNIFF*srate) 
-                    _t_stop = sniff_time + int(t_stop_SNIFF*srate)
-
-                    data_epoch[nchan, sniff_i, :] = data[nchan, _t_start:_t_stop]
-
-            count_session['SNIFF'].append(data_epoch.shape[1])
-
-            dims = ['chan_list', 'sniffs', 'times']
-            coords = [chan_list_ieeg, range(len(sniff_peaks)), times]
-            xr_epoch_SNIFF = xr.DataArray(data_epoch, coords=coords, dims=dims)
-
-            if electrode_recording_type == 'monopolaire':
-                xr_epoch_SNIFF.to_netcdf(f"{sujet}_SNIFF_{band_prep}.nc")
-            if electrode_recording_type == 'bipolaire':
-                xr_epoch_SNIFF.to_netcdf(f"{sujet}_SNIFF_{band_prep}_bi.nc")
-
-            #### make space
-            del xr_epoch_SNIFF
-            del raw_sniff_ieeg
-
-
-        if debug:
-            maxs = []
-            mins = []
-            for nchan in chan_list_ieeg:
-                plt.title(nchan)
-                plt.plot(xr_epoch_SNIFF['times'], xr_epoch_SNIFF.mean('sniffs').loc[nchan, :])
-                mins.append(np.min(xr_epoch_SNIFF.mean('sniffs').loc[nchan, :]))
-                maxs.append(np.max(xr_epoch_SNIFF.mean('sniffs').loc[nchan, :]))
-                plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
+                plt.plot(respi)
                 plt.show()
 
-        #### generate SNIFF
-        if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_session_{band_prep}.fif")) == False or os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_session_{band_prep}_bi.fif")) == False:
-            raw_sniff_ieeg = raw_all.copy()
-            raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+                sniff_peaks = scipy.signal.find_peaks(respi*-1, height=height, threshold=None, distance=srate, rel_height=0.5)[0]
 
-            if electrode_recording_type == 'monopolaire':
-                raw_sniff_ieeg.save(f'{sujet}_SNIFF_session_{band_prep}.fif')
-            if electrode_recording_type == 'bipolaire':
-                raw_sniff_ieeg.save(f'{sujet}_SNIFF_session_{band_prep}_bi.fif')
-            
-            del raw_sniff_ieeg
+                sniff_peaks = [11690, 16639, 22067, 28218, 36059, 46448, 55871, 66084, 78150, 87843, 99638, 108351, 117956, 128798, 143108, 157681, 169808, 289990, 292836, 301279, 308435, 312378, 319786, 326674, 335955, 344749, 350285, 359802, 371881, 379452, 389489, 394762, 400358, 404401, 408740, 414330, 418217, 423949, 431127, 438434, 446627, 477538, 483479, 489853, 499283, 503825, 510578, 517425, 524462, 538373, 542962, 548505, 553216, 557738, 563105, 571088, 576144, 580856, 586466, 593084, 599938, 607211, 611638, 619891, 626299, 631383]
 
+                verif_trig(raw_sniff, (np.array(sniff_peaks)/srate))
 
-        #### generate AC
-        if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}.fif")) == False or os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}_bi.fif")) == False:
-            raw_ac_ieeg = raw_all.copy()
-            raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
-
-            if electrode_recording_type == 'monopolaire':
-                raw_ac_ieeg.save(f'{sujet}_AC_session_{band_prep}.fif')
-            if electrode_recording_type == 'bipolaire':
-                raw_ac_ieeg.save(f'{sujet}_AC_session_{band_prep}_bi.fif')
-
-            count_session['AC'].append(len(ac_starts))
-
-            del raw_ac_ieeg
-
-        if electrode_recording_type == 'monopolaire':
+                #### all trig
+                verif_trig(raw_aux, trig['time'].values)
                 
-            #### export count session
-            os.chdir(os.path.join(path_prep, sujet, 'info'))
-            if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_session.xlsx")) == False:
+                #### AC trig
+                ac_allsession = [4430, 5600]
+                verif_trig(raw_aux, ac_allsession)
 
-                df = pd.DataFrame(count_session)
-                df.to_excel(f'{sujet}_count_session.xlsx')
+                raw_ac = raw_aux.copy()
+                raw_ac.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
 
-            #### export AC starts
-            len_ac_session = (ac_allsession[1] - ac_allsession[0])*srate
+                respi_i = chan_list_aux.index('nasal')
+                respi = raw_ac.get_data()[respi_i,:]
 
-            if ac_starts[-1]+t_stop_AC*srate >= len_ac_session:
-                ac_starts = ac_starts[:-1]
+                plt.plot(respi)
+                plt.show()
 
-            if ac_starts[0]+t_start_AC*srate <= 0:
-                ac_starts = ac_starts[1:]
+                ac_starts = [22419, 47654, 63601, 75760, 88055, 100699, 114525, 125131, 136555, 148070, 158798, 172214, 213252, 224601, 238320, 249608, 263911, 275453, 287832, 299600, 311698, 325259, 336560, 348505, 360739, 411185, 418278, 429301, 440703, 452353, 463355, 475111, 486938, 499113, 512919, 524008, 537024, 549926, 560310]
+                ac_starts = [i + 33*srate for i in ac_starts]
+                
+                verif_trig(raw_ac, [int(i)/srate for i in ac_starts])
 
-            ac_starts = [str(i) for i in ac_starts]
-            with open(f'{sujet}_AC_starts.txt', 'w') as f:
-                f.write('\n'.join(ac_starts))
-                f.close()
+                #### all trig
+                verif_trig(raw_aux, trig['time'].values)
+                
+                #### AL trig
+                al_allsession = [3397, 4268]
+                verif_trig(raw_aux, al_allsession)
 
-            #### export SNIFF starts
-            len_sniff_session = (sniff_allsession[1] - sniff_allsession[0])*srate
+                raw_al = raw_aux.copy()
+                raw_al.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
 
-            if int(sniff_peaks[-1])+int(t_stop_SNIFF)*srate >= len_sniff_session:
-                sniff_peaks = sniff_peaks[:-1]
+                respi_i = chan_list_aux.index('nasal')
+                respi = raw_al.get_data()[respi_i,:]
+                plt.plot(respi)
+                plt.show()
 
-            if int(sniff_peaks[0])+int(t_start_SNIFF)*srate <= 0:
-                sniff_peaks = sniff_peaks[1:]
+                al_starts = [18303, 148594, 330040]
+                al_stops = [65939, 225389, 411280]
 
-            sniff_peaks = [str(i) for i in sniff_peaks]
-            with open(f'{sujet}_SNIFF_starts.txt', 'w') as f:
-                f.write('\n'.join(sniff_peaks))
-                f.close()
-
-            #### for next iteration change to int
-            ac_starts = [int(i) for i in ac_starts]
-            sniff_peaks = [int(i) for i in sniff_peaks]
+                verif_trig(raw_al, [int(i)/srate for i in al_starts])
+                verif_trig(raw_al, [int(i)/srate for i in al_stops])
 
 
-        
+            #### correct values
+            vs_starts, sniff_allsession, sniff_peaks, ac_allsession, ac_starts, al_allsession, al_starts, al_stops = get_trig_time_for_sujet(sujet)
+
+            #### verif ECG
+            if debug:
+                ecg_i = chan_list_aux.index('ECG')
+                ecg = raw_aux.get_data()[ecg_i,:]
+                times = np.arange(ecg.shape[0])/srate
+                plt.plot(times, ecg)
+                plt.vlines([int(i)/srate for i in ecg_events_time], ymin=min(ecg), ymax=max(ecg), colors='k')
+                trig_plot = [vs_starts, sniff_allsession, ac_allsession, al_allsession]
+                for cond_i in range(4):
+                    plt.vlines(trig_plot[cond_i], ymin=min(ecg), ymax=max(ecg), colors='r', linewidth=3)
+                plt.show()
+
+                #### add events if necessary
+                corrected = []
+                cR_init = trig['time'].values
+                ecg_events_corrected = cR_init + corrected
+
+                #### verify add events
+                plt.plot(ecg)
+                plt.vlines(ecg_events_time, ymin=min(ecg), ymax=max(ecg), colors='k')
+                plt.vlines(ecg_events_corrected, ymin=min(ecg), ymax=max(ecg), colors='r', linewidth=3)
+                plt.legend()
+                plt.show()
+
+            #### adjust trig for some patients
+            if debug:
+                ecg_events_corrected = [807.477, 1005.575, 1013.808, 1029.236, 1044.353, 1060.154, 1068.274, 1094.088, 1102.949, 1111.021, 1168.914, 1200.529, 1201.315, 1209.257, 1217.05, 1224.98, 1233.673, 1241.987, 1251.478, 1259.322, 1267.724, 1277.123, 1283.784, 2330.470, 2338.375, 2346.012, 2354.411, 2362.824, 2372.09, 2380.129, 2388.978, 2407.518, 2417.976, 2426.805, 2436.726, 2446.832, 2458.523, 2469.778, 2488, 2507.286, 2517.201, 2525.579, 2534.69, 2543.681, 2554.103, 2571.197, 2608.240, 2617.033, 2625.784]
+                ecg_events_time += ecg_events_corrected
+                ecg_events_time.sort()
+
+            #### adjust
+            ecg_events_time += ecg_events_corrected_allsujet[sujet]
+            ecg_events_time.sort()
+
+
+
+
+            ################################
+            ######## PREPROCESSING ########
+            ################################
+            
+            # band_prep = 'hf'
+            for band_prep in band_prep_list:
+
+                #### choose preproc
+                if band_prep == 'lf':
+                    data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_lf)
+
+                if band_prep == 'hf':
+                    data_preproc  = preprocessing_ieeg(raw_ieeg, prep_step_hf)
+
+                #### verif
+                if debug == True:
+                    compare_pre_post(data_ieeg, data_preproc.get_data(), 0)
+
+
+                ################################
+                ######## EXPORT DATA ########
+                ################################
+
+                #### generate raw_all
+                raw_all = generate_final_raw(data_preproc, chan_list_ieeg, data_aux, chan_list_aux, srate, ecg_events_time)
+
+                #### make RAM space
+                del data_preproc
+
+                #### initiate count session :
+
+                count_session = {
+                    'FR_CV' : [],
+                    'SNIFF' : [],
+                    'AC' : [],
+                    }
+
+                for al_i in range(len(al_starts)):
+                    count_session[f'AL_{al_i+1}'] = []
+
+                #### save folder
+                os.chdir(os.path.join(path_prep, sujet, 'sections'))
+                
+                #### Export all preproc
+                if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_allcond_{band_prep}.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_allcond_{band_prep}_bi.fif')) == False:
+                    raw_vs_ieeg = raw_all.copy()
+                    
+                    if electrode_recording_type == 'monopolaire':
+                        raw_vs_ieeg.save(f'{sujet}_allcond_{band_prep}.fif')
+                    if electrode_recording_type == 'bipolaire':
+                        raw_vs_ieeg.save(f'{sujet}_allcond_{band_prep}_bi.fif')
+                
+                    del raw_vs_ieeg
+                
+                #### Export VS
+                if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_FR_CV_{band_prep}.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_FR_CV_{band_prep}_bi.fif')) == False:
+                    raw_vs_ieeg = raw_all.copy()
+                    raw_vs_ieeg.crop( tmin = vs_starts[0] , tmax= vs_starts[1] )
+
+                    count_session['FR_CV'].append(raw_vs_ieeg.get_data().shape[1]/srate)
+                    
+                    if electrode_recording_type == 'monopolaire':
+                        raw_vs_ieeg.save(f'{sujet}_FR_CV_{band_prep}.fif')
+                    if electrode_recording_type == 'bipolaire':
+                        raw_vs_ieeg.save(f'{sujet}_FR_CV_{band_prep}_bi.fif')
+                
+                    del raw_vs_ieeg
+
+
+                #### generate AL
+                if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_{band_prep}.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AL_1_{band_prep}_bi.fif')) == False:
+                    raw_al_ieeg = raw_all.copy()
+                    raw_al_ieeg.crop( tmin = al_allsession[0] , tmax= al_allsession[1] )
+                    for trig_i in range(len(al_starts)):
+                        raw_al_ieeg_i = raw_al_ieeg.copy()
+                        raw_al_ieeg_i.crop( tmin = int(al_starts[trig_i]/srate) , tmax= int(al_stops[trig_i]/srate) )
+                        
+                        if electrode_recording_type == 'monopolaire':
+                            raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_{band_prep}.fif')
+                        if electrode_recording_type == 'bipolaire':
+                            raw_al_ieeg_i.save(f'{sujet}_AL_{trig_i+1}_{band_prep}_bi.fif')
+
+                        count_session[f'AL_{trig_i+1}'].append(raw_al_ieeg_i.get_data().shape[1]/srate)
+                        del raw_al_ieeg_i
+
+
+                #### generate xr SNIFF
+                if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_{band_prep}.nc")) == False or os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_{band_prep}_bi.nc")) == False:
+                    raw_sniff_ieeg = raw_all.copy()
+                    raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+
+                    data = raw_sniff_ieeg.get_data()
+                    times = np.arange(t_start_SNIFF, t_stop_SNIFF, 1/srate)
+                    data_epoch = np.zeros((len(chan_list_ieeg), len(sniff_peaks), len(times)))
+                    for nchan in range(len(chan_list_ieeg)):
+                        for sniff_i, sniff_time in enumerate(sniff_peaks):
+                            _t_start = sniff_time + int(t_start_SNIFF*srate) 
+                            _t_stop = sniff_time + int(t_stop_SNIFF*srate)
+
+                            data_epoch[nchan, sniff_i, :] = data[nchan, _t_start:_t_stop]
+
+                    count_session['SNIFF'].append(data_epoch.shape[1])
+
+                    dims = ['chan_list', 'sniffs', 'times']
+                    coords = [chan_list_ieeg, range(len(sniff_peaks)), times]
+                    xr_epoch_SNIFF = xr.DataArray(data_epoch, coords=coords, dims=dims)
+
+                    if electrode_recording_type == 'monopolaire':
+                        xr_epoch_SNIFF.to_netcdf(f"{sujet}_SNIFF_{band_prep}.nc")
+                    if electrode_recording_type == 'bipolaire':
+                        xr_epoch_SNIFF.to_netcdf(f"{sujet}_SNIFF_{band_prep}_bi.nc")
+
+                    #### make space
+                    del xr_epoch_SNIFF
+                    del raw_sniff_ieeg
+
+
+                if debug:
+                    maxs = []
+                    mins = []
+                    for nchan in chan_list_ieeg:
+                        plt.title(nchan)
+                        plt.plot(xr_epoch_SNIFF['times'], xr_epoch_SNIFF.mean('sniffs').loc[nchan, :])
+                        mins.append(np.min(xr_epoch_SNIFF.mean('sniffs').loc[nchan, :]))
+                        maxs.append(np.max(xr_epoch_SNIFF.mean('sniffs').loc[nchan, :]))
+                        plt.vlines(0, ymax=np.max(maxs), ymin=np.min(mins), colors='r')
+                        plt.show()
+
+                #### generate SNIFF
+                if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_session_{band_prep}.fif")) == False or os.path.exists(os.path.join(os.getcwd(), f"{sujet}_SNIFF_session_{band_prep}_bi.fif")) == False:
+                    raw_sniff_ieeg = raw_all.copy()
+                    raw_sniff_ieeg.crop( tmin = sniff_allsession[0] , tmax= sniff_allsession[1] )
+
+                    if electrode_recording_type == 'monopolaire':
+                        raw_sniff_ieeg.save(f'{sujet}_SNIFF_session_{band_prep}.fif')
+                    if electrode_recording_type == 'bipolaire':
+                        raw_sniff_ieeg.save(f'{sujet}_SNIFF_session_{band_prep}_bi.fif')
+                    
+                    del raw_sniff_ieeg
+
+
+                #### generate AC
+                if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}.fif")) == False or os.path.exists(os.path.join(os.getcwd(), f"{sujet}_AC_session_{band_prep}_bi.fif")) == False:
+                    raw_ac_ieeg = raw_all.copy()
+                    raw_ac_ieeg.crop( tmin = ac_allsession[0] , tmax= ac_allsession[1] )
+
+                    if electrode_recording_type == 'monopolaire':
+                        raw_ac_ieeg.save(f'{sujet}_AC_session_{band_prep}.fif')
+                    if electrode_recording_type == 'bipolaire':
+                        raw_ac_ieeg.save(f'{sujet}_AC_session_{band_prep}_bi.fif')
+
+                    count_session['AC'].append(len(ac_starts))
+
+                    del raw_ac_ieeg
+
+                if electrode_recording_type == 'monopolaire':
+                        
+                    #### export count session
+                    os.chdir(os.path.join(path_prep, sujet, 'info'))
+                    if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_session.xlsx")) == False:
+
+                        df = pd.DataFrame(count_session)
+                        df.to_excel(f'{sujet}_count_session.xlsx')
+
+                    #### export AC starts
+                    len_ac_session = (ac_allsession[1] - ac_allsession[0])*srate
+
+                    if ac_starts[-1]+t_stop_AC*srate >= len_ac_session:
+                        ac_starts = ac_starts[:-1]
+
+                    if ac_starts[0]+t_start_AC*srate <= 0:
+                        ac_starts = ac_starts[1:]
+
+                    ac_starts = [str(i) for i in ac_starts]
+                    with open(f'{sujet}_AC_starts.txt', 'w') as f:
+                        f.write('\n'.join(ac_starts))
+                        f.close()
+
+                    #### export SNIFF starts
+                    len_sniff_session = (sniff_allsession[1] - sniff_allsession[0])*srate
+
+                    if int(sniff_peaks[-1])+int(t_stop_SNIFF)*srate >= len_sniff_session:
+                        sniff_peaks = sniff_peaks[:-1]
+
+                    if int(sniff_peaks[0])+int(t_start_SNIFF)*srate <= 0:
+                        sniff_peaks = sniff_peaks[1:]
+
+                    sniff_peaks = [str(i) for i in sniff_peaks]
+                    with open(f'{sujet}_SNIFF_starts.txt', 'w') as f:
+                        f.write('\n'.join(sniff_peaks))
+                        f.close()
+
+                    #### for next iteration change to int
+                    ac_starts = [int(i) for i in ac_starts]
+                    sniff_peaks = [int(i) for i in sniff_peaks]
+
+
+                

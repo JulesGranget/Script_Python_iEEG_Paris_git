@@ -99,6 +99,7 @@ def generate_folder_structure(sujet):
     construct_token = create_folder('TF', construct_token)
     construct_token = create_folder('baselines', construct_token)
     construct_token = create_folder('DFC', construct_token)
+    construct_token = create_folder('ERP', construct_token)
 
         #### anatomy
     os.chdir(os.path.join(path_general, 'Analyses', 'anatomy'))
@@ -652,6 +653,36 @@ def get_ac_starts(sujet):
 
     path_source = os.getcwd()
 
+    os.chdir(os.path.join(path_precompute, sujet, 'ERP'))
+
+    ac_starts = np.load(f'{sujet}_AC_select.npy')
+
+    os.chdir(path_source)
+
+    return ac_starts
+
+
+
+
+def get_sniff_starts(sujet):
+
+    path_source = os.getcwd()
+
+    os.chdir(os.path.join(path_precompute, sujet, 'ERP'))
+
+    sniff_starts = np.load(f'{sujet}_SNIFF_select.npy')
+
+    os.chdir(path_source)
+
+    return sniff_starts
+
+
+
+
+def get_ac_starts_uncleaned(sujet):
+
+    path_source = os.getcwd()
+
     os.chdir(os.path.join(path_prep, sujet, 'info'))
 
     with open(f'{sujet}_AC_starts.txt') as f:
@@ -667,7 +698,7 @@ def get_ac_starts(sujet):
 
 
 
-def get_sniff_starts(sujet):
+def get_sniff_starts_uncleaned(sujet):
 
     path_source = os.getcwd()
 
@@ -682,10 +713,6 @@ def get_sniff_starts(sujet):
     os.chdir(path_source)
 
     return ac_starts
-
-
-
-
 
 
 
@@ -987,8 +1014,7 @@ def stretch_data(resp_features, nb_point_by_cycle, data, srate):
     return data_stretch, mean_inspi_ratio
 
 
-
-#resp_features, nb_point_by_cycle, data, srate = respfeatures_allcond[cond][0], stretch_point_TF, tf[n_chan,:,:], srate
+#resp_features, nb_point_by_cycle, data, srate = respfeatures_allcond[cond][0], stretch_point_TF, tf[0,:,:], srate
 def stretch_data_tf(resp_features, nb_point_by_cycle, data, srate):
 
     # params
@@ -1004,7 +1030,7 @@ def stretch_data_tf(resp_features, nb_point_by_cycle, data, srate):
     else:
         clipped_times, times_to_cycles, cycles, cycle_points, data_stretch_linear = respirationtools.deform_to_cycle_template(
                 data.T, times, cycle_times, nb_point_by_cycle=nb_point_by_cycle, inspi_ratio=ratio_stretch_TF)
-
+                
     #### clean
     mask = resp_features[resp_features['select'] == 1].index.values
     cycle_clean = mask[np.isin(mask, cycles)]
@@ -1013,9 +1039,10 @@ def stretch_data_tf(resp_features, nb_point_by_cycle, data, srate):
     if np.iscomplex(data[0,0]):
         data_stretch = np.zeros(( cycle_clean.shape[0], data.shape[0], nb_point_by_cycle ), dtype='complex')
     else:
-        data_stretch = np.zeros(( cycle_clean.shape[0], data.shape[0], nb_point_by_cycle ))
+        data_stretch = np.zeros(( cycle_clean.shape[0], data.shape[0], nb_point_by_cycle ), dtype=data.dtype)
+
     for cycle_i, cycle_val in enumerate(cycle_clean):
-        data_stretch[cycle_i, :, :] = data_stretch_linear.T[:, 1000*(cycle_val):1000*(cycle_val+1)]
+        data_stretch[cycle_i, :, :] = data_stretch_linear.T[:, nb_point_by_cycle*(cycle_val):nb_point_by_cycle*(cycle_val+1)]
 
     # inspect
     if debug == True:

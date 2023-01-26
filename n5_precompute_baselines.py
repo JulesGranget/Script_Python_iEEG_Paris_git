@@ -43,7 +43,7 @@ def compute_and_save_baseline(sujet_i, band_prep, electrode_recording_type):
         return
             
     #### open data
-    os.chdir(os.path.join(path_prep, sujet, 'sections'))
+    os.chdir(os.path.join(path_prep, sujet_i, 'sections'))
     if electrode_recording_type == 'monopolaire':
         raw = mne.io.read_raw_fif(f'{sujet_i}_allcond_{band_prep}.fif', preload=True)
     if electrode_recording_type == 'bipolaire':
@@ -103,7 +103,7 @@ def compute_and_save_baseline(sujet_i, band_prep, electrode_recording_type):
         print_advancement(n_chan, np.size(data,0), steps=[25, 50, 75])
 
         #### load chunk indicies
-        vs_starts, sniff_allsession, sniff_peaks, ac_allsession, ac_starts, al_allsession, al_starts, al_stops = get_trig_time_for_sujet(sujet)
+        vs_starts, sniff_allsession, sniff_peaks, ac_allsession, ac_starts, al_allsession, al_starts, al_stops = get_trig_time_for_sujet(sujet_i)
 
         x = data[n_chan,:]
         #band_i, band = 0, list(wavelets_to_conv.keys())[0]
@@ -159,7 +159,10 @@ if __name__== '__main__':
     #### slurm execution
     #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
-        #band_prep = 'lf'
-        for band_prep in band_prep_list:
-            execute_function_in_slurm_bash('n4_precompute_baselines', 'compute_and_save_baseline', [sujet, band_prep, electrode_recording_type])
+
+        for sujet in sujet_list:
+                
+            #band_prep = 'lf'
+            for band_prep in band_prep_list:
+                execute_function_in_slurm_bash('n5_precompute_baselines', 'compute_and_save_baseline', [sujet, band_prep, electrode_recording_type])
 
