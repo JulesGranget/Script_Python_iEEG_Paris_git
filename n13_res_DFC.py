@@ -1314,7 +1314,7 @@ if __name__ == '__main__':
         for sujet in sujet_list:
 
             res_DFC_compilation(sujet, electrode_recording_type)
-            # execute_function_in_slurm_bash_mem_choice('n10_res_DFC', 'res_DFC_compilation', [sujet, electrode_recording_type], '15G')
+            # execute_function_in_slurm_bash_mem_choice('n13_res_DFC', 'res_DFC_compilation', [sujet, electrode_recording_type], '15G')
 
 
 

@@ -486,19 +486,23 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
             dfc_resample_stretch_wpli_i = f_wpli_i(range(n_points_AL_interpolation))
 
         #### plot verification figures
-        if pair_to_compute_i % 200 == 0:
+        if pair_to_compute_i % 200 == 0 and cond != 'AL':
 
+            #cf_metric = 'ispc'
             for cf_metric in ['ispc', 'wpli']:
 
                 if cf_metric == 'ispc':
                     dfc_to_plot_i = dfc_resample_stretch_ispc_i
-                if cf_metric == 'ispc':
+                if cf_metric == 'wpli':
                     dfc_to_plot_i = dfc_resample_stretch_wpli_i
 
                 os.chdir(os.path.join(path_results, sujet, 'DFC', 'verif'))
 
+                pairs_to_compute_anat_i = pairs_to_compute_anat[pair_to_compute_i]
+
                 plt.figure(figsize=(15,15))
                 plt.pcolormesh(dfc_to_plot_i.mean(axis=0))
+
                 plt.title(f'{cond} {freq} {cf_metric} MEAN, pair : {pairs_to_compute_anat_i}')
                 # plt.show()
 
@@ -506,7 +510,8 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
                 plt.close('all')
 
                 plt.figure(figsize=(15,15))
-                plt.pcolormesh(dfc_to_plot_i.std(axis=0))
+                if cond == 'AL':
+                    plt.pcolormesh(dfc_to_plot_i.std(axis=0))
                 plt.title(f'{cond} {freq} {cf_metric} SD, pair : {pairs_to_compute_anat_i}')
                 # plt.show()
 
@@ -514,7 +519,6 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
                 plt.close('all')
 
                 wavelet_i = 0
-                pairs_to_compute_anat_i = pairs_to_compute_anat[pair_to_compute_i]
                 plt.figure(figsize=(15,15))
                 plt.plot(dfc_to_plot_i.mean(axis=0)[wavelet_i,:], label='mean')
                 plt.plot(dfc_to_plot_i.mean(axis=0)[wavelet_i,:] + dfc_to_plot_i.std(axis=0)[wavelet_i,:], color='r', label='1SD')
@@ -697,6 +701,7 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
         time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
 
     #### save allpairs
+    print('SAVE')
     os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
     
     if cond != 'AL':
@@ -743,7 +748,7 @@ if __name__ == '__main__':
             prms = get_params(sujet, electrode_recording_type)
 
             print('######## PRECOMPUTE DFC ########') 
-            #cond = 'AC'
+            #cond = 'AL'
             for cond in cond_FC_DFC:
                 #band_prep = 'lf'
                 for band_prep in band_prep_list:

@@ -625,7 +625,7 @@ if __name__ == '__main__':
                 continue
 
             # compilation_allplot_analysis(cond, electrode_recording_type)
-            execute_function_in_slurm_bash('n13_precompute_allplot_TF', 'compilation_allplot_analysis', [cond, electrode_recording_type])
+            execute_function_in_slurm_bash('n14_precompute_allplot_TF', 'compilation_allplot_analysis', [cond, electrode_recording_type])
         
 
 

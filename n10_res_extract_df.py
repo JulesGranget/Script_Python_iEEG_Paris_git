@@ -1118,8 +1118,8 @@ def compilation_export_df(sujet, electrode_recording_type):
     print('COMPUTE TF')
     export_TF_in_df(sujet, prms, electrode_recording_type)
     
-    print('COMPUTE ITPC')
-    export_ITPC_in_df(sujet, prms, electrode_recording_type)
+    # print('COMPUTE ITPC')
+    # export_ITPC_in_df(sujet, prms, electrode_recording_type)
     
     print('COMPUTE GRAPH DFC')
     compute_graph_metric_dfc(sujet, prms, electrode_recording_type)
@@ -1144,6 +1144,6 @@ if __name__ == '__main__':
         for sujet in sujet_list:
                     
             #### export df
-            execute_function_in_slurm_bash_mem_choice('n9_res_extract_df', 'compilation_export_df', [sujet, electrode_recording_type], '20G')
+            execute_function_in_slurm_bash_mem_choice('n10_res_extract_df', 'compilation_export_df', [sujet, electrode_recording_type], '20G')
         
         
