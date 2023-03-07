@@ -121,7 +121,7 @@ def pg_compute_pre(df, predictor, outcome, test, subject=None, show = False):
         
     elif test == 'friedman':
         res = pg.friedman(data=df, dv=outcome, within=predictor, subject=subject)
-    
+    Analyses
     pval = res[pval_labels[test]].values[0]
     es_label = esize_labels[test]
     if es_label is None:

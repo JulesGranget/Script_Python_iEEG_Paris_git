@@ -1314,3 +1314,10 @@ def rscore_mat(x):
 
     return _zscore_mat
 
+
+def get_mad(data, axis=0):
+
+    med = np.median(data, axis=axis)
+    mad = np.median(np.abs(data - med), axis=axis) / 0.6744897501960817
+
+    return mad

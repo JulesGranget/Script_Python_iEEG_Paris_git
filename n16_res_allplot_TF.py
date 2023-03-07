@@ -451,6 +451,9 @@ if __name__ == '__main__':
         
             #mat_type = 'TF'
             for mat_type in ['TF', 'ITPC']:
+
+                if mat_type == 'ITPC':
+                    continue
                 
                 # compilation_slurm(anat_type, mat_type, electrode_recording_type)
                 execute_function_in_slurm_bash('n16_res_allplot_TF', 'compilation_slurm', [anat_type, mat_type, electrode_recording_type])

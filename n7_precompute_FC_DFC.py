@@ -216,7 +216,7 @@ def from_fc_to_mat(data_fc, pairs, roi_in_data):
 #x = dfc_resample_ispc_i
 def chunk_data_AC(x, ac_starts, nfrex, prms):
 
-    stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
+    stretch_point_TF_ac = int(np.abs(t_start_AC)*dw_srate_fc_AC +  t_stop_AC*dw_srate_fc_AC)
 
     x_chunk = np.zeros((len(ac_starts), nfrex, int(stretch_point_TF_ac)))
 
@@ -225,7 +225,12 @@ def chunk_data_AC(x, ac_starts, nfrex, prms):
         t_start = int(start_time + t_start_AC*prms['srate'])
         t_stop = int(start_time + t_stop_AC*prms['srate'])
 
-        x_chunk[start_i,:,:] = x[:, t_start:t_stop]
+        x_chunk_pre = x[:, t_start:t_stop]
+
+        f = scipy.interpolate.interp1d(np.linspace(0, 1, x_chunk_pre.shape[1]), x_chunk_pre, kind='linear')
+        x_chunk_post = f(np.linspace(0, 1, stretch_point_TF_ac))
+
+        x_chunk[start_i,:,:] = x_chunk_post
     
     return x_chunk
 
@@ -304,8 +309,6 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
         convolutions[nchan_i,:,:] = nchan_conv
 
-        return
-
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(convolution_x_wavelets_nchan)(nchan_i, nchan) for nchan_i, nchan in enumerate(prms['chan_list_ieeg']))
 
     #### free memory
@@ -313,7 +316,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
     #### verif conv
     if debug:
-        plt.plot(convolutions[0,0,:])
+        plt.pcolormesh(np.real(convolutions[0,:,:]))
         plt.show()
 
     #### identify roi in data
@@ -355,7 +358,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
     #### generate stretch point
     if cond == 'AC':
-        stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
+        stretch_point_TF_ac = int(np.abs(t_start_AC)*dw_srate_fc_AC +  t_stop_AC*dw_srate_fc_AC)
 
     if cond == 'SNIFF':
         stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
@@ -401,10 +404,13 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
             # pli_dfc_i[slwin_values_i] = np.abs(np.mean(np.sign(np.imag(cdd))))
             wpli_dfc_mat[:, slwin_values_i] = np.abs( np.mean( np.imag(cdd), axis=1 ) ) / np.mean( np.abs( np.imag(cdd) ), axis=1 )
 
+        if debug:
+
+            plt.pcolormesh(ispc_dfc_mat)
+            plt.show()
+
         dfc_metrics[0, pair_to_compute_i, :, :] = ispc_dfc_mat
         dfc_metrics[1, pair_to_compute_i, :, :] = wpli_dfc_mat
-
-        return
 
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_ispc_wpli)(pair_to_compute_i, pair_to_compute) for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute))
 
@@ -460,7 +466,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
         f = scipy.interpolate.interp1d(np.linspace(0, 1, win_sample.shape[0]), dfc_metrics[wpli_mat_i, pair_to_compute_i, :, :], kind='linear')
         dfc_resample_wpli_i = f(np.linspace(0, 1, data_length))
-
+            
         #### stretch
         if cond == 'FR_CV':
             respfeatures_allcond = load_respfeatures(sujet)
@@ -484,6 +490,23 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
             f_wpli_i = scipy.interpolate.interp1d(range(data_length), dfc_resample_wpli_i, kind='linear')
             dfc_resample_stretch_wpli_i = f_wpli_i(range(n_points_AL_interpolation))
+
+        if debug:
+
+            plt.pcolormesh(dfc_resample_ispc_i)
+            plt.show()
+
+            plt.pcolormesh(dfc_resample_stretch_ispc_i)
+            plt.show()
+
+        #### mean
+        if cond == 'AL':
+            dfc_data_resample[0, pair_to_compute_i, :, :] = dfc_resample_stretch_ispc_i
+            dfc_data_resample[1, pair_to_compute_i, :, :] = dfc_resample_stretch_wpli_i
+        else:
+            dfc_data_resample[0, pair_to_compute_i, :, :] = dfc_resample_stretch_ispc_i.mean(axis=0)
+            dfc_data_resample[1, pair_to_compute_i, :, :] = dfc_resample_stretch_wpli_i.mean(axis=0)
+
 
         #### plot verification figures
         if pair_to_compute_i % 200 == 0 and cond != 'AL':
@@ -536,13 +559,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
                 plt.savefig(f'pair{pair_to_compute_i}_{cf_metric}_{cond}_{band}_MEAN_sig.png')
                 plt.close('all')
 
-        #### mean
-        dfc_data_resample[0, pair_to_compute_i, :, :] = dfc_resample_stretch_ispc_i.mean(axis=0)
-        dfc_data_resample[1, pair_to_compute_i, :, :] = dfc_resample_stretch_wpli_i.mean(axis=0)
-
         del dfc_resample_stretch_ispc_i, dfc_resample_stretch_wpli_i
-
-        return
 
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(resample_and_stretch_data_dfc)(pair_to_compute_i, pair_to_compute) for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute))
 
@@ -656,7 +673,7 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
             if cond == 'FR_CV':
                 mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex, stretch_point_TF)
             if cond == 'AC':
-                stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
+                stretch_point_TF_ac = int(np.abs(t_start_AC)*dw_srate_fc_AC +  t_stop_AC*dw_srate_fc_AC)
                 mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex, stretch_point_TF_ac)
             if cond == 'SNIFF':
                 stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
@@ -666,7 +683,7 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
             mat_stretch.append(mat_dfc_stretch_i)
     
 
-    if cond != 'AL':
+    if cond == 'AL':
         #### mean across trials
         for trial_i in range(n_trials):
             if trial_i ==0:
@@ -677,12 +694,17 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
 
         mat_stretch_mean /= n_trials
 
-    if cond == 'AL':
+    else:
 
-        if n_trials != 3:
-            raise ValueError('!! WARNING NO 3 AL !!')
-        
-        mat_stretch_mean = np.stack((mat_stretch[0], mat_stretch[1], mat_stretch[2]))
+        mat_stretch_mean = mat_stretch[0]
+
+    if debug:
+
+        plt.pcolormesh(mat_stretch[0][0, 0, :, :])
+        plt.show()
+
+        plt.pcolormesh(mat_stretch_mean[0, 0, :, :])
+        plt.show()
 
     #### export
     #### generate time vec
@@ -693,7 +715,7 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
         time_vec = np.arange(n_points_AL_interpolation)
 
     if cond == 'AC':
-        stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
+        stretch_point_TF_ac = int(np.abs(t_start_AC)*dw_srate_fc_AC +  t_stop_AC*dw_srate_fc_AC)
         time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
 
     if cond == 'SNIFF':
@@ -704,10 +726,7 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
     print('SAVE')
     os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
     
-    if cond != 'AL':
-        dict_xr = {'mat_type' : ['ispc', 'wpli'], 'pairs' : pairs_to_compute_anat, 'nfrex' : range(nfrex), 'times' : time_vec}
-    if cond == 'AL':
-        dict_xr = {'AL_num' : [1,2,3], 'mat_type' : ['ispc', 'wpli'], 'pairs' : pairs_to_compute_anat, 'nfrex' : range(nfrex), 'times' : time_vec}
+    dict_xr = {'mat_type' : ['ispc', 'wpli'], 'pairs' : pairs_to_compute_anat, 'nfrex' : range(nfrex), 'times' : time_vec}
     
     xr_export = xr.DataArray(mat_stretch_mean, coords=dict_xr.values(), dims=dict_xr.keys())
     
@@ -748,11 +767,11 @@ if __name__ == '__main__':
             prms = get_params(sujet, electrode_recording_type)
 
             print('######## PRECOMPUTE DFC ########') 
-            #cond = 'AL'
+            #cond = cond_FC_DFC[1]
             for cond in cond_FC_DFC:
                 #band_prep = 'lf'
                 for band_prep in band_prep_list:
-                    #band, freq = 'beta', [12,40]
+                    #band, freq = 'theta', [4,8]
                     for band, freq in freq_band_dict_FC_function[band_prep].items():
 
                         if band in band_name_fc_dfc:
@@ -760,7 +779,7 @@ if __name__ == '__main__':
                             if cond == 'AL':
 
                                 # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '45G')
+                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
                             
                             elif cond == 'AC':
 
@@ -770,7 +789,7 @@ if __name__ == '__main__':
                             else:
 
                                 # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '20G')
+                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
                             
         
 

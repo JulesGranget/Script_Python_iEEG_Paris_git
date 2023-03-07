@@ -45,6 +45,11 @@ def get_all_ROI_and_Lobes_name():
 
 
 
+
+
+
+
+
 ########################################
 ######## PREP ALLPLOT ANALYSIS ########
 ########################################
@@ -170,20 +175,20 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond, electrode_recording_type):
 
     #### generate dict for loading TF
     dict_TF_for_ROI_to_process = {}
-    dict_ITPC_for_ROI_to_process = {}
+    # dict_ITPC_for_ROI_to_process = {}
     dict_freq_band = {}
     #freq_band_i, freq_band_dict = 0, freq_band_list[0]
     for freq_band_i, freq_band_dict in enumerate(freq_band_list):
         if freq_band_i == 0:
             for band_i in list(freq_band_dict.keys()):
                 dict_TF_for_ROI_to_process[band_i] = np.zeros((nfrex_lf, stretch_point))
-                dict_ITPC_for_ROI_to_process[band_i] = np.zeros((nfrex_lf, stretch_point))
+                # dict_ITPC_for_ROI_to_process[band_i] = np.zeros((nfrex_lf, stretch_point))
                 dict_freq_band[band_i] = freq_band_list[freq_band_i][band_i]
 
         else :
             for band_i in list(freq_band_dict.keys()):
                 dict_TF_for_ROI_to_process[band_i] = np.zeros((nfrex_hf, stretch_point))
-                dict_ITPC_for_ROI_to_process[band_i] = np.zeros((nfrex_hf, stretch_point))
+                # dict_ITPC_for_ROI_to_process[band_i] = np.zeros((nfrex_hf, stretch_point))
                 dict_freq_band[band_i] = freq_band_list[freq_band_i][band_i]
 
     #### initiate len recorded
@@ -239,9 +244,9 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond, electrode_recording_type):
                 else:
 
                     if electrode_recording_type == 'monopolaire':
-                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
                     if electrode_recording_type == 'bipolaire':
-                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
             
             #### average trials TF
             TF_load /= n_trials
@@ -255,41 +260,44 @@ def get_TF_and_ITPC_for_ROI(ROI_to_process, cond, electrode_recording_type):
                 plt.show()
 
         #### load ITPC and mean trial
-        os.chdir(os.path.join(path_precompute, sujet_tmp, 'ITPC'))
-        for band, freq in dict_freq_band.items():
+        # os.chdir(os.path.join(path_precompute, sujet_tmp, 'ITPC'))
+        # for band, freq in dict_freq_band.items():
     
-            for trial_i in range(n_trials):
+        #     for trial_i in range(n_trials):
                 
-                if trial_i == 0:
+        #         if trial_i == 0:
 
-                    if electrode_recording_type == 'monopolaire':
-                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
-                    if electrode_recording_type == 'bipolaire':
-                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
+        #             if electrode_recording_type == 'monopolaire':
+        #                 ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+        #             if electrode_recording_type == 'bipolaire':
+        #                 ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
 
-                else:
+        #         else:
 
-                    if electrode_recording_type == 'monopolaire':
-                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
-                    if electrode_recording_type == 'bipolaire':
-                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
+        #             if electrode_recording_type == 'monopolaire':
+        #                 ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+        #             if electrode_recording_type == 'bipolaire':
+        #                 ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
             
-            #### average trials ITPC
-            ITPC_load /= n_trials
-            ITPC_load_zscore = zscore_mat(ITPC_load[plot_tmp_i,:,:])
+        #     #### average trials ITPC
+        #     ITPC_load /= n_trials
+        #     ITPC_load_zscore = zscore_mat(ITPC_load[plot_tmp_i,:,:])
 
-            dict_ITPC_for_ROI_to_process[band] = (dict_ITPC_for_ROI_to_process[band] + ITPC_load_zscore)
+        #     dict_ITPC_for_ROI_to_process[band] = (dict_ITPC_for_ROI_to_process[band] + ITPC_load_zscore)
 
     #### mean
     for band, freq in dict_freq_band.items():
         dict_TF_for_ROI_to_process[band] /= len(plot_to_process)
-        dict_ITPC_for_ROI_to_process[band] /= len(plot_to_process)
+        # dict_ITPC_for_ROI_to_process[band] /= len(plot_to_process)
 
     #### verif
     if debug:
         band = 'theta'
         plt.pcolormesh(dict_TF_for_ROI_to_process[band])
         plt.show()
+
+    #### if ITPC not computed
+    dict_ITPC_for_ROI_to_process = {}
 
     return dict_ITPC_for_ROI_to_process, dict_TF_for_ROI_to_process
 
@@ -337,20 +345,20 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond, electrode_recording_type):
 
     #### generate dict for loading TF
     dict_TF_for_Lobe_to_process = {}
-    dict_ITPC_for_Lobe_to_process = {}
+    # dict_ITPC_for_Lobe_to_process = {}
     dict_freq_band = {}
     #freq_band_i, freq_band_dict = 0, freq_band_list[0]
     for freq_band_i, freq_band_dict in enumerate(freq_band_list):
         if freq_band_i == 0:
             for band_i in list(freq_band_dict.keys()):
                 dict_TF_for_Lobe_to_process[band_i] = np.zeros((nfrex_lf, stretch_point))
-                dict_ITPC_for_Lobe_to_process[band_i] = np.zeros((nfrex_lf, stretch_point))
+                # dict_ITPC_for_Lobe_to_process[band_i] = np.zeros((nfrex_lf, stretch_point))
                 dict_freq_band[band_i] = freq_band_list[freq_band_i][band_i]
 
         else :
             for band_i in list(freq_band_dict.keys()):
                 dict_TF_for_Lobe_to_process[band_i] = np.zeros((nfrex_hf, stretch_point))
-                dict_ITPC_for_Lobe_to_process[band_i] = np.zeros((nfrex_hf, stretch_point))
+                # dict_ITPC_for_Lobe_to_process[band_i] = np.zeros((nfrex_hf, stretch_point))
                 dict_freq_band[band_i] = freq_band_list[freq_band_i][band_i]
 
     #### initiate len recorded
@@ -404,9 +412,9 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond, electrode_recording_type):
                 else:
 
                     if electrode_recording_type == 'monopolaire':
-                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
                     if electrode_recording_type == 'bipolaire':
-                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
+                        TF_load += np.load(f'{sujet_tmp}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
             
             #### average trials TF and normalize
             TF_load /= n_trials
@@ -415,36 +423,38 @@ def get_TF_and_ITPC_for_Lobe(Lobe_to_process, cond, electrode_recording_type):
             dict_TF_for_Lobe_to_process[band] = (dict_TF_for_Lobe_to_process[band] + TF_load_zscore)
 
         #### load ITPC and mean trial
-        os.chdir(os.path.join(path_precompute, sujet_tmp, 'ITPC'))
-        for band, freq in dict_freq_band.items():
+        # os.chdir(os.path.join(path_precompute, sujet_tmp, 'ITPC'))
+        # for band, freq in dict_freq_band.items():
     
-            for trial_i in range(n_trials):
+        #     for trial_i in range(n_trials):
                 
-                if trial_i == 0:
+        #         if trial_i == 0:
 
-                    if electrode_recording_type == 'monopolaire':
-                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
-                    if electrode_recording_type == 'bipolaire':
-                        ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
+        #             if electrode_recording_type == 'monopolaire':
+        #                 ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
+        #             if electrode_recording_type == 'bipolaire':
+        #                 ITPC_load = np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
 
-                else:
+        #         else:
 
-                    if electrode_recording_type == 'monopolaire':
-                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
-                    if electrode_recording_type == 'bipolaire':
-                        ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
+        #             if electrode_recording_type == 'monopolaire':
+        #                 ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}.npy')
+        #             if electrode_recording_type == 'bipolaire':
+        #                 ITPC_load += np.load(f'{sujet_tmp}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_{trial_i+1}_bi.npy')
             
-            #### average trials ITPC
-            ITPC_load /= n_trials
-            ITPC_load_zscore = zscore_mat(ITPC_load[plot_tmp_i,:,:])
+        #     #### average trials ITPC
+        #     ITPC_load /= n_trials
+        #     ITPC_load_zscore = zscore_mat(ITPC_load[plot_tmp_i,:,:])
 
-            dict_ITPC_for_Lobe_to_process[band] = (dict_ITPC_for_Lobe_to_process[band] + ITPC_load_zscore)
+        #     dict_ITPC_for_Lobe_to_process[band] = (dict_ITPC_for_Lobe_to_process[band] + ITPC_load_zscore)
 
     #### mean
     for band, freq in dict_freq_band.items():
         dict_TF_for_Lobe_to_process[band] /= len(plot_to_process)
-        dict_ITPC_for_Lobe_to_process[band] /= len(plot_to_process)
+        # dict_ITPC_for_Lobe_to_process[band] /= len(plot_to_process)
 
+    #### if ITPC not computed
+    dict_ITPC_for_Lobe_to_process = {}
 
     return dict_ITPC_for_Lobe_to_process, dict_TF_for_Lobe_to_process
 
@@ -538,7 +548,7 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
 
         for ROI_to_process_i, ROI_to_process in enumerate(ROI_to_include):
 
-            ROI_data_xr[ROI_to_process_i, band_i, 0, :, :] = res[ROI_to_process_i][0][band]
+            # ROI_data_xr[ROI_to_process_i, band_i, 0, :, :] = res[ROI_to_process_i][0][band]
             ROI_data_xr[ROI_to_process_i, band_i, 1, :, :] = res[ROI_to_process_i][1][band]
 
     dict_xr = {'roi' : ROI_to_include, 'band' : band_to_export, 'TF_type' : ['ITPC', 'TF'], 'nfrex' : np.arange(0, nfrex_hf), 'times' : np.arange(0, stretch_point)}
@@ -584,7 +594,7 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
 
         for Lobe_to_process_i, Lobe_to_process in enumerate(lobe_to_include):
 
-            Lobe_data_xr[Lobe_to_process_i, band_i, 0, :, :] = res[Lobe_to_process_i][0][band]
+            # Lobe_data_xr[Lobe_to_process_i, band_i, 0, :, :] = res[Lobe_to_process_i][0][band]
             Lobe_data_xr[Lobe_to_process_i, band_i, 1, :, :] = res[Lobe_to_process_i][1][band]
 
     dict_xr = {'lobe' : lobe_to_include, 'band' : band_to_export, 'TF_type' : ['ITPC', 'TF'], 'nfrex' : np.arange(0, nfrex_hf), 'times' : np.arange(0, stretch_point)}
@@ -615,10 +625,10 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'bipolaire'
+    #electrode_recording_type = 'monopolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
-        #cond = 'SNIFF'
+        #cond = 'FR_CV'
         for cond in conditions_allsubjects:
 
             if cond == 'AL':

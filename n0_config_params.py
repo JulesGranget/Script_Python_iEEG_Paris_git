@@ -38,6 +38,8 @@ sujet = 'pat_03146_1608'
 
 #sujet = 'DEBUG'
 
+srate = 500
+
 #### whole protocole
 sujet_list = ['pat_03083_1527', 'pat_03105_1551', 'pat_03128_1591', 'pat_03138_1601', 'pat_03146_1608', 'pat_03174_1634']
 
@@ -83,9 +85,9 @@ PC_ID = socket.gethostname()
 if PC_ID == 'LAPTOP-EI7OSP7K':
 
     PC_working = 'Jules_Home'
-    path_main_workdir = 'C:\\Users\\jules\\Desktop\\Codage Informatique\\Script_Python_iEEG_Paris'
-    path_general = 'D:\\LPPR_CMO_PROJECT\\Paris'
-    path_memmap = 'D:\\LPPR_CMO_PROJECT\\Paris'
+    path_main_workdir = 'M:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\Script_Python_iEEG_Paris_git\\'
+    path_general = 'M:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\'
+    path_memmap = 'M:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\Mmap'
     n_core = 4
 
 elif PC_ID == 'DESKTOP-3IJUK7R':
@@ -259,6 +261,11 @@ t_stop_AC = 24
 SNIFF_length = 3
 AC_length = 12
 
+SNIFF_lm_time = [-2, -0.5]
+
+
+
+
 
 
 ########################################
@@ -352,7 +359,7 @@ percentile_thresh = 90
 slwin_dict = {'theta' : 5, 'alpha' : 3, 'beta' : 1, 'l_gamma' : .3, 'h_gamma' : .3} # seconds
 slwin_step_coeff = .1  # in %, 10% move
 
-band_name_fc_dfc = ['beta', 'l_gamma', 'h_gamma']
+band_name_fc_dfc = ['theta', 'alpha', 'beta', 'l_gamma', 'h_gamma']
 
 #### cond definition
 cond_FC_DFC = ['FR_CV', 'AL', 'SNIFF', 'AC']
@@ -360,12 +367,18 @@ cond_FC_DFC = ['FR_CV', 'AL', 'SNIFF', 'AC']
 #### down sample for AL
 dw_srate_fc_AL = 10
 
+#### down sample for AC
+dw_srate_fc_AC = 50
+
 #### n points for AL interpolation
-n_points_AL_interpolation = 5000
+n_points_AL_interpolation = 10000
 n_points_AL_chunk = 1000
 
 #### for df computation
 percentile_graph_metric = 25
+
+
+
 
 
 ################################
@@ -382,9 +395,13 @@ sniff_extract_resp_evnmt = [0, 1]
 sniff_extract_post = [1, 2]
 
 AC_extract_pre = [-AC_length, 0]
-AC_extract_resp_evnmt_1 = [0, 6]
-AC_extract_resp_evnmt_2 = [6, AC_length]
+AC_extract_resp_evnmt_1 = [0, AC_length/2]
+AC_extract_resp_evnmt_2 = [AC_length/2, AC_length]
 AC_extract_post = [AC_length, AC_length*2]
+
+n_points_AL_interpolation = 10500
+n_phase_extraction_AL = 3
+n_points_AL_chunk = 1000
 
 srate_dw_stats = 100
 
