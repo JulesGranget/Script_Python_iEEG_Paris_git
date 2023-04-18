@@ -96,7 +96,7 @@ def compute_ERP(sujet, electrode_recording_type):
         for cond in ['AC', 'SNIFF']:
 
             #### select data without aux chan
-            data = load_data(sujet, cond, electrode_recording_type, band_prep=band_prep)
+            data = load_data(sujet, cond, electrode_recording_type)
             data = data[:-3,:]
 
             #### stretch or chunk
@@ -357,7 +357,7 @@ if __name__ == '__main__':
         data_erp = zscore_mat(data_stretch_allcond['lf'][cond][:, nchan, :])
 
             #### verif erp on sig
-        respi = load_data(sujet, cond, electrode_recording_type, band_prep='lf')[-3,:]
+        respi = load_data(sujet, cond, electrode_recording_type)[-3,:]
         plt.plot(respi)
         plt.vlines(erp_starts, ymax=respi.max(), ymin=respi.min(), color='r')
         plt.show()

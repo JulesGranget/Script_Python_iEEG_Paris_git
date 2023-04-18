@@ -23,14 +23,14 @@ debug = False
 
 
 
-def clean_data(allband_data, allpairs, cond_to_compute):
+def clean_data(allband_data, allpairs):
 
     #### identify pairs to clean
     mask_keep = []
 
     for pair_i, pair in enumerate(allpairs):
 
-        if pair.find('WM') == -1 and pair.find('ventricule') == -1 and pair.find('choroide plexus') == -1:
+        if pair.split('-')[0] in ROI_for_DFC_plot and pair.split('-')[-1] in ROI_for_DFC_plot:
 
             mask_keep.append(True)
 
@@ -51,7 +51,7 @@ def clean_data(allband_data, allpairs, cond_to_compute):
     #band_i = 'beta'
     for band_i in allband_data:
 
-        for cond in cond_to_compute:
+        for cond in conditions:
 
             allband_data[band_i][cond] = allband_data[band_i][cond][:, mask_keep, :, :]
 
@@ -109,17 +109,16 @@ def get_phase_extraction():
 
     phase_extraction_time = {}
 
-    for cond in cond_FC_DFC:
+    for cond in conditions:
 
         if cond == 'FR_CV':
-            continue
+            phase_extraction_time[cond] = {}
+            phase_extraction_time[cond]['whole'] = [0, stretch_point_TF]
 
         if cond == 'AL':
             phase_extraction_time[cond] = {}
-            phase_extraction_time[cond]['pre'] = [0, stretch_point_TF]
             phase_extraction_time[cond]['resp_evnmt_1'] = [0, int(n_points_AL_interpolation/n_phase_extraction_AL)]
             phase_extraction_time[cond]['resp_evnmt_2'] = [int(n_points_AL_interpolation/n_phase_extraction_AL), int(n_points_AL_interpolation/n_phase_extraction_AL)*2]
-            phase_extraction_time[cond]['resp_evnmt_3'] = [int(n_points_AL_interpolation/n_phase_extraction_AL)*2, n_points_AL_interpolation]
             phase_extraction_time[cond]['whole'] = [0, n_points_AL_interpolation]
 
         if cond == 'AC':
@@ -384,341 +383,347 @@ def generate_count_pairs_mat(pairs):
 
 
 
-def process_fc_res(sujet, electrode_recording_type, BL_normalization, plot_verif, plot_circle_dfc=False):
+def process_fc_res(sujet, electrode_recording_type, BL_normalization, plot_verif, plot_circle_dfc=False, plot_thresh=False):
 
     print(f'######## DFC BL_norm : {BL_normalization} ########')
 
-    cond_to_compute = ['AC', 'SNIFF', 'AL']
-    cond_to_load = ['FR_CV', 'AC', 'SNIFF', 'AL']
+    cond_to_plot = ['AC', 'SNIFF', 'AL']
 
     #### LOAD DATA ####
 
     #### get params
     os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
 
-    if electrode_recording_type == 'monopolaire':
-        file_to_load = [i for i in os.listdir() if ( i.find('allpairs') != -1 and i.find(band_name_fc_dfc[0]) != -1 and i.find('bi') == -1)]
-    else:
-        file_to_load = [i for i in os.listdir() if ( i.find('allpairs') != -1 and i.find(band_name_fc_dfc[0]) != -1 and i.find('bi') != -1)]
+    file_to_load = [i for i in os.listdir() if ( i.find('allpairs') != -1 and i.find(band_name_fc_dfc[0]) != -1 and i.find('bi') == -1)]
 
     cf_metrics_list = xr.open_dataarray(file_to_load[0])['mat_type'].values
 
+    band_prep = 'wb'
+
     #### phase list
     phase_list_allcond = {}
-    for cond in cond_to_compute:
+    for cond in conditions:
 
-        phase_list_allcond[cond] = {}
+        if cond == 'FR_CV':
+            phase_list_allcond[cond] = ['whole']
 
         if cond == 'AC':
-            phase_list_allcond[cond] = {
-            'phase_list' : ['pre', 'resp_evnmt_1', 'resp_evnmt_2', 'post'],
-            'phase_list_diff' : ['pre-resp_evnmt_1', 'pre-post', 'resp_evnmt_1-resp_evnmt_2', 'resp_evnmt_2-post']
-            }
+            phase_list_allcond[cond] = ['pre', 'resp_evnmt_1', 'resp_evnmt_2', 'post']
 
         if cond == 'SNIFF':
-            phase_list_allcond[cond] = {
-            'phase_list' : ['pre', 'resp_evnmt', 'post'],
-            'phase_list_diff' : ['pre-resp_evnmt', 'pre-post', 'resp_evnmt-post']
-            }
+            phase_list_allcond[cond] = ['pre', 'resp_evnmt', 'post']
 
         if cond == 'AL':
-            phase_list_allcond[cond] = {
-            'phase_list' : ['pre', 'resp_evnmt_1', 'resp_evnmt_2', 'resp_evnmt_3'],
-            'phase_list_diff' : ['pre-resp_evnmt', 'pre-post', 'resp_evnmt-post']
-            }
+            phase_list_allcond[cond] = ['resp_evnmt_1', 'resp_evnmt_2']
 
-    #band_prep = 'lf'
-    for band_prep in band_prep_list:
+    #### load data
+    os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
 
-        #### load data
-        os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
- 
-        allband_data = {}
-        #band = 'theta'
+    allband_data = {}
+
+    #band = 'theta'
+    for band in freq_band_dict_FC_function[band_prep]:
+
+        allband_data[band] = {}
+        #cond = 'AL'
+        for cond in conditions:
+
+            if electrode_recording_type == 'monopolaire':
+                file_to_load = f'{sujet}_DFC_wpli_ispc_{band}_{cond}_allpairs.nc'
+            else:
+                file_to_load = f'{sujet}_DFC_wpli_ispc_{band}_{cond}_allpairs_bi.nc'
+            
+            allband_data[band][cond] = xr.open_dataarray(file_to_load)
+            allpairs = xr.open_dataarray(file_to_load)['pairs'].data
+
+    #### clean data
+    allband_data, allpairs = clean_data(allband_data, allpairs)
+    pair_unique, roi_in_data = get_pair_unique_and_roi_unique(allpairs)
+
+    if debug:
+
         for band in freq_band_dict_FC_function[band_prep]:
 
-            allband_data[band] = {}
-            #cond = 'AL'
-            for cond in cond_to_load:
+            for cond in conditions:
+                    
+                plt.pcolormesh(allband_data[band][cond][0, 0, :, :])
 
-                if electrode_recording_type == 'monopolaire':
-                    file_to_load = [i for i in os.listdir() if ( i.find('allpairs') != -1 and i.find(band) != -1 and i.find(cond) != -1 and i.find('bi') == -1)]
-                else:
-                    file_to_load = [i for i in os.listdir() if ( i.find('allpairs') != -1 and i.find(band) != -1 and i.find(cond) != -1 and i.find('bi') != -1)]
-                
-                allband_data[band][cond] = xr.open_dataarray(file_to_load[0])
-                allpairs = xr.open_dataarray(file_to_load[0])['pairs'].data
+                plt.title(f"{band},{cond}")
+                plt.show()
 
-        #### clean data
-        allband_data, allpairs = clean_data(allband_data, allpairs, cond_to_load)
-        pair_unique, roi_in_data = get_pair_unique_and_roi_unique(allpairs)
+    #### plot verif
+    if plot_verif:
 
-        if debug:
+        plot_all_verif(allband_data, allpairs, conditions, band_prep, BL_normalization)
+            
+    #### mean and chunk phase
+    allband_dfc_phase = {}
+    #band = 'theta'
+    for band in freq_band_dict_FC_function[band_prep]:
 
-            for band in freq_band_dict_FC_function[band_prep]:
+        print(band)
 
-                for cond in cond_to_compute:
+        allband_dfc_phase[band] = {}
+
+        #cond = 'AL'
+        for cond in conditions:
+
+            allband_dfc_phase[band][cond] = {}
+
+            #phase = 'whole'
+            for phase_i, phase in enumerate(phase_list_allcond[cond]):
+
+                mat_fc_i = np.zeros((2, len(roi_in_data), len(roi_in_data)))
+
+                #cf_metric_i, cf_metric = 0, 'ispc'
+                for cf_metric_i, cf_metric in enumerate(['ispc', 'wpli']):
                         
-                    plt.pcolormesh(allband_data[band][cond][0, 0, :, :])
-    
-                    plt.title(f"{band},{cond}")
-                    plt.show()
+                    mat_fc_i[cf_metric_i, :, :] = dfc_pairs_to_mat(allband_data[band][cond][cf_metric_i,:,:].values, allpairs, cond, phase)
 
-        #### plot verif
-        if plot_verif:
+                allband_dfc_phase[band][cond][phase] = mat_fc_i
 
-            plot_all_verif(allband_data, allpairs, cond_to_load, band_prep, BL_normalization)
-                
-        #### mean and chunk phase
-        allband_dfc_phase = {}
-        #band = 'theta'
+    if debug:
+
         for band in freq_band_dict_FC_function[band_prep]:
+            
+            for cf_metric_i, cf_metric in enumerate(['ispc', 'wpli']):
 
-            print(band)
+                for cond in conditions:
 
-            allband_dfc_phase[band] = {}
+                    for phase_i, phase in enumerate(phase_list_allcond[cond]):
 
-            #cond = 'AL'
-            for cond in cond_to_compute:
+                        fig, ax = plt.subplots()
+                        vmin = allband_dfc_phase[band][cond][phase][cf_metric_i,:,:][allband_dfc_phase[band][cond][phase][cf_metric_i,:,:] != 0].min()
+                        vmax = allband_dfc_phase[band][cond][phase][cf_metric_i,:,:][allband_dfc_phase[band][cond][phase][cf_metric_i,:,:] != 0].max()
+                        cax = ax.matshow(allband_dfc_phase[band][cond][phase][cf_metric_i,:,:], vmin=vmin, vmax=vmax)
+                        fig.colorbar(cax)
+                        ax.set_xticks(np.arange(roi_in_data.shape[0]))
+                        ax.set_xticklabels(roi_in_data)
+                        ax.set_yticks(np.arange(roi_in_data.shape[0]))
+                        ax.set_yticklabels(roi_in_data)
+                        plt.setp([tick.label2 for tick in ax.xaxis.get_major_ticks()], rotation=45,
+                                ha="left", va="center",rotation_mode="anchor")
+                        ax.set_title(f'{cf_metric}, {band}')
+                        fig.tight_layout()
+                        plt.show()
 
-                allband_dfc_phase[band][cond] = {}
+    del allband_data
+
+    #### normalization
+    if BL_normalization:
+        
+        for band in freq_band_dict_FC_function[band_prep]:
+            #cond = 'RD_SV'
+            for cond in conditions:
+
+                if cond == 'FR_CV':
+                    continue
 
                 #phase = 'whole'
-                for phase_i, phase in enumerate(phase_list_allcond[cond]['phase_list']):
-
-                    mat_fc_i = np.zeros((2, len(roi_in_data), len(roi_in_data)))
-
+                for phase_i, phase in enumerate(phase_list_allcond[cond]):
                     #cf_metric_i, cf_metric = 0, 'ispc'
-                    for cf_metric_i, cf_metric in enumerate(['ispc', 'wpli']):
 
-                        if cond == 'AL' and phase == 'pre':
+                    allband_dfc_phase[band][cond][phase] = allband_dfc_phase[band][cond][phase] - allband_dfc_phase[band]['FR_CV']['whole']
 
-                            mat_fc_i[cf_metric_i, :, :] = dfc_pairs_to_mat(allband_data[band]['FR_CV'][cf_metric_i,:,:].values, allpairs, cond, phase)
+    if debug:
 
-                        else:
-                            
-                            mat_fc_i[cf_metric_i, :, :] = dfc_pairs_to_mat(allband_data[band][cond][cf_metric_i,:,:].values, allpairs, cond, phase)
-
-                    allband_dfc_phase[band][cond][phase] = mat_fc_i
-
-        if debug:
-
-            for band in freq_band_dict_FC_function[band_prep]:
-
-                for cond in cond_to_compute:
-
-                    for phase_i, phase in enumerate(phase_list_allcond[cond]['phase_list']):
-
-                        plt.pcolormesh(allband_data[band][cond][0, 0, :, :])
-    
-                        plt.title(f"{band},{cond},{phase}")
-                        plt.show()
-
-        del allband_data
-
-        #### normalization
-        if BL_normalization:
+        for band in freq_band_dict_FC_function[band_prep]:
             
-            for band in freq_band_dict_FC_function[band_prep]:
-                #cond = 'RD_SV'
-                for cond in cond_to_compute:
-                    #phase = 'whole'
-                    for phase_i, phase in enumerate(phase_list_allcond[cond]['phase_list']):
-                        #cf_metric_i, cf_metric = 0, 'ispc'
+            for cf_metric_i, cf_metric in enumerate(['ispc', 'wpli']):
 
-                        if phase == 'pre':
-                            continue
+                for cond in conditions:
 
-                        allband_dfc_phase[band][cond][phase] = allband_dfc_phase[band][cond][phase] - allband_dfc_phase[band][cond]['pre']
+                    for phase_i, phase in enumerate(phase_list_allcond[cond]):
 
-        if debug:
-
-            for band in freq_band_dict_FC_function[band_prep]:
-
-                for cond in cond_to_compute:
-
-                    for phase_i, phase in enumerate(phase_list_allcond[cond]['phase_list']):
-
-                        plt.pcolormesh(allband_dfc_phase[band][cond][phase][0,:,:])
-    
-                        plt.title(f"{band},{cond},{phase}")
+                        fig, ax = plt.subplots()
+                        vmin = allband_dfc_phase[band][cond][phase][cf_metric_i,:,:][allband_dfc_phase[band][cond][phase][cf_metric_i,:,:] != 0].min()
+                        vmax = allband_dfc_phase[band][cond][phase][cf_metric_i,:,:][allband_dfc_phase[band][cond][phase][cf_metric_i,:,:] != 0].max()
+                        cax = ax.matshow(allband_dfc_phase[band][cond][phase][cf_metric_i,:,:], vmin=vmin, vmax=vmax)
+                        fig.colorbar(cax)
+                        ax.set_xticks(np.arange(roi_in_data.shape[0]))
+                        ax.set_xticklabels(roi_in_data)
+                        ax.set_yticks(np.arange(roi_in_data.shape[0]))
+                        ax.set_yticklabels(roi_in_data)
+                        plt.setp([tick.label2 for tick in ax.xaxis.get_major_ticks()], rotation=45,
+                                ha="left", va="center",rotation_mode="anchor")
+                        ax.set_title(f'{cf_metric}, {band}')
+                        fig.tight_layout()
                         plt.show()
 
-        #### identify scales
-        scales_abs = {}
+    #### identify scales
+    scales_abs = {}
 
-        for mat_type_i, mat_type in enumerate(cf_metrics_list):
+    for mat_type_i, mat_type in enumerate(cf_metrics_list):
 
-            scales_abs[mat_type] = {}
+        scales_abs[mat_type] = {}
 
-            #band = 'theta'
-            for band in freq_band_dict_FC_function[band_prep]:
+        #band = 'theta'
+        for band in freq_band_dict_FC_function[band_prep]:
 
-                scales_abs[mat_type][band] = {}
+            scales_abs[mat_type][band] = {}
 
-                max_list = np.array(())
+            max_list = np.array(())
 
-                #cond = 'RD_SV'
-                for cond in cond_to_compute:
+            #cond = 'RD_SV'
+            for cond in cond_to_plot:
 
-                    scales_abs[mat_type][band][cond] = {}
+                scales_abs[mat_type][band][cond] = {}
 
-                    for phase_i, phase in enumerate(phase_list_allcond[cond]['phase_list']):
+                for phase_i, phase in enumerate(phase_list_allcond[cond]):
 
-                        if BL_normalization:
-                            if phase == 'pre':
-                                continue
+                    max_list = np.append(max_list, np.abs(allband_dfc_phase[band][cond][phase][mat_type_i,:,:].min()))
+                    max_list = np.append(max_list, allband_dfc_phase[band][cond][phase][mat_type_i,:,:].max())
 
-                        max_list = np.append(max_list, np.abs(allband_dfc_phase[band][cond][phase][mat_type_i,:,:].min()))
-                        max_list = np.append(max_list, allband_dfc_phase[band][cond][phase][mat_type_i,:,:].max())
-
-                    scales_abs[mat_type][band][cond]['max'] = max_list.max()
-
-                    if BL_normalization:
-                        scales_abs[mat_type][band][cond]['min'] = -max_list.max()
-                    else:
-                        scales_abs[mat_type][band][cond]['min'] = 0
-
-        #### thresh on previous plot
-        percentile_thresh_up = 99
-        percentile_thresh_down = 1
-
-        mat_dfc_clean = copy.deepcopy(allband_dfc_phase)
-
-        for mat_type_i, mat_type in enumerate(cf_metrics_list):
-
-            #band = 'theta'
-            for band in freq_band_dict_FC_function[band_prep]:
-
-                for cond in cond_to_compute:
-
-                    for phase_i, phase in enumerate(phase_list_allcond[cond]['phase_list']):
-
-                        thresh_up = np.percentile(allband_dfc_phase[band][cond][phase][mat_type_i,:,:].reshape(-1), percentile_thresh_up)
-                        thresh_down = np.percentile(allband_dfc_phase[band][cond][phase][mat_type_i,:,:].reshape(-1), percentile_thresh_down)
-
-                        for x in range(mat_dfc_clean[band][cond][phase][mat_type_i,:,:].shape[1]):
-                            for y in range(mat_dfc_clean[band][cond][phase][mat_type_i,:,:].shape[1]):
-                                if mat_type_i == 0:
-                                    if mat_dfc_clean[band][cond][phase][mat_type_i,x,y] < thresh_up:
-                                        mat_dfc_clean[band][cond][phase][mat_type_i,x,y] = 0
-                                else:
-                                    if (mat_dfc_clean[band][cond][phase][mat_type_i,x,y] < thresh_up) & (mat_dfc_clean[band][cond][phase][mat_type_i,x,y] > thresh_down):
-                                        mat_dfc_clean[band][cond][phase][mat_type_i,x,y] = 0
-
-
-
-
-        ######## PLOT ########
-
-
-        #### go to results
-        os.chdir(os.path.join(path_results, sujet, 'DFC', 'summary'))
-
-        if BL_normalization:
-            plot_color = cm.seismic
-        else:
-            plot_color = cm.YlGn
-
-        #### RAW
-
-        #mat_type_i, mat_type = 0, 'ispc'
-        for mat_type_i, mat_type in enumerate(cf_metrics_list):
-
-            ######## NO THRESH ########
-
-            #cond = 'AL'
-            for cond in cond_to_compute:
-
-                #### mat plot raw
-
-                phase_list = phase_list_allcond[cond]['phase_list']
+                scales_abs[mat_type][band][cond]['max'] = max_list.max()
 
                 if BL_normalization:
-                    phase_list = [phase_i for phase_i in phase_list if phase_i != 'pre']
-
-                fig, axs = plt.subplots(nrows=len(freq_band_dict_FC_function[band_prep]), ncols=len(phase_list), figsize=(15,15))
-
-                if electrode_recording_type == 'monopolaire':
-                    plt.suptitle(f'{cond} {mat_type}')
+                    scales_abs[mat_type][band][cond]['min'] = -max_list.max()
                 else:
-                    plt.suptitle(f'{cond} {mat_type} bi')
+                    scales_abs[mat_type][band][cond]['min'] = 0
+
+    #### thresh on previous plot
+    percentile_thresh_up = 99
+    percentile_thresh_down = 1
+
+    mat_dfc_clean = copy.deepcopy(allband_dfc_phase)
+
+    for mat_type_i, mat_type in enumerate(cf_metrics_list):
+
+        #band = 'theta'
+        for band in freq_band_dict_FC_function[band_prep]:
+
+            for cond in cond_to_plot:
+
+                for phase_i, phase in enumerate(phase_list_allcond[cond]):
+
+                    thresh_up = np.percentile(allband_dfc_phase[band][cond][phase][mat_type_i,:,:].reshape(-1), percentile_thresh_up)
+                    thresh_down = np.percentile(allband_dfc_phase[band][cond][phase][mat_type_i,:,:].reshape(-1), percentile_thresh_down)
+
+                    for x in range(mat_dfc_clean[band][cond][phase][mat_type_i,:,:].shape[1]):
+                        for y in range(mat_dfc_clean[band][cond][phase][mat_type_i,:,:].shape[1]):
+                            if mat_type_i == 0:
+                                if mat_dfc_clean[band][cond][phase][mat_type_i,x,y] < thresh_up:
+                                    mat_dfc_clean[band][cond][phase][mat_type_i,x,y] = 0
+                            else:
+                                if (mat_dfc_clean[band][cond][phase][mat_type_i,x,y] < thresh_up) & (mat_dfc_clean[band][cond][phase][mat_type_i,x,y] > thresh_down):
+                                    mat_dfc_clean[band][cond][phase][mat_type_i,x,y] = 0
+
+
+
+
+    ######## PLOT ########
+
+
+    #### go to results
+    os.chdir(os.path.join(path_results, sujet, 'DFC', 'summary'))
+
+    if BL_normalization:
+        plot_color = cm.seismic
+    else:
+        plot_color = cm.YlGn
+
+    #### RAW
+
+    #mat_type_i, mat_type = 0, 'ispc'
+    for mat_type_i, mat_type in enumerate(cf_metrics_list):
+
+        ######## NO THRESH ########
+
+        #cond = 'AL'
+        for cond in cond_to_plot:
+
+            #### mat plot raw
+            phase_list = phase_list_allcond[cond]
+
+            fig, axs = plt.subplots(nrows=len(freq_band_dict_FC_function[band_prep]), ncols=len(phase_list), figsize=(15,15))
+
+            if electrode_recording_type == 'monopolaire':
+                plt.suptitle(f'{cond} {mat_type}')
+            else:
+                plt.suptitle(f'{cond} {mat_type} bi')
+            
+            for r, band in enumerate(freq_band_dict_FC_function[band_prep]):
+
+                for c, phase in enumerate(phase_list):
+
+                    ax = axs[r, c]
+
+                    if c == 0:
+                        ax.set_ylabel(band)
+                    if r == 0:
+                        ax.set_title(f'{phase}')
+                    
+                    cax = ax.matshow(allband_dfc_phase[band][cond][phase][mat_type_i,:,:], vmin=scales_abs[mat_type][band][cond]['min'], 
+                                        vmax=scales_abs[mat_type][band][cond]['max'], cmap=plot_color)
+
+                    if c == len(phase_list)-1:
+                        fig.colorbar(cax, ax=ax)
+
+                    ax.set_xticks(np.arange(roi_in_data.shape[0]))
+                    ax.set_xticklabels(roi_in_data)
+                    ax.set_yticks(np.arange(roi_in_data.shape[0]))
+                    ax.set_yticklabels(roi_in_data)
+                    plt.setp([tick.label2 for tick in ax.xaxis.get_major_ticks()], rotation=45, ha="left", va="center",rotation_mode="anchor")
+                    
+            # plt.show()
+
+            if electrode_recording_type == 'monopolaire':
+                if BL_normalization:
+                    fig.savefig(f'MAT_{mat_type}_{cond}_norm_{band_prep}.png')
+                else:
+                    fig.savefig(f'MAT_{mat_type}_{cond}_{band_prep}.png')
+            else:
+                if BL_normalization:
+                    fig.savefig(f'MAT_bi_{mat_type}_{cond}_norm_{band_prep}.png')
+                else:
+                    fig.savefig(f'MAT_bi_{mat_type}_{cond}_{band_prep}.png')
+            
+            plt.close('all')
+
+            #### circle plot RAW
                 
+            if plot_circle_dfc:
+                
+                nrows, ncols = len(freq_band_dict_FC_function[band_prep]), len(phase_list_allcond[cond]['phase_list'])
+                fig, axs = plt.subplots(nrows=nrows, ncols=ncols, subplot_kw=dict(polar=True))
+
                 for r, band in enumerate(freq_band_dict_FC_function[band_prep]):
 
                     for c, phase in enumerate(phase_list):
 
-                        ax = axs[r, c]
+                        mne_connectivity.viz.plot_connectivity_circle(allband_dfc_phase[band][cond][phase][mat_type_i,:,:], node_names=roi_in_data, n_lines=None, 
+                                                    title=f'{band} {phase}', show=False, padding=7, ax=axs[r, c],
+                                                    vmin=0, vmax=scales_abs[mat_type][band], colormap=plot_color, facecolor='w', 
+                                                    textcolor='k')
 
-                        if c == 0:
-                            ax.set_ylabel(band)
-                        if r == 0:
-                            ax.set_title(f'{phase}')
-                        
-                        cax = ax.matshow(allband_dfc_phase[band][cond][phase][mat_type_i,:,:], vmin=scales_abs[mat_type][band][cond]['min'], 
-                                         vmax=scales_abs[mat_type][band][cond]['max'], cmap=plot_color)
-
-                        fig.colorbar(cax, ax=ax)
-
-                        ax.set_yticks(np.arange(roi_in_data.shape[0]))
-                        ax.set_yticklabels(roi_in_data)
-                # plt.show()
+                if electrode_recording_type == 'monopolaire':
+                    plt.suptitle(f'{cond}_{mat_type}', color='k')
+                else:
+                    plt.suptitle(f'{cond}_{mat_type}_bi', color='k')
+                
+                fig.set_figheight(10)
+                fig.set_figwidth(12)
+                # fig.show()
 
                 if electrode_recording_type == 'monopolaire':
                     if BL_normalization:
-                        fig.savefig(f'MAT_{mat_type}_{cond}_norm_{band_prep}.png')
+                        fig.savefig(f'CIRCLE_{mat_type}_{cond}_norm_{band_prep}.png')
                     else:
-                        fig.savefig(f'MAT_{mat_type}_{cond}_{band_prep}.png')
+                        fig.savefig(f'CIRCLE_{mat_type}_{cond}_{band_prep}.png')
                 else:
                     if BL_normalization:
-                        fig.savefig(f'MAT_bi_{mat_type}_{cond}_norm_{band_prep}.png')
+                        fig.savefig(f'CIRCLE_bi_{mat_type}_{cond}_norm_{band_prep}.png')
                     else:
-                        fig.savefig(f'MAT_bi_{mat_type}_{cond}_{band_prep}.png')
-                
+                        fig.savefig(f'CIRCLE_bi_{mat_type}_{cond}_{band_prep}.png')
+
                 plt.close('all')
 
-                #### circle plot RAW
-                    
-                if plot_circle_dfc:
-                    
-                    nrows, ncols = len(freq_band_dict_FC_function[band_prep]), len(phase_list_allcond[cond]['phase_list'])
-                    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, subplot_kw=dict(polar=True))
+        ######## THRESH ########
 
-                    for r, band in enumerate(freq_band_dict_FC_function[band_prep]):
-
-                        for c, phase in enumerate(phase_list):
-
-                            mne_connectivity.viz.plot_connectivity_circle(allband_dfc_phase[band][cond][phase][mat_type_i,:,:], node_names=roi_in_data, n_lines=None, 
-                                                        title=f'{band} {phase}', show=False, padding=7, ax=axs[r, c],
-                                                        vmin=0, vmax=scales_abs[mat_type][band], colormap=plot_color, facecolor='w', 
-                                                        textcolor='k')
-
-                    if electrode_recording_type == 'monopolaire':
-                        plt.suptitle(f'{cond}_{mat_type}', color='k')
-                    else:
-                        plt.suptitle(f'{cond}_{mat_type}_bi', color='k')
-                    
-                    fig.set_figheight(10)
-                    fig.set_figwidth(12)
-                    # fig.show()
-
-                    if electrode_recording_type == 'monopolaire':
-                        if BL_normalization:
-                            fig.savefig(f'CIRCLE_{mat_type}_{cond}_norm_{band_prep}.png')
-                        else:
-                            fig.savefig(f'CIRCLE_{mat_type}_{cond}_{band_prep}.png')
-                    else:
-                        if BL_normalization:
-                            fig.savefig(f'CIRCLE_bi_{mat_type}_{cond}_norm_{band_prep}.png')
-                        else:
-                            fig.savefig(f'CIRCLE_bi_{mat_type}_{cond}_{band_prep}.png')
-
-                    plt.close('all')
-
-            ######## THRESH ########
+        if plot_thresh:
 
             #cond = 'RD_SV'
-            for cond in cond_to_compute:
+            for cond in cond_to_plot:
 
                 #### mat plot raw
 
@@ -746,7 +751,7 @@ def process_fc_res(sujet, electrode_recording_type, BL_normalization, plot_verif
                             ax.set_title(f'{phase}')
                         
                         cax = ax.matshow(mat_dfc_clean[band][cond][phase][mat_type_i,:,:], vmin=scales_abs[mat_type][band][cond]['min'], 
-                                         vmax=scales_abs[mat_type][band][cond]['max'], cmap=plot_color)
+                                            vmax=scales_abs[mat_type][band][cond]['max'], cmap=plot_color)
 
                         fig.colorbar(cax, ax=ax)
 
@@ -821,7 +826,8 @@ def process_fc_res(sujet, electrode_recording_type, BL_normalization, plot_verif
 
 if __name__ == '__main__':
 
-    plot_verif = True
+    plot_verif = False
+    BL_normalization = True
 
     #sujet = sujet_list[0]
     for sujet in sujet_list:
@@ -829,10 +835,6 @@ if __name__ == '__main__':
         #electrode_recording_type = 'monopolaire'
         for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
-            #BL_normalization = True
-            for BL_normalization in [True, False]:
+            # process_fc_res(sujet, electrode_recording_type, BL_normalization, plot_verif)
+            execute_function_in_slurm_bash('n13_res_DFC', 'process_fc_res', [sujet, electrode_recording_type, BL_normalization, plot_verif])
 
-                # process_fc_res(sujet, electrode_recording_type, BL_normalization)
-                execute_function_in_slurm_bash('n13_res_DFC', 'process_fc_res', [sujet, electrode_recording_type, BL_normalization, plot_verif])
-
-        

@@ -19,7 +19,7 @@ def vizu(sujet, nchan, condition, band_prep):
 
     prms = get_params(sujet, electrode_recording_type)
 
-    data = load_data(sujet, condition, electrode_recording_type, band_prep=band_prep)
+    data = load_data(sujet, condition, electrode_recording_type)
 
     time = np.arange(data.shape[1])/prms['srate']
 

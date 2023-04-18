@@ -24,47 +24,43 @@ debug = False
 
 
 #tf = tf_allchan.copy()
-def compute_stretch_tf_dB(sujet, tf, cond, respfeatures_allcond, stretch_point_TF, band, srate, electrode_recording_type):
+def compute_stretch_tf(sujet, tf, cond, respfeatures_allcond, stretch_point_TF, srate, electrode_recording_type):
 
-    #### load baseline
-    os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
-
-    if electrode_recording_type == 'monopolaire':
-        baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
-    if electrode_recording_type == 'bipolaire':
-        baselines = np.load(f'{sujet}_{band[:-2]}_baselines_bi.npy')
-
-    #### apply baseline
-    for n_chan in range(tf.shape[0]):
-        
-        for fi in range(tf.shape[1]):
-
-            activity = tf[n_chan,fi,:]
-            baseline_fi = baselines[n_chan, fi]
-
-            #### verify baseline
-            #plt.plot(activity)
-            #plt.hlines(baseline_fi, xmin=0 , xmax=activity.shape[0], color='r')
-            #plt.show()
-
-            tf[n_chan,fi,:] = 10*np.log10(activity/baseline_fi)
-
+    #n_chan = 0
     def stretch_tf_db_n_chan(n_chan):
 
-        tf_mean = np.mean(stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf[n_chan,:,:], srate)[0], axis=0)
+        tf_mean = stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf[n_chan,:,:], srate)[0]
 
         return tf_mean
+
+    #### export raw
+    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
+    n_cycle_stretch = stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf[0,:,:], srate)[0].shape[0]
+    tf_mean_allchan = np.zeros((tf.shape[0], n_cycle_stretch, tf.shape[1], stretch_point_TF))
+
+    for n_chan in range(tf.shape[0]):
+        tf_mean_allchan[n_chan,:,:,:] = stretch_tf_db_nchan_res[n_chan]
+
+    print('SAVE RAW', flush=True)
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    if electrode_recording_type == 'monopolaire':
+        np.save(f'{sujet}_tf_raw_{cond}.npy', tf_mean_allchan)
+    if electrode_recording_type == 'bipolaire':
+        np.save(f'{sujet}_tf_raw_{cond}_bi.npy', tf_mean_allchan)
+
+    #### norm
+    tf[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
 
     stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(stretch_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
     #### extarct
-    tf_mean_allchan = np.zeros((tf.shape[0], tf.shape[1], stretch_point_TF))
+    n_cycle_stretch = stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf[0,:,:], srate)[0].shape[0]
+    tf_mean_allchan[:] = np.zeros((tf.shape[0], n_cycle_stretch, tf.shape[1], stretch_point_TF))
 
     for n_chan in range(tf.shape[0]):
-        tf_mean_allchan[n_chan,:,:] = stretch_tf_db_nchan_res[n_chan]
+        tf_mean_allchan[n_chan,:,:,:] = stretch_tf_db_nchan_res[n_chan]
 
     return tf_mean_allchan
-
 
 
 
@@ -72,133 +68,177 @@ def compute_stretch_tf_dB(sujet, tf, cond, respfeatures_allcond, stretch_point_T
 
 
 #tf = tf_allchan
-def compute_chunk_tf_dB_AC(sujet, tf, ac_starts, band, srate, electrode_recording_type):
+def compute_stretch_tf_AC(sujet, tf, ac_starts, srate, electrode_recording_type):
 
-    #### load baseline
-    os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
-    
-    if electrode_recording_type == 'monopolaire':
-        baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
-    if electrode_recording_type == 'bipolaire':
-        baselines = np.load(f'{sujet}_{band[:-2]}_baselines_bi.npy')
-
-    #### apply baseline
-    for n_chan in range(tf.shape[0]):
-        
-        for fi in range(tf.shape[1]):
-
-            activity = tf[n_chan,fi,:]
-            baseline_fi = baselines[n_chan, fi]
-
-            #### verify baseline
-            #plt.plot(activity)
-            #plt.hlines(baseline_fi, xmin=0 , xmax=activity.shape[0], color='r')
-            #plt.show()
-
-            tf[n_chan,fi,:] = 10*np.log10(activity/baseline_fi)
-
-    #### chunk
-    def chunk_tf_db_n_chan(n_chan):
-
-        print_advancement(n_chan, tf.shape[0], steps=[25, 50, 75])
-
-        stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
-
-        tf_mean = np.zeros((tf.shape[1],int(stretch_point_TF_ac)))
-
-        for fi in range(tf.shape[1]):
-
-            x = tf[n_chan,fi,:]
-            data_chunk = np.zeros(( len(ac_starts), int(np.abs(t_start_AC)*srate +  t_stop_AC*srate) ))
-
-            for start_i, start_time in enumerate(ac_starts):
-
-                t_start = int(start_time + t_start_AC*srate)
-                t_stop = int(start_time + t_stop_AC*srate)
-
-                data_chunk[start_i,:] = x[t_start: t_stop]
-
-            tf_mean[fi,:] = np.mean(data_chunk, axis=0)
-
-        return tf_mean
-
-    chunk_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
-
-    stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
-    tf_mean_allchan = np.zeros((tf.shape[0], tf.shape[1], stretch_point_TF_ac))
-
-    for n_chan in range(tf.shape[0]):
-        tf_mean_allchan[n_chan,:,:] = chunk_tf_db_nchan_res[n_chan]
-
-    #### free RAM
-    del chunk_tf_db_nchan_res
-
-    return tf_mean_allchan
-
-
-
-
-#tf = tf_allchan.copy()
-def compute_chunk_tf_dB_SNIFF(sujet, tf, sniff_starts, band, srate, electrode_recording_type):
-
-    #### load baseline
-    os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
-    
-    if electrode_recording_type == 'monopolaire':
-        baselines = np.load(f'{sujet}_{band[:-2]}_baselines.npy')
-    if electrode_recording_type == 'bipolaire':
-        baselines = np.load(f'{sujet}_{band[:-2]}_baselines_bi.npy')
-
-    #### apply baseline
-    for n_chan in range(tf.shape[0]):
-        
-        for fi in range(tf.shape[1]):
-
-            activity = tf[n_chan,fi,:]
-            baseline_fi = baselines[n_chan, fi]
-
-            #### verify baseline
-            #plt.plot(activity)
-            #plt.hlines(baseline_fi, xmin=0 , xmax=activity.shape[0], color='r')
-            #plt.show()
-
-            tf[n_chan,fi,:] = 10*np.log10(activity/baseline_fi)
+    cond = 'AC'
 
     #n_chan = 0
     def chunk_tf_db_n_chan(n_chan):
 
         print_advancement(n_chan, tf.shape[0], steps=[25, 50, 75])
 
-        stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
+        #start_i, start_time = 0, ac_starts[0]
+        for start_i, start_time in enumerate(ac_starts):
 
-        tf_mean = np.zeros((tf.shape[1],int(stretch_point_TF_sniff)))
+            t_start = int(start_time + t_start_AC*srate)
+            t_stop = int(start_time + t_stop_AC*srate)
 
-        for fi in range(tf.shape[1]):
+            x = tf_norm[n_chan,:,t_start:t_stop]     
 
-            x = tf[n_chan,fi,:]
-            data_chunk = np.zeros(( len(sniff_starts), int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate) ))
+            f = scipy.interpolate.interp1d(np.linspace(0, 1, x.shape[-1]), x, kind='linear')
+            x_resampled = f(np.linspace(0, 1, stretch_point_TF_ac_resample))
 
-            for start_i, start_time in enumerate(sniff_starts):
+            tf_mean_allchan[n_chan,start_i,:,:] = x_resampled
 
-                t_start = int(start_time + t_start_SNIFF*srate)
-                t_stop = int(start_time + t_stop_SNIFF*srate)
+    #### raw chunk
+    os.chdir(path_memmap)
+    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape), offset=mem_crnl_cluster_offset)
+    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], len(ac_starts),tf.shape[1],stretch_point_TF_ac_resample), offset=mem_crnl_cluster_offset)
 
-                data_chunk[start_i,:] = x[t_start: t_stop]
+    tf_norm[:] = tf
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
-            tf_mean[fi,:] = np.mean(data_chunk, axis=0)
+    print('SAVE RAW', flush=True)
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    if electrode_recording_type == 'monopolaire':
+        np.save(f'{sujet}_tf_raw_{cond}.npy', tf_mean_allchan)
+    if electrode_recording_type == 'bipolaire':
+        np.save(f'{sujet}_tf_raw_{cond}_bi.npy', tf_mean_allchan)
 
-        return tf_mean
+    #### norm
+    os.chdir(path_memmap)
+    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape), offset=mem_crnl_cluster_offset)
+    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], len(ac_starts),tf.shape[1],stretch_point_TF_ac_resample), offset=mem_crnl_cluster_offset)
 
-    stretch_tf_db_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
+    tf_norm[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
-    stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-    tf_mean_allchan = np.zeros((tf.shape[0], tf.shape[1], stretch_point_TF_sniff))
-
-    for n_chan in range(tf.shape[0]):
-        tf_mean_allchan[n_chan,:,:] = stretch_tf_db_nchan_res[n_chan]
+    os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
 
     return tf_mean_allchan
 
+
+
+
+
+#tf = tf_allchan
+def compute_stretch_tf_SNIFF(sujet, tf, sniff_starts, srate, electrode_recording_type):
+
+    cond = 'SNIFF'
+
+    #n_chan = 0
+    def chunk_tf_db_n_chan(n_chan):
+
+        print_advancement(n_chan, tf_norm.shape[0], steps=[25, 50, 75])
+
+        #start_i, start_time = 0, sniff_starts[0]
+        for start_i, start_time in enumerate(sniff_starts):
+
+            t_start = int(start_time + t_start_SNIFF*srate)
+            t_stop = int(start_time + t_stop_SNIFF*srate)
+
+            x = tf_norm[n_chan,:,t_start:t_stop]     
+
+            f = scipy.interpolate.interp1d(np.linspace(0, 1, x.shape[-1]), x, kind='linear')
+            x_resampled = f(np.linspace(0, 1, stretch_point_TF_sniff_resampled))
+
+            tf_mean_allchan[n_chan,start_i,:,:] = x_resampled
+    
+    #### raw
+    os.chdir(path_memmap)
+    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape))
+    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], len(sniff_starts), tf.shape[1], stretch_point_TF_sniff_resampled))
+
+    tf_norm[:] = tf
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
+
+    print('SAVE RAW', flush=True)
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    if electrode_recording_type == 'monopolaire':
+        np.save(f'{sujet}_tf_raw_{cond}.npy', tf_mean_allchan)
+    if electrode_recording_type == 'bipolaire':
+        np.save(f'{sujet}_tf_raw_{cond}_bi.npy', tf_mean_allchan)
+
+    #### norm
+    os.chdir(path_memmap)
+    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape))
+    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], len(sniff_starts), tf.shape[1], stretch_point_TF_sniff_resampled))
+
+    tf_norm[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
+
+    os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+
+    return tf_mean_allchan
+
+
+
+
+
+
+#tf = tf_allchan
+def compute_stretch_tf_AL(sujet, tf, AL_len_list, srate, electrode_recording_type):
+
+    cond = 'AL'
+    AL_chunk_time_raw = srate*AL_chunk_pre_post_time
+
+    #n_chan = 0
+    def chunk_tf_n_chan(n_chan):
+
+        print_advancement(n_chan, tf_norm.shape[0], steps=[25, 50, 75])
+
+        AL_pre, AL_post = 0, AL_len_list[0]
+
+        #AL_i = 0
+        for AL_i in range(AL_n):
+
+            if AL_i != 0:
+                AL_pre, AL_post = AL_pre + AL_len_list[AL_i-1], AL_post + AL_len_list[AL_i]
+
+            #### chunk pre
+            tf_chunk = tf_norm[n_chan,:,:AL_pre+AL_chunk_time_raw]
+
+            f = scipy.interpolate.interp1d(np.linspace(0, 1, tf_chunk.shape[-1]), tf_chunk, kind='linear')
+            tf_mean_allchan[n_chan,AL_i,:,:int(resampled_points_AL/2)] = f(np.linspace(0, 1, int(resampled_points_AL/2)))
+
+            #### chunk post
+            tf_chunk = tf_norm[n_chan,:,AL_post-AL_chunk_time_raw:]
+
+            f = scipy.interpolate.interp1d(np.linspace(0, 1, tf_chunk.shape[-1]), tf_chunk, kind='linear')
+            tf_mean_allchan[n_chan,AL_i,:,int(resampled_points_AL/2):] = f(np.linspace(0, 1, int(resampled_points_AL/2)))
+
+    #### raw
+    os.chdir(path_memmap)
+    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape))
+    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], AL_n, tf.shape[1], resampled_points_AL))
+
+    tf_norm[:] = tf
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
+
+    print('SAVE RAW', flush=True)
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    if electrode_recording_type == 'monopolaire':
+        np.save(f'{sujet}_tf_raw_{cond}.npy', tf_mean_allchan)
+    if electrode_recording_type == 'bipolaire':
+        np.save(f'{sujet}_tf_raw_{cond}_bi.npy', tf_mean_allchan)
+
+    #### norm
+    os.chdir(path_memmap)
+    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape))
+    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], AL_n, tf.shape[1], resampled_points_AL))
+
+    tf_norm[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
+
+    os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+
+    #### verif
+    if debug:
+
+        plt.pcolormesh(tf_mean_allchan[0,0,:,:])
+        plt.show()
+
+    return tf_mean_allchan
 
 
 
@@ -244,15 +284,14 @@ def chunk_stretch_tf_itpc_sniff(sujet, tf, cond, sniff_starts, srate):
     
     #### identify number stretch
     nb_ac = len(sniff_starts)
-    stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
     
     #### compute tf
-    tf_stretch = np.zeros((nb_ac, tf.shape[0], int(stretch_point_TF_sniff)), dtype='complex')
+    tf_stretch = np.zeros((nb_ac, tf.shape[0], int(stretch_point_TF_sniff_resampled)), dtype='complex')
 
     for fi in range(tf.shape[0]):
 
         x = tf[fi,:]
-        data_chunk = np.zeros(( len(sniff_starts), stretch_point_TF_sniff ), dtype='complex')
+        data_chunk = np.zeros(( len(sniff_starts), stretch_point_TF_sniff_resampled ), dtype='complex')
 
         for start_i, start_time in enumerate(sniff_starts):
 
@@ -275,92 +314,118 @@ def chunk_stretch_tf_itpc_sniff(sujet, tf, cond, sniff_starts, srate):
 ################################
 
 
-def precompute_tf(sujet, cond, band_prep_list, electrode_recording_type):
+def precompute_tf_allconv(sujet, cond, electrode_recording_type):
 
-    print('TF PRECOMPUTE')
+    print('TF PRECOMPUTE', flush=True)
 
+    #### verify if already computed
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+
+    if electrode_recording_type == 'monopolaire':
+        if os.path.exists(f'{sujet}_tf_{cond}.npy') and os.path.exists(f'{sujet}_tf_raw_{cond}.npy'):
+            print('ALREADY COMPUTED', flush=True)
+            return
+    if electrode_recording_type == 'bipolaire':
+        if os.path.exists(f'{sujet}_tf_{cond}_bi.npy') and os.path.exists(f'{sujet}_tf_raw_{cond}_bi.npy'):
+            print('ALREADY COMPUTED', flush=True)
+            return
+
+    #### params
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet, electrode_recording_type)
+    chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
 
-    #### select prep to load
-    #band_prep_i, band_prep = 0, 'lf'
-    for band_prep_i, band_prep in enumerate(band_prep_list):
+    #### select data without aux chan
+    if cond != 'AL':
+        data = load_data(sujet, cond, electrode_recording_type)
+        data = data[:len(chan_list_ieeg),:]
+        
+    else:
+        data_AL = load_data(sujet, cond, electrode_recording_type)
+        AL_len_list = np.array([data_AL[session_i].shape[-1] for session_i in range(len(data_AL))])
+        data = np.zeros(( len(chan_list_ieeg), AL_len_list.sum() ))
+        AL_pre, AL_post = 0, AL_len_list[0]
+        #AL_i = 1
+        for AL_i in range(AL_n):
 
-        #### select data without aux chan
-        data = load_data(sujet, cond, electrode_recording_type, band_prep=band_prep)
+            if AL_i != 0:
+                AL_pre, AL_post = AL_pre + AL_len_list[AL_i-1], AL_post + AL_len_list[AL_i]
 
-        #### remove aux chan
-        data = data[:-4,:]
+            data[:,AL_pre:AL_post] = data_AL[AL_i][:len(chan_list_ieeg),:]
 
-        freq_band = freq_band_list_precompute[band_prep_i] 
+    print('COMPUTE', flush=True)
 
-        #band, freq = list(freq_band.items())[0]
-        for band, freq in freq_band.items():
+    #### select wavelet parameters
+    wavelets = get_wavelets()
 
-            os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    #### compute
+    os.chdir(path_memmap)
+    tf_allchan = np.memmap(f'{sujet}_tf_{cond}_precompute_convolutions_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(len(chan_list_ieeg), nfrex, data.shape[1]))
 
-            if electrode_recording_type == 'monopolaire':
-                if os.path.exists(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy') :
-                    print('ALREADY COMPUTED')
-                    continue
-            if electrode_recording_type == 'bipolaire':
-                if os.path.exists(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy') :
-                    print('ALREADY COMPUTED')
-                    continue
+    def compute_tf_convolution_nchan(n_chan):
+
+        print_advancement(n_chan, data.shape[0], steps=[25, 50, 75])
+
+        x = data[n_chan,:]
+
+        tf = np.zeros((nfrex, x.shape[0]))
+
+        for fi in range(nfrex):
             
-            print(band, ' : ', freq)
-            print('COMPUTE')
+            tf[fi,:] = abs(scipy.signal.fftconvolve(x, wavelets[fi,:], 'same'))**2 
 
-            #### select wavelet parameters
-            wavelets, nfrex = get_wavelets(sujet, band_prep, freq, electrode_recording_type)
+        tf_allchan[n_chan,:,:] = tf
 
-            #### compute
-            os.chdir(path_memmap)
-            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_precompute_convolutions_{electrode_recording_type}.dat', dtype=np.float64, mode='w+', shape=(data.shape[0], nfrex, data.shape[1]))
+    joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(data.shape[0]))
 
-            def compute_tf_convolution_nchan(n_chan):
+    del data
 
-                print_advancement(n_chan, data.shape[0], steps=[25, 50, 75])
+    #### stretch or chunk
+    if cond == 'FR_CV':
 
-                x = data[n_chan,:]
+        n_cycle_stretch = stretch_data_tf(respfeatures_allcond[cond][0], stretch_point_TF, tf_allchan[0,:,:], srate)[0].shape[0]
+        tf_allband_stretched = np.memmap(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(len(chan_list_ieeg), n_cycle_stretch, nfrex, stretch_point_TF))
+    
+        print('STRETCH_VS', flush=True)
+        tf_allband_stretched[:] = compute_stretch_tf(sujet, tf_allchan, cond, respfeatures_allcond, stretch_point_TF, srate, electrode_recording_type)
 
-                tf = np.zeros((nfrex, x.shape[0]))
+    if cond == 'AC':
 
-                for fi in range(nfrex):
-                    
-                    tf[fi,:] = abs(scipy.signal.fftconvolve(x, wavelets[fi,:], 'same'))**2 
+        ac_starts = get_ac_starts(sujet)
+        tf_allband_stretched = np.memmap(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(len(chan_list_ieeg), len(ac_starts), nfrex, stretch_point_TF_ac_resample))
+        
+        print('CHUNK_AC', flush=True)
+        tf_allband_stretched[:] = compute_stretch_tf_AC(sujet, tf_allchan, ac_starts, srate, electrode_recording_type)
 
-                tf_allchan[n_chan,:,:] = tf
+    if cond == 'SNIFF':
+        
+        sniff_starts = get_sniff_starts(sujet)
+        tf_allband_stretched = np.memmap(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(len(chan_list_ieeg), len(sniff_starts), nfrex, stretch_point_TF_sniff_resampled))
 
-                return
+        print('CHUNK_SNIFF', flush=True)
+        tf_allband_stretched[:] = compute_stretch_tf_SNIFF(sujet, tf_allchan, sniff_starts, srate, electrode_recording_type)
 
-            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(data.shape[0]))
+    if cond == 'AL':
 
-            #### stretch or chunk
-            if cond == 'FR_CV':
-                print('STRETCH_VS')
-                tf_allband_stretched = compute_stretch_tf_dB(sujet, tf_allchan, cond, respfeatures_allcond, stretch_point_TF, band, srate, electrode_recording_type)
+        tf_allband_stretched = np.memmap(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(len(chan_list_ieeg), AL_n, nfrex, resampled_points_AL))
 
-            if cond == 'AC':
-                print('CHUNK_AC')
-                ac_starts = get_ac_starts(sujet)
-                tf_allband_stretched = compute_chunk_tf_dB_AC(sujet, tf_allchan, ac_starts, band, srate, electrode_recording_type)
+        print('CHUNK_AL', flush=True)
+        tf_allband_stretched[:] = compute_stretch_tf_AL(sujet, tf_allchan, AL_len_list, srate, electrode_recording_type)
+    
+    #### save
+    print('SAVE', flush=True)
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    if electrode_recording_type == 'monopolaire':
+        np.save(f'{sujet}_tf_{cond}.npy', tf_allband_stretched)
+    if electrode_recording_type == 'bipolaire':
+        np.save(f'{sujet}_tf_{cond}_bi.npy', tf_allband_stretched)
+    
+    os.chdir(path_memmap)
+    os.remove(f'{sujet}_tf_{cond}_precompute_convolutions_{electrode_recording_type}.dat')
+    os.remove(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat')
 
-            if cond == 'SNIFF':
-                print('chunk_SNIFF')
-                sniff_starts = get_sniff_starts(sujet)
-                tf_allband_stretched = compute_chunk_tf_dB_SNIFF(sujet, tf_allchan, sniff_starts, band, srate, electrode_recording_type)
-            
-            #### save
-            print('SAVE')
-            os.chdir(os.path.join(path_precompute, sujet, 'TF'))
-            if electrode_recording_type == 'monopolaire':
-                np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy', tf_allband_stretched)
-            if electrode_recording_type == 'bipolaire':
-                np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy', tf_allband_stretched)
-            
-            os.chdir(path_memmap)
-            os.remove(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_{cond}_precompute_convolutions_{electrode_recording_type}.dat')
+    if cond != 'FR_CV':
+        os.remove(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat')
+
 
 
 
@@ -374,19 +439,19 @@ def precompute_tf(sujet, cond, band_prep_list, electrode_recording_type):
 
 def precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type):
 
-    print('ITPC PRECOMPUTE')
+    print('ITPC PRECOMPUTE', flush=True)
 
     respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet, electrode_recording_type)
+    chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
     
     #### select prep to load
     for band_prep_i, band_prep in enumerate(band_prep_list):
 
         #### select data without aux chan
-        data = load_data(sujet, cond, electrode_recording_type, band_prep=band_prep)
+        data = load_data(sujet, cond, electrode_recording_type)
 
         #### remove aux chan
-        data = data[:-4,:]
+        data = data[:len(chan_list_ieeg),:]
 
         freq_band = freq_band_list_precompute[band_prep_i]
 
@@ -397,20 +462,20 @@ def precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type):
 
             if electrode_recording_type == 'monopolaire':
                 if os.path.exists(f'{sujet}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy') :
-                    print('ALREADY COMPUTED')
+                    print('ALREADY COMPUTED', flush=True)
                     continue
             if electrode_recording_type == 'bipolaire':
                 if os.path.exists(f'{sujet}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy') :
-                    print('ALREADY COMPUTED')
+                    print('ALREADY COMPUTED', flush=True)
                     continue
             
-            print(band, ' : ', freq)
+            print(band, ' : ', freq, flush=True)
 
             #### select wavelet parameters
-            wavelets, nfrex = get_wavelets(sujet, band_prep, freq, electrode_recording_type)
+            wavelets = get_wavelets()
 
             #### compute itpc
-            print('COMPUTE, STRETCH & ITPC')
+            print('COMPUTE, STRETCH & ITPC', flush=True)
             #n_chan = 0
             def compute_itpc_n_chan(n_chan):
 
@@ -459,149 +524,24 @@ def precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type):
                 itpc_allchan = np.zeros((data.shape[0], nfrex, stretch_point_TF_ac))
 
             elif cond == 'SNIFF':
-                stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-                itpc_allchan = np.zeros((data.shape[0], nfrex, stretch_point_TF_sniff))
+                itpc_allchan = np.zeros((data.shape[0], nfrex, stretch_point_TF_sniff_resampled))
 
             for n_chan in range(data.shape[0]):
 
                 itpc_allchan[n_chan,:,:] = compute_itpc_n_chan_res[n_chan]
 
             #### save
-            print('SAVE')
+            print('SAVE', flush=True)
             os.chdir(os.path.join(path_precompute, sujet, 'ITPC'))
             if electrode_recording_type == 'monopolaire':
                 np.save(f'{sujet}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}.npy', itpc_allchan)
             if electrode_recording_type == 'bipolaire':
                 np.save(f'{sujet}_itpc_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy', itpc_allchan)
             
-
             del itpc_allchan
 
 
 
-
-
-
-
-
-
-####################################
-######### SNIFF CHUNKS ########
-####################################
-
-
-#tf, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate = tf_allchan, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate
-def compute_tf_SNIFF(tf, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate):
-
-    def chunk_tf_n_chan(n_chan):
-
-        if n_chan/tf.shape[0] % .2 <= .01:
-            print('{:.2f}'.format(n_chan/tf.shape[0]))
-
-        stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-
-        tf_sniff = np.zeros(( len(sniff_starts), tf.shape[1], int(stretch_point_TF_sniff) ))
-
-        for fi in range(tf.shape[1]):
-
-            x = tf[n_chan,fi,:]
-
-            for start_i, start_time in enumerate(sniff_starts):
-
-                t_start = int(start_time + t_start_SNIFF*srate)
-                t_stop = int(start_time + t_stop_SNIFF*srate)
-
-                tf_sniff[start_i, fi, :] = x[t_start: t_stop]
-
-        tf_sniff_mean = np.mean(tf_sniff, 1)
-
-        return tf_sniff_mean
-
-    chunk_tf_nchan_res = joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
-
-    stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
-    tf_sniff_allchan = np.zeros((tf.shape[0], len(sniff_starts), stretch_point_TF_sniff))
-
-    for n_chan in range(tf.shape[0]):
-        tf_sniff_allchan[n_chan,:,:] = chunk_tf_nchan_res[n_chan]
-
-    return tf_sniff_allchan
-
-
-
-
-
-
-def precompute_tf_sniff(sujet, cond, band_prep_list):
-
-    print('TF PRECOMPUTE')
-
-    cond = 'SNIFF'
-
-    respfeatures_allcond = load_respfeatures(sujet)
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet, electrode_recording_type)
-
-    #### select prep to load
-    #band_prep = 'lf'
-    for band_prep_i, band_prep in enumerate(band_prep_list):
-
-        #### select data without aux chan
-        data = load_data(sujet, cond, band_prep=band_prep)
-
-        #### remove aux chan
-        data = data[:-4,:]
-
-        freq_band = freq_band_list_precompute[band_prep_i] 
-
-        #band, freq = list(freq_band.items())[0]
-        for band, freq in freq_band.items():
-
-            os.chdir(os.path.join(path_precompute, sujet, 'TF'))
-
-            if os.path.exists(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}.npy') == True :
-                print('ALREADY COMPUTED')
-                continue
-            
-            print(band, ' : ', freq)
-            print('COMPUTE')
-
-            #### select wavelet parameters
-            wavelets, nfrex = get_wavelets(sujet, band_prep, freq, electrode_recording_type)
-
-            #### compute
-            os.chdir(path_memmap)
-            tf_allchan = np.memmap(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}_precompute_convolutions.dat', dtype=np.float64, mode='w+', shape=(data.shape[0], nfrex, data.shape[1]))
-
-            def compute_tf_convolution_nchan(n_chan):
-
-                print_advancement(n_chan, data.shape[0], steps=[25, 50, 75])
-
-                x = data[n_chan,:]
-
-                tf = np.zeros((nfrex, x.shape[0]))
-
-                for fi in range(nfrex):
-                    
-                    tf[fi,:] = abs(scipy.signal.fftconvolve(x, wavelets[fi,:], 'same'))**2 
-
-                tf_allchan[n_chan,:,:] = tf
-
-                return
-
-            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(compute_tf_convolution_nchan)(n_chan) for n_chan in range(data.shape[0]))
-
-            #### stretch
-            print('CHUNK_SNIFF')
-            sniff_starts = get_sniff_starts(sujet)
-            tf_chunk_SNIFF = compute_tf_SNIFF(tf_allchan, cond, sniff_starts, stretch_point_TF, band, band_prep, nfrex, srate)
-
-            #### save
-            print('SAVE')
-            os.chdir(os.path.join(path_precompute, sujet, 'TF'))
-            np.save(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}.npy', tf_chunk_SNIFF)
-            
-            os.chdir(path_memmap)
-            os.remove(f'{sujet}_tf_{str(freq[0])}_{str(freq[1])}_ALL_{cond}_precompute_convolutions.dat')
 
 
 
@@ -621,20 +561,28 @@ def precompute_tf_sniff(sujet, cond, band_prep_list):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
-    for electrode_recording_type in ['monopolaire', 'bipolaire']:
+    #sujet = sujet_list[0]
+    for sujet in sujet_list:
 
-        #sujet = sujet_list[1]
-        for sujet in sujet_list:
+        #electrode_recording_type = 'monopolaire'
+        for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
             #### compute and save tf
-            #cond = 'AC'
-            for cond in conditions_compute_TF:
+            #cond = 'FR_CV'
+            for cond in conditions:
 
-                print(cond)
-            
-                #precompute_tf(sujet, cond, band_prep_list, electrode_recording_type)
-                execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf', [sujet, cond, band_prep_list, electrode_recording_type], '30G')
+                print(cond, flush=True)
+
+                if cond == 'SNIFF':
+                    precompute_tf_allconv(sujet, cond, electrode_recording_type)
+                    # execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '60G')
+                if cond == 'AC':
+                    # precompute_tf_allconv(sujet, cond, electrode_recording_type)
+                    execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '50G')
+                else:
+                    #precompute_tf_allconv(sujet, cond, electrode_recording_type)
+                    execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '30G')
+                    
                 #precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type)
                 # execute_function_in_slurm_bash_mem_choice('n5_precompute_TF', 'precompute_itpc', [sujet, cond, band_prep_list, electrode_recording_type], '30G')
             

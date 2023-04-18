@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import pandas as pd
 import pingouin as pg
@@ -9,6 +7,10 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import itertools
 import statsmodels.formula.api as smf
+
+def mad(data, constant = 1.4826):
+    median = np.median(data)
+    return np.median(np.abs(data - median)) * constant
 
 def normality(df, predictor, outcome):
     df = df.reset_index(drop=True)
@@ -121,7 +123,7 @@ def pg_compute_pre(df, predictor, outcome, test, subject=None, show = False):
         
     elif test == 'friedman':
         res = pg.friedman(data=df, dv=outcome, within=predictor, subject=subject)
-    Analyses
+    
     pval = res[pval_labels[test]].values[0]
     es_label = esize_labels[test]
     if es_label is None:
@@ -220,16 +222,16 @@ def pg_compute_post_hoc(df, predictor, outcome, test, subject=None):
         # res = homemade_post_hoc(df = df, outcome=outcome, predictor=predictor, design = 'within', subject=subject, parametric=True)
         
     elif test == 'pairwise_ttests_ind_paramFalse':
-        if n_subjects > 15:
+        if n_subjects >= 15:
             res = pg.pairwise_tests(data = df, dv=outcome, between=predictor, parametric=True, padjust = 'holm')
         else:
             res = permutation(df = df, outcome=outcome, predictor=predictor, design = 'between')
 
     elif test == 'pairwise_ttests_paired_paramFalse':
-        if n_subjects > 15:
+        if n_subjects >= 15:
             res = pg.pairwise_tests(data = df, dv=outcome, within=predictor, subject=subject, parametric=False, padjust = 'holm')
         else:
-            res = res = permutation(df = df, outcome=outcome, predictor=predictor, design = 'within')
+            res = permutation(df = df, outcome=outcome, predictor=predictor, design = 'within')
      
     return res
 
@@ -311,14 +313,35 @@ def transform_data(df, outcome):
 
 
 
-def auto_stats(df, predictor, outcome, ax=None, subject=None, design='within', mode = 'box', transform=False, verbose=True, order = None, homemade_posthoc = False):
+def auto_stats(df, predictor, outcome, ax=None, subject=None, design='within', mode = 'box', transform=False, verbose=True, order = None):
+    
+    """
+    Automatically compute statistical tests chosen based on normality & homoscedasticity of data and plot it
+    ------------
+    Inputs =
+    - df : tidy dataframe
+    - predictor : str or list of str of the column name of the predictive variable (if list --> N-way anova)
+    - outcome : column name of the outcome/target/dependent variable
+    - ax : ax on which plotting the subplot, created if None (default = None)
+    - subject : column name of the subject variable = the within factor variable
+    - design : 'within' or 'between' for repeated or independent stats , respectively
+    - mode : 'box' or 'violin' for mode of plotting
+    - transform : log transform data if True and if data are non-normally distributed & heteroscedastic , to try to do a parametric test after transformation (default = False)
+    - verbose : print idea of successfull or unsucessfull transformation of data, if transformed, acccording to non-parametric to parametric test feasable after transformation (default = True)
+    - order : order of xlabels (= of groups) if the plot, default = None = default order
+    
+    Output = 
+    - ax : subplot
+    
+    """
 
     if ax is None:
         fig, ax = plt.subplots()
     
     if isinstance(predictor, str):
         N = df[predictor].value_counts()[0]
-        ngroups = len(list(df[predictor].unique()))
+        groups = list(df[predictor].unique())
+        ngroups = len(groups)
         
         parametricity_pre_transfo = parametric(df, predictor, outcome, subject)
         
@@ -357,7 +380,8 @@ def auto_stats(df, predictor, outcome, ax=None, subject=None, design='within', m
             order = order
 
         estimators = pd.concat([df.groupby(predictor).mean()[outcome].reset_index(), df.groupby(predictor).std()[outcome].reset_index()[outcome].rename('sd')], axis = 1).round(2).set_index(predictor)
-        ticks_estimators = [f"{cond} \n {estimators.loc[cond,outcome]} ({estimators.loc[cond,'sd']})" for cond in order]
+        cis = [f'[{round(confidence_interval(x)[0],3)};{round(confidence_interval(x)[1],3)}]' for x in [df[df[predictor] == group][outcome] for group in groups]]
+        ticks_estimators = [f"{cond} \n {estimators.loc[cond,outcome]} ({estimators.loc[cond,'sd']}) \n {ci} " for cond, ci in zip(order,cis)]
 
         if mode == 'box':
             if not post_test is None:
@@ -495,7 +519,7 @@ def qqplot(df, predictor, outcome, figsize = (10,15)):
         
     plt.show()
 
-def permutation_test_homemade(x,y, design = 'within', n_resamples=9999):
+def permutation_test_homemade(x,y, design = 'within', n_resamples=999):
     def statistic(x, y):
         return np.mean(x) - np.mean(y)
     if design == 'within':
@@ -511,7 +535,7 @@ def permutation(df, predictor, outcome , design = 'within' , subject = None, n_r
     for pair in pairs:
         x = df[df[predictor] == pair[0]][outcome].values
         y = df[df[predictor] == pair[1]][outcome].values
-        p = permutation_test_homemade(x,y, design=design, n_resamples=n_resamples)
+        p = permutation_test_homemade(x=x,y=y, design=design, n_resamples=n_resamples)
         pvals.append(p)
     df_return = pd.DataFrame(pairs, columns = ['A','B'])
     df_return['p-unc'] = pvals
@@ -570,146 +594,12 @@ def lmm(df, predictor, outcome, subject, order=None):
     return mdf
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def which_pre_test(df, dv, grouping):
-
-    df = df.reset_index()
-
-    normalities = pg.normality(data = df , dv = dv, group = grouping)['normal']
-    
-    if sum(normalities) == normalities.size:
-        normality = True
-    else:
-        normality = False
-        
-    homoscedasticity = pg.homoscedasticity(data = df, dv = dv, group = grouping)['equal_var'].values[0]
-    
-    if normality and homoscedasticity:
-        test_to_use = 'anova'
-    else:
-        test_to_use = 'friedman'
-
-    return normality, test_to_use
-
-
-
-
-
-def pre_and_post_hoc(df, within, seuil):
-    
-    p_values = {}
-    rows_anov = []
-    ttests = []
-    
-    for metric in df.columns:
-        
-        normality, test_to_use = which_pre_test(df=df, dv = metric , grouping=within)
-        
-        if test_to_use == 'anova':
-            rm_anova = pg.rm_anova(data=df.reset_index(), dv = metric, within = within, subject = 'Rat')
-            p_values[metric] = rm_anova.loc[:,'p-unc'].round(3).values[0]
-            test_type = 'rm_anova'
-            effsize = rm_anova.loc[:,'np2'].round(3).values[0]
-        elif test_to_use == 'friedman':
-            friedman = pg.friedman(data=df.reset_index(), dv = metric, within = within, subject = 'Rat')
-            p_values[metric] = friedman.loc[:,'p-unc'].round(3).values[0]
-            test_type = 'friedman'
-            effsize = np.nan
-            
-        if p_values[metric] <= seuil : 
-            significativity = 1
-        else:
-            significativity = 0
-               
-        row_anov = [metric , test_type , p_values[metric] , significativity, effsize]
-        rows_anov.append(row_anov)
-        
-        ttest_metric = pg.pairwise_ttests(data=df.reset_index(), dv=metric, within=within, subject='Rat', parametric = normality, return_desc=True)
-        ttest_metric.insert(0, 'metric', metric)
-        ttests.append(ttest_metric)
-        
-    post_hocs = pd.concat(ttests)
-    
-    colnames = ['metric','test_type','pval', 'signif', 'effsize']
-    df_pre = pd.DataFrame(rows_anov, columns = colnames)   
-
-    return df_pre, post_hocs
-
-
-def test_raw_to_signif(df_pre, post_hocs, seuil):
-    mask = df_pre['signif'] == 1
-    pre_signif = df_pre[mask]
-
-    post_hocs_signif = post_hocs[post_hocs['p-unc'] < seuil]
-
-    return pre_signif, post_hocs_signif
-
-
-
-def post_hoc_interpretation(post_hocs_signif):
-    
-
-    conclusions = []
-    
-    for line in range(post_hocs_signif.shape[0]):
-        
-        metric = post_hocs_signif.reset_index().loc[line,'metric']
-        cond1 = post_hocs_signif.reset_index().loc[line,'A']
-        cond2 = post_hocs_signif.reset_index().loc[line,'B']
-        
-        hedge = np.abs(post_hocs_signif.reset_index().loc[line,'hedges'])
-
-        if hedge <= 0.2:
-            intensite = 'faible'
-        elif hedge <= 0.8 and hedge >= 0.2:
-            intensite = 'moyen'
-        elif hedge >= 0.8:
-            intensite = 'fort' 
-        
-        meanA = post_hocs_signif.reset_index().loc[line,'mean(A)']
-        meanB = post_hocs_signif.reset_index().loc[line,'mean(B)']
-            
-        if meanA > meanB:
-            comparateur = 'supérieur(e)'
-        elif meanA < meanB:
-            comparateur = 'inférieur(e)'
-
-        conclusions.append(f"{metric} mesuré(e) en {cond1} est {comparateur} à {metric} mesuré(e) en {cond2} (effet {intensite})")
-            
-    return conclusions
-
-
-def smart_stats(df, within, seuil):
-    
-    df_pre, df_post_hocs = pre_and_post_hoc(df=df, within=within, seuil=seuil)
-    pre_signif, post_hocs_signif = test_raw_to_signif(df_pre, df_post_hocs, seuil)
-
-    if pre_signif.shape[0] == 0:
-        print('Pas de différence en pre_hoc')
-    else:
-        print('DIFF + en pre_test')
-        
-    if post_hocs_signif.shape[0] == 0:
-        print('Pas de différence en post_hoc')
-        conclusions = None
-    else:
-        print('DIFF + en post_hoc')
-        conclusions = post_hoc_interpretation(post_hocs_signif)
-
-    return df_pre, pre_signif, df_post_hocs, post_hocs_signif, conclusions
-
-
-    
+def confidence_interval(x, confidence = 0.95, verbose = False):
+    m = x.mean() 
+    s = x.std() 
+    dof = x.size-1 
+    t_crit = np.abs(stats.t.ppf((1-confidence)/2,dof))
+    ci = (m-s*t_crit/np.sqrt(len(x)), m+s*t_crit/np.sqrt(len(x))) 
+    if verbose:
+        print(f'm : {round(m, 3)} , std : {round(s,3)} , ci : [{round(ci[0],3)};{round(ci[1],3)}]')
+    return ci

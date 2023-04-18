@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import pandas as pd
 import joblib
+import cv2
 
 import pickle
 import gc
@@ -26,17 +27,6 @@ debug = False
 
 
 
-
-def get_tf_stats(tf, nchan, pixel_based_distrib, nfrex):
-
-    tf_thresh = tf.copy()
-    #wavelet_i = 0
-    for wavelet_i in range(nfrex):
-        mask = np.logical_or(tf_thresh[wavelet_i, :] >= pixel_based_distrib[nchan, wavelet_i, 0], tf_thresh[wavelet_i, :] <= pixel_based_distrib[nchan, wavelet_i, 1])
-        tf_thresh[wavelet_i, mask] = 1
-        tf_thresh[wavelet_i, np.logical_not(mask)] = 0
-
-    return tf_thresh
 
 
 
@@ -91,122 +81,174 @@ def get_tf_itpc_stretch_allcond(sujet, tf_mode, electrode_recording_type):
 
 
 
+def get_tf_stats(cond, tf_plot, pixel_based_distrib, nfrex):
 
-#n_chan, tf_mode, band_prep = 0, 'TF', 'lf'
-def save_TF_ITPC_n_chan(sujet, n_chan, tf_mode, band_prep):
+    tf_thresh = np.zeros(tf_plot.shape)
+
+    if cond == 'AC':
+        stretch_point = stretch_point_TF_ac_resample
+    if cond == 'SNIFF':
+        stretch_point = stretch_point_TF_sniff_resampled
+    
+    phase_list = phase_stats[cond]
+    phase_point = int(stretch_point/len(phase_list))
+
+    #phase_i, phase_name = 0, phase_list[0]
+    for phase_i, phase_name in enumerate(phase_list):
+
+        start = phase_point * phase_i
+        stop = phase_point * phase_i + phase_point
+
+        #wavelet_i = 0
+        for wavelet_i in range(nfrex):
+
+            mask = np.logical_or(tf_plot[wavelet_i, start:stop] < pixel_based_distrib[phase_i, wavelet_i, 0], tf_plot[wavelet_i, start:stop] > pixel_based_distrib[phase_i, wavelet_i, 1])
+            tf_thresh[wavelet_i, start:stop] = mask*1
+
+    if debug:
+
+        plt.pcolormesh(tf_thresh)
+        plt.show()
+
+    #### if empty return
+    if tf_thresh.sum() == 0:
+
+        return tf_thresh
+
+    #### thresh cluster
+    tf_thresh = tf_thresh.astype('uint8')
+    nb_blobs, im_with_separated_blobs, stats, _ = cv2.connectedComponentsWithStats(tf_thresh)
+    #### nb_blobs, im_with_separated_blobs, stats = nb clusters, clusters image with labeled clusters, info on clusters
+    sizes = stats[1:, -1]
+    nb_blobs -= 1
+    min_size = np.percentile(sizes,tf_stats_percentile_cluster)  
+
+    if debug:
+
+        plt.hist(sizes, bins=100)
+        plt.vlines(np.percentile(sizes,95), ymin=0, ymax=20, colors='r')
+        plt.show()
+
+    tf_thresh = np.zeros_like(im_with_separated_blobs)
+    for blob in range(nb_blobs):
+        if sizes[blob] >= min_size:
+            tf_thresh[im_with_separated_blobs == blob + 1] = 1
+
+    if debug:
+    
+        time = np.arange(tf_plot.shape[-1])
+
+        plt.pcolormesh(time, frex, tf_plot, shading='gouraud', cmap='seismic')
+        plt.contour(time, frex, tf_thresh, levels=0, colors='g')
+        plt.yscale('log')
+        plt.show()
+
+    return tf_thresh
+
+
+
+
+
+#n_chan, chan_name = 0, chan_list_ieeg[0]
+def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
 
     #### load prms
-    prms = get_params(sujet, electrode_recording_type)
+    chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
     df_loca = get_loca_df(sujet, electrode_recording_type)
     
-    chan_name = prms['chan_list_ieeg'][n_chan]
     chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
 
-    print_advancement(n_chan, len(prms['chan_list_ieeg']), steps=[25, 50, 75])
+    if electrode_recording_type == 'monopolaire':
+        if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', f'{sujet}_{chan_name}_{chan_loca}.jpeg')):
+            return
+    else:
+        if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', f'{sujet}_{chan_name}_{chan_loca}_bi.jpeg')):
+            return
 
-    freq_band = freq_band_dict[band_prep]
+    print_advancement(n_chan, len(chan_list_ieeg), steps=[25, 50, 75])
 
     #### scale
-    vmaxs = {}
-    vmins = {}
-    for cond in conditions_compute_TF:
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
 
-        scales = {'vmin_val' : np.array(()), 'vmax_val' : np.array(()), 'median_val' : np.array(())}
+    vals = np.array([])
 
-        for i, (band, freq) in enumerate(freq_band.items()) :
+    #cond = conditions[0]
+    for cond in conditions:
 
-            if band == 'whole' or band == 'l_gamma':
-                continue
+        if electrode_recording_type == 'monopolaire':
+            data = np.median(np.load(f'{sujet}_tf_{cond}.npy')[n_chan,:,:,:], axis=0)
+        if electrode_recording_type == 'bipolaire':
+            data = np.median(np.load(f'{sujet}_tf_{cond}_bi.npy')[n_chan,:,:,:], axis=0)
 
-            data = get_tf_itpc_stretch_allcond(sujet, tf_mode, electrode_recording_type)[band_prep][cond][band][n_chan, :, :]
-            frex = np.linspace(freq[0], freq[1], np.size(data,0))
+        vals = np.append(vals, data.reshape(-1))
 
-            scales['vmin_val'] = np.append(scales['vmin_val'], np.min(data))
-            scales['vmax_val'] = np.append(scales['vmax_val'], np.max(data))
-            scales['median_val'] = np.append(scales['median_val'], np.median(data))
+    median_diff = np.percentile(np.abs(vals - np.median(vals)), 100-tf_plot_percentile_scale)
 
-            del data
+    vmin = np.median(vals) - median_diff
+    vmax = np.median(vals) + median_diff
 
-        median_diff = np.max([np.abs(np.min(scales['vmin_val']) - np.median(scales['median_val'])), np.abs(np.max(scales['vmax_val']) - np.median(scales['median_val']))])
-
-        vmin = np.median(scales['median_val']) - median_diff
-        vmax = np.median(scales['median_val']) + median_diff
-
-        vmaxs[cond] = vmax
-        vmins[cond] = vmin
+    del vals
 
     #### plot
-    fig, axs = plt.subplots(nrows=len(freq_band), ncols=len(conditions_compute_TF))
+    fig, axs = plt.subplots(ncols=len(conditions))
+
     if electrode_recording_type == 'monopolaire':
         plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
     if electrode_recording_type == 'bipolaire':
         plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}_bi')
 
-    fig.set_figheight(10)
-    fig.set_figwidth(10)
+    fig.set_figheight(5)
+    fig.set_figwidth(15)
 
-    #### for plotting l_gamma down
-    if band_prep == 'hf':
-        keys_list_reversed = list(freq_band.keys())
-        keys_list_reversed.reverse()
-        freq_band_reversed = {}
-        for key_i in keys_list_reversed:
-            freq_band_reversed[key_i] = freq_band[key_i]
-        freq_band = freq_band_reversed
+    #c, cond = 1, conditions[1]
+    for c, cond in enumerate(conditions):
 
-    for c, cond in enumerate(conditions_compute_TF):
+        if electrode_recording_type == 'monopolaire':
+            tf_plot = np.median(np.load(f'{sujet}_tf_{cond}.npy')[n_chan,:,:,:], axis=0)
+        if electrode_recording_type == 'bipolaire':
+            tf_plot = np.median(np.load(f'{sujet}_tf_{cond}_bi.npy')[n_chan,:,:,:], axis=0)
+
+        ax = axs[c]
+        ax.set_title(cond, fontweight='bold', rotation=0)
+
+        #### generate time vec
+        if cond == 'FR_CV':
+            time_vec = np.arange(stretch_point_TF)
+
+        if cond == 'AC':
+            time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac_resample)
+
+        if cond == 'SNIFF':
+            time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff_resampled)
+
+        if cond == 'AL':
+            time_vec = np.linspace(0, AL_chunk_pre_post_time*2, resampled_points_AL)
 
         #### plot
-        for i, (band, freq) in enumerate(freq_band.items()) :
+        ax.pcolormesh(time_vec, frex, tf_plot, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+        ax.set_yscale('log')
 
-            data = get_tf_itpc_stretch_allcond(sujet, tf_mode, electrode_recording_type)[band_prep][cond][band][n_chan, :, :]
-            frex = np.linspace(freq[0], freq[1], np.size(data,0))
-        
-            if len(conditions_compute_TF) == 1:
-                ax = axs[i]
+        #### stats
+        if cond not in ['FR_CV', 'AL']:
+
+            if electrode_recording_type == 'monopolaire':
+                pixel_based_distrib = np.load(f'{sujet}_tf_STATS_{cond}.npy')[n_chan,:,:,:]
             else:
-                ax = axs[i,c]
+                pixel_based_distrib = np.load(f'{sujet}_tf_STATS_{cond}_bi.npy')[n_chan,:,:,:]
 
-            if i == 0 :
-                ax.set_title(cond, fontweight='bold', rotation=0)
+            if get_tf_stats(cond, tf_plot, pixel_based_distrib, nfrex).sum() != 0:
+                ax.contour(time_vec, frex, get_tf_stats(cond, tf_plot, pixel_based_distrib, nfrex), levels=0, colors='g')
 
-            #### generate time vec
-            if cond == 'FR_CV':
-                time_vec = np.arange(stretch_point_TF)
+        if cond == 'FR_CV':
+            ax.vlines(ratio_stretch_TF*stretch_point_TF, ymin=frex[0], ymax=frex[-1], colors='g')
+        if cond == 'AC':
+            ax.vlines([0, AC_length], ymin=frex[0], ymax=frex[-1], colors='g')
+        if cond == 'SNIFF':
+            ax.vlines(0, ymin=frex[0], ymax=frex[-1], colors='g')
+        if cond == 'AL':
+            ax.vlines(AL_chunk_pre_post_time, ymin=frex[0], ymax=frex[-1], colors='g')
 
-            if cond == 'AC':
-                stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
-                time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac)
-
-            if cond == 'SNIFF':
-                stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
-                time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff)
-
-            #### plot
-            ax.pcolormesh(time_vec, frex, rscore(data), vmin=-rscore(data).max(), vmax=rscore(data).max(), shading='gouraud', cmap=plt.get_cmap('seismic'))
-
-            #### stats
-            if tf_mode == 'TF' and cond != 'FR_CV':
-                os.chdir(os.path.join(path_precompute, sujet, 'TF'))
-                if electrode_recording_type == 'monopolaire':
-                    pixel_based_distrib = np.load(f'{sujet}_STATS_tf_{str(freq[0])}_{str(freq[1])}_{cond}.npy')
-                else:
-                    pixel_based_distrib = np.load(f'{sujet}_STATS_tf_{str(freq[0])}_{str(freq[1])}_{cond}_bi.npy')
-                _, nfrex = get_wavelets(sujet, band_prep, freq, electrode_recording_type)
-                if get_tf_stats(rscore_mat(data), n_chan, pixel_based_distrib, nfrex).sum() != 0:
-                    ax.contour(time_vec, frex, get_tf_stats(rscore_mat(data), n_chan, pixel_based_distrib, nfrex), levels=0, colors='g')
-
-            if c == 0:
-                ax.set_ylabel(band)
-
-            if cond == 'FR_CV':
-                ax.vlines(ratio_stretch_TF*stretch_point_TF, ymin=freq[0], ymax=freq[1], colors='g')
-            if cond == 'AC':
-                ax.vlines([0, 10], ymin=freq[0], ymax=freq[1], colors='g')
-            if cond == 'SNIFF':
-                ax.vlines(0, ymin=freq[0], ymax=freq[1], colors='g')
-
-            del data
+        ax.set_yticks([2,8,10,30,50,100,150], labels=[2,8,10,30,50,100,150])
 
     #plt.show()
 
@@ -217,12 +259,118 @@ def save_TF_ITPC_n_chan(sujet, n_chan, tf_mode, band_prep):
         os.chdir(os.path.join(path_results, sujet, 'ITPC', 'summary'))
 
     if electrode_recording_type == 'monopolaire':
-        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}.jpeg', dpi=150)
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}.jpeg', dpi=150)
     if electrode_recording_type == 'bipolaire':
-        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_{band_prep}_bi.jpeg', dpi=150)
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_bi.jpeg', dpi=150)
+
+    fig.clf()
+    plt.close('all')
+    del tf_plot
+    gc.collect()
+
+
+
+
+
+
+
+#n_chan, chan_name = 0, prms['chan_list_ieeg'][0]
+def save_TF_ITPC_n_chan_AL(sujet, n_chan, chan_name, tf_mode):
+
+    cond = 'AL_long'
+
+    #### load prms
+    prms = get_params(sujet, electrode_recording_type)
+    df_loca = get_loca_df(sujet, electrode_recording_type)
+    
+    chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
+
+    if electrode_recording_type == 'monopolaire':
+        if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', 'AL', f'{sujet}_{chan_name}_{chan_loca}_AL.jpeg')):
+            return
+    else:
+        if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', 'AL', f'{sujet}_{chan_name}_{chan_loca}_AL_bi.jpeg')):
+            return
+
+    print_advancement(n_chan, len(prms['chan_list_ieeg']), steps=[25, 50, 75])
+
+    #### get AL time
+    os.chdir(os.path.join(path_prep, sujet, 'info'))
+    df_AL_time = pd.read_excel(f'{sujet}_count_session.xlsx')
+    AL_time = []
+    for session_i in range(AL_n):
+        AL_time.append(int(df_AL_time[f'AL_{session_i+1}'].values[0]))
+
+    #### scale
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+
+    vals = np.array([])
+
+    #session_i = 0
+    for session_i in range(AL_n):
+
+        if electrode_recording_type == 'monopolaire':
+            data = np.load(f'{sujet}_tf_AL_{session_i+1}.npy')[n_chan,:,:]
+        if electrode_recording_type == 'bipolaire':
+            data = np.load(f'{sujet}_tf_AL_{session_i+1}_bi.npy')[n_chan,:,:]
+
+        vals = np.append(vals, data.reshape(-1))
+
+    median_diff = np.percentile(np.abs(vals - np.median(vals)), 100-tf_plot_percentile_scale)
+
+    vmin = np.median(vals) - median_diff
+    vmax = np.median(vals) + median_diff
+
+    del vals
+
+    #### plot
+    fig, axs = plt.subplots(nrows=AL_n)
+
+    if electrode_recording_type == 'monopolaire':
+        plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
+    if electrode_recording_type == 'bipolaire':
+        plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}_bi')
+
+    fig.set_figheight(5)
+    fig.set_figwidth(10)
+
+    #### for plotting l_gamma down
+    for session_i in range(AL_n):
+
+        if electrode_recording_type == 'monopolaire':
+            tf_plot = np.load(f'{sujet}_tf_AL_{session_i+1}.npy')[n_chan,:,:]
+        if electrode_recording_type == 'bipolaire':
+            tf_plot = np.load(f'{sujet}_tf_AL_{session_i+1}_bi.npy')[n_chan,:,:]
+
+        ax = axs[session_i]
+        ax.set_title(f'{AL_time[session_i]}s', fontweight='bold', rotation=0)
+
+        time_vec = np.linspace(0, AL_time[session_i], resampled_points_AL)
+
+        #### plot
+        ax.pcolormesh(time_vec, frex, tf_plot, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+        ax.set_yscale('log')
+
+        ax.set_yticks([2,8,10,30,50,100,150], labels=[2,8,10,30,50,100,150])
+
+    #plt.show()
+
+    #### save
+    if tf_mode == 'TF':
+        os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
+    elif tf_mode == 'ITPC':
+        os.chdir(os.path.join(path_results, sujet, 'ITPC', 'summary', 'AL'))
+
+    if electrode_recording_type == 'monopolaire':
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AL.jpeg', dpi=150)
+    if electrode_recording_type == 'bipolaire':
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AL_bi.jpeg', dpi=150)
+
+    del tf_plot
     fig.clf()
     plt.close('all')
     gc.collect()
+
 
 
 
@@ -238,7 +386,7 @@ def save_TF_ITPC_n_chan(sujet, n_chan, tf_mode, band_prep):
 
 def compilation_compute_TF_ITPC(sujet, electrode_recording_type):
 
-    prms = get_params(sujet, electrode_recording_type)
+    chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
     
     #tf_mode = 'TF'
     for tf_mode in ['TF', 'ITPC']:
@@ -250,13 +398,10 @@ def compilation_compute_TF_ITPC(sujet, electrode_recording_type):
             print('######## PLOT & SAVE TF ########')
         if tf_mode == 'ITPC':
             print('######## PLOT & SAVE ITPC ########')
-        
-        #band_prep = 'lf'
-        for band_prep in band_prep_list: 
 
-            print(band_prep)
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(save_TF_ITPC_n_chan)(sujet, n_chan, chan_name, tf_mode) for n_chan, chan_name in enumerate(chan_list_ieeg))
 
-            joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(save_TF_ITPC_n_chan)(sujet, n_chan, tf_mode, band_prep) for n_chan, tf_mode, band_prep in zip(range(len(prms['chan_list_ieeg'])), [tf_mode]*len(prms['chan_list_ieeg']), [band_prep]*len(prms['chan_list_ieeg'])))
+        joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(save_TF_ITPC_n_chan_AL)(sujet, n_chan, chan_name, tf_mode) for n_chan, chan_name in enumerate(chan_list_ieeg))
 
     print('done')
 
@@ -271,11 +416,11 @@ def compilation_compute_TF_ITPC(sujet, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
-    for electrode_recording_type in ['monopolaire', 'bipolaire']:
+    #sujet = sujet_list[0]
+    for sujet in sujet_list:
 
-        #sujet = sujet_list[0]
-        for sujet in sujet_list:
+        #electrode_recording_type = 'monopolaire'
+        for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
             print(sujet, electrode_recording_type)
 

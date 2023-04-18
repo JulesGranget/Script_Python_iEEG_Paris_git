@@ -21,204 +21,17 @@ debug = False
 
 
 
-################################
-######## MAT REDUCTION ########
-################################
-
-
-
-def reduce_functionnal_mat(mat, df_sorted):
-
-    chan_name_sorted = df_sorted['ROI'].values.tolist()
-
-    #### which roi in data
-    roi_in_data = []
-    rep_count = 0
-    for i, name_i in enumerate(chan_name_sorted):
-        if i == 0:
-            roi_in_data.append(name_i)
-            continue
-        else:
-            if name_i == chan_name_sorted[i-(rep_count+1)]:
-                rep_count += 1
-                continue
-            if name_i != chan_name_sorted[i-(rep_count+1)]:
-                roi_in_data.append(name_i)
-                rep_count = 0
-                continue
-
-    #### compute index
-    pairs_possible = []
-    for pair_A_i, pair_A in enumerate(roi_in_data):
-        for pair_B_i, pair_B in enumerate(roi_in_data[pair_A_i:]):
-            if pair_A == pair_B:
-                continue
-            pairs_possible.append(f'{pair_A}-{pair_B}')
-            
-    indexes_to_compute = {}
-    for pair_i, pair_name in enumerate(pairs_possible):    
-        pair_A, pair_B = pair_name.split('-')[0], pair_name.split('-')[-1]
-        x_to_mean = [i for i, roi in enumerate(chan_name_sorted) if roi == pair_A]
-        y_to_mean = [i for i, roi in enumerate(chan_name_sorted) if roi == pair_B]
-        
-        coord = []
-        for x_i in x_to_mean:
-            for y_i in y_to_mean:
-                if x_i == y_i:
-                    continue
-                else:
-                    coord.append([x_i, y_i])
-                    coord.append([y_i, x_i])
-
-        indexes_to_compute[pair_name] = coord
-
-    #### reduce mat
-    mat_reduced = np.zeros((len(roi_in_data), len(roi_in_data) ))
-
-    for roi_i_x, roi_name_x in enumerate(roi_in_data):        
-        for roi_i_y, roi_name_y in enumerate(roi_in_data):
-            if roi_name_x == roi_name_y:
-                continue
-            else:
-                pair_i = f'{roi_name_x}-{roi_name_y}'
-                if (pair_i in indexes_to_compute) == False:
-                    pair_i = f'{roi_name_y}-{roi_name_x}'
-                pair_i_data = []
-                for coord_i in indexes_to_compute[pair_i]:
-                    pair_i_data.append(mat[coord_i[0],coord_i[-1]])
-                mat_reduced[roi_i_x, roi_i_y] = np.mean(pair_i_data)
-
-    #### verif
-    if debug:
-        mat_test = np.zeros(( len(chan_name_sorted), len(chan_name_sorted) )) 
-        for roi_i, roi_name in enumerate(pairs_possible): 
-            i_test = indexes_to_compute[roi_name]
-            for pixel in i_test:
-                mat_test[pixel[0],pixel[-1]] = 1
-
-        plt.matshow(mat_test)
-        plt.show()
-
-    return mat_reduced
-
-
-
-#data_dfc, pairs, roi_in_data = mat_dfc_stretch[ispc_mat_i, :, :], pairs_to_compute_anat, roi_in_data
-def from_dfc_to_mat_conn_trapz(data_dfc, pairs, roi_in_data):
-
-    #### fill mat
-    mat_cf = np.zeros(( len(roi_in_data), len(roi_in_data) ))
-
-    #x_i, x_name = 0, roi_in_data[0]
-    for x_i, x_name in enumerate(roi_in_data):
-        #y_i, y_name = 2, roi_in_data[2]
-        for y_i, y_name in enumerate(roi_in_data):
-            if x_name == y_name:
-                continue
-            pair_to_find = f'{x_name}-{y_name}'
-            pair_to_find_rev = f'{y_name}-{x_name}'
-            
-            x = data_dfc[pairs == pair_to_find]
-            x_rev = data_dfc[pairs == pair_to_find_rev]
-
-            x_mean = np.vstack([x, x_rev]).mean(axis=0)
-            val_to_place = np.trapz(x_mean)
-
-            mat_cf[x_i, y_i] = val_to_place
-
-    if debug:
-        plt.matshow(mat_cf)
-        plt.show()
-
-    return mat_cf
-
-
-
-
-
-
-
-
-
-#data_dfc, pairs, roi_in_data = mat_dfc_stretch[ispc_mat_i, :, :], pairs_to_compute_anat, roi_in_data
-def from_dfc_to_mat_conn_mean(data_dfc, pairs, roi_in_data):
-
-    #### fill mat
-    mat_cf = np.zeros(( len(roi_in_data), len(roi_in_data) ))
-
-    #### transform in array for indexing
-    pairs = np.array(pairs)
-
-    #x_i, x_name = 0, roi_in_data[0]
-    for x_i, x_name in enumerate(roi_in_data):
-        #y_i, y_name = 2, roi_in_data[2]
-        for y_i, y_name in enumerate(roi_in_data):
-            if x_name == y_name:
-                continue
-            pair_to_find = f'{x_name}-{y_name}'
-            pair_to_find_rev = f'{y_name}-{x_name}'
-            
-            x = data_dfc[pairs == pair_to_find]
-            x_rev = data_dfc[pairs == pair_to_find_rev]
-
-            x_mean = np.vstack([x, x_rev]).mean(axis=0)
-            val_to_place = np.mean(x_mean)
-
-            mat_cf[x_i, y_i] = val_to_place
-
-    if debug:
-        plt.matshow(mat_cf)
-        plt.show()
-
-    return mat_cf
-
-
-
-
-#pairs, roi_in_data = pairs_to_compute_anat, roi_in_data
-def from_fc_to_mat(data_fc, pairs, roi_in_data):
-    
-    #### fill mat
-    mat_cf = np.zeros(( 2, roi_in_data.shape[0], roi_in_data.shape[0] ))
-    #metric_i = 0
-    for metric_i in range(2):
-        #x_i, x_name = 0, roi_in_data[0]
-        for x_i, x_name in enumerate(roi_in_data):
-            #y_i, y_name = 2, roi_in_data[2]
-            for y_i, y_name in enumerate(roi_in_data):
-                if x_name == y_name:
-                    continue
-
-                pair_to_find = f'{x_name}-{y_name}'
-                pair_to_find_rev = f'{y_name}-{x_name}'
-                
-                x = data_fc[metric_i, pairs == pair_to_find, :]
-                x_rev = data_fc[metric_i, pairs == pair_to_find_rev, :]
-
-                x_mean = np.vstack([x, x_rev]).mean(axis=0)
-
-                mat_cf[metric_i, x_i, y_i] = x_mean
-
-    return mat_cf
-
-
-
-
-
-
-
-
 
 ########################################
 ######## CHUNK & RESAMPLE ######## 
 ########################################
 
 #x = dfc_resample_ispc_i
-def chunk_data_AC(x, ac_starts, nfrex, prms):
+def chunk_data_AC(x, ac_starts, nfrex_dfc, prms):
 
     stretch_point_TF_ac = int(np.abs(t_start_AC)*dw_srate_fc_AC +  t_stop_AC*dw_srate_fc_AC)
 
-    x_chunk = np.zeros((len(ac_starts), nfrex, int(stretch_point_TF_ac)))
+    x_chunk = np.zeros((len(ac_starts), nfrex_dfc, int(stretch_point_TF_ac)))
 
     for start_i, start_time in enumerate(ac_starts):
 
@@ -237,11 +50,11 @@ def chunk_data_AC(x, ac_starts, nfrex, prms):
 
 
 
-def chunk_data_sniff(x, sniff_starts, nfrex, prms):
+def chunk_data_sniff(x, sniff_starts, nfrex_dfc, prms):
 
     stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
 
-    x_chunk = np.zeros((len(sniff_starts), nfrex, int(stretch_point_TF_sniff)))
+    x_chunk = np.zeros((len(sniff_starts), nfrex_dfc, int(stretch_point_TF_sniff)))
 
     for start_i, start_time in enumerate(sniff_starts):
 
@@ -270,7 +83,7 @@ def chunk_data_sniff(x, sniff_starts, nfrex, prms):
 def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, electrode_recording_type):
 
     #### load data
-    data = load_data(sujet, cond, electrode_recording_type, band_prep=band_prep)
+    data = load_data(sujet, cond, electrode_recording_type)
 
     if cond == 'AL':
         data = data[trial_i]
@@ -280,17 +93,17 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
     #### get params
     prms = get_params(sujet, electrode_recording_type)
 
-    wavelets, nfrex = get_wavelets(sujet, band_prep, freq, electrode_recording_type)
+    wavelets = get_wavelets_dfc(freq)
 
     #### initiate res
     os.chdir(path_memmap)
-    convolutions = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex, data_length))
+    convolutions = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_convolutions.dat', dtype=np.complex128, mode='w+', shape=(len(prms['chan_list_ieeg']), nfrex_dfc, data_length))
 
     #### generate fake convolutions
-    # convolutions = np.random.random(len(prms['chan_list_ieeg']) * nfrex * data.shape[1]).reshape(len(prms['chan_list_ieeg']), nfrex, data.shape[1]) * 1j
-    # convolutions += np.random.random(len(prms['chan_list_ieeg']) * nfrex * data.shape[1]).reshape(len(prms['chan_list_ieeg']), nfrex, data.shape[1]) 
+    # convolutions = np.random.random(len(prms['chan_list_ieeg']) * nfrex_dfc * data.shape[1]).reshape(len(prms['chan_list_ieeg']), nfrex_dfc, data.shape[1]) * 1j
+    # convolutions += np.random.random(len(prms['chan_list_ieeg']) * nfrex_dfc * data.shape[1]).reshape(len(prms['chan_list_ieeg']), nfrex_dfc, data.shape[1]) 
 
-    # convolutions = np.zeros((len(prms['chan_list_ieeg']), nfrex, data.shape[1])) 
+    # convolutions = np.zeros((len(prms['chan_list_ieeg']), nfrex_dfc, data.shape[1])) 
 
     print('CONV')
 
@@ -299,11 +112,11 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
         print_advancement(nchan_i, len(prms['chan_list_ieeg']), steps=[25, 50, 75])
         
-        nchan_conv = np.zeros((nfrex, np.size(data,1)), dtype='complex')
+        nchan_conv = np.zeros((nfrex_dfc, data_length), dtype='complex')
 
         x = data[nchan_i,:]
 
-        for fi in range(nfrex):
+        for fi in range(nfrex_dfc):
 
             nchan_conv[fi,:] = scipy.signal.fftconvolve(x, wavelets[fi,:], 'same')
 
@@ -372,7 +185,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
     win_sample = frites.conn.define_windows(times_conv, slwin_len=slwin_len, slwin_step=slwin_step)[0]
 
     os.chdir(path_memmap)
-    dfc_metrics = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_metrics.dat', dtype=np.float64, mode='w+', shape=(2, len(pairs_to_compute), nfrex, win_sample.shape[0]))
+    dfc_metrics = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_metrics.dat', dtype=np.float64, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, win_sample.shape[0]))
 
     print('COMPUTE')   
 
@@ -385,8 +198,8 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
         pair_A, pair_B = pair_A.replace('|', '-'), pair_B.replace('|', '-')
         pair_A_i, pair_B_i = prms['chan_list_ieeg'].index(pair_A), prms['chan_list_ieeg'].index(pair_B)
 
-        ispc_dfc_mat = np.zeros(( nfrex, len(win_sample) ))
-        wpli_dfc_mat = np.zeros(( nfrex, len(win_sample) ))
+        ispc_dfc_mat = np.zeros(( nfrex_dfc, len(win_sample) ))
+        wpli_dfc_mat = np.zeros(( nfrex_dfc, len(win_sample) ))
 
         #slwin_values_i, slwin_values = 0, win_sample[0]
         for slwin_values_i, slwin_values in enumerate(win_sample):
@@ -438,18 +251,18 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
         pass
 
     #### simulate mat data
-    # dfc_metrics = np.random.random((2, len(pairs_to_compute), nfrex, win_sample.shape[0]))
+    # dfc_metrics = np.random.random((2, len(pairs_to_compute), nfrex_dfc, win_sample.shape[0]))
 
     #### resample for stretch
     os.chdir(path_memmap)
     if cond == 'FR_CV':
-        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex, stretch_point_TF))
+        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF))
     if cond == 'AC':
-        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex, stretch_point_TF_ac))
+        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_ac))
     if cond == 'SNIFF':
-        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex, stretch_point_TF_sniff))    
+        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_sniff))    
     if cond == 'AL':
-        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex, n_points_AL_interpolation))    
+        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, n_points_AL_interpolation))    
     
     ispc_mat_i, wpli_mat_i = 0, 1
 
@@ -476,20 +289,20 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
         if cond == 'AC':
             ac_starts = get_ac_starts(sujet)
-            dfc_resample_stretch_ispc_i = chunk_data_AC(dfc_resample_ispc_i, ac_starts, nfrex, prms)
-            dfc_resample_stretch_wpli_i = chunk_data_AC(dfc_resample_wpli_i, ac_starts, nfrex, prms)
+            dfc_resample_stretch_ispc_i = chunk_data_AC(dfc_resample_ispc_i, ac_starts, nfrex_dfc, prms)
+            dfc_resample_stretch_wpli_i = chunk_data_AC(dfc_resample_wpli_i, ac_starts, nfrex_dfc, prms)
 
         if cond == 'SNIFF':
             sniff_starts = get_sniff_starts(sujet)
-            dfc_resample_stretch_ispc_i = chunk_data_sniff(dfc_resample_ispc_i, sniff_starts, nfrex, prms)
-            dfc_resample_stretch_wpli_i = chunk_data_sniff(dfc_resample_wpli_i, sniff_starts, nfrex, prms)
+            dfc_resample_stretch_ispc_i = chunk_data_sniff(dfc_resample_ispc_i, sniff_starts, nfrex_dfc, prms)
+            dfc_resample_stretch_wpli_i = chunk_data_sniff(dfc_resample_wpli_i, sniff_starts, nfrex_dfc, prms)
 
         if cond == 'AL':
-            f_ispc_i = scipy.interpolate.interp1d(range(data_length), dfc_resample_ispc_i, kind='linear')
-            dfc_resample_stretch_ispc_i = f_ispc_i(range(n_points_AL_interpolation))
+            f_ispc_i = scipy.interpolate.interp1d(np.linspace(0, 1, data_length), dfc_resample_ispc_i, kind='linear')
+            dfc_resample_stretch_ispc_i = f_ispc_i(np.linspace(0, 1, n_points_AL_interpolation))
 
-            f_wpli_i = scipy.interpolate.interp1d(range(data_length), dfc_resample_wpli_i, kind='linear')
-            dfc_resample_stretch_wpli_i = f_wpli_i(range(n_points_AL_interpolation))
+            f_wpli_i = scipy.interpolate.interp1d(np.linspace(0, 1, data_length), dfc_resample_wpli_i, kind='linear')
+            dfc_resample_stretch_wpli_i = f_wpli_i(np.linspace(0, 1, n_points_AL_interpolation))
 
         if debug:
 
@@ -566,7 +379,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
     mat_dfc_stretch = dfc_data_resample.copy()
 
     #### simulate data
-    # mat_dfc_stretch = np.random.random((2, len(pairs_to_compute), nfrex, stretch_point_TF_ac)) 
+    # mat_dfc_stretch = np.random.random((2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_ac)) 
 
     #### remove memmap
     os.chdir(path_memmap)
@@ -616,16 +429,10 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
 
     #### get n trial for cond
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
-    if cond != 'SNIFF':
-        if electrode_recording_type == 'monopolaire':
-            n_trials = len([i for i in os.listdir() if i.find(f'{cond}') != -1 and i.find('hf') != -1 and i.find('bi') == -1])
-        if electrode_recording_type == 'bipolaire':
-            n_trials = len([i for i in os.listdir() if i.find(f'{cond}') != -1 and i.find('hf') != -1 and i.find('bi') != -1])
+    if cond == 'AL':
+        n_trials = AL_n
     else:
-        if electrode_recording_type == 'monopolaire':
-            n_trials = len([i for i in os.listdir() if i.find(f'{cond}') != -1 and i.find('hf') != -1 and i.find('session') != -1  and i.find('bi') == -1])
-        if electrode_recording_type == 'bipolaire':
-            n_trials = len([i for i in os.listdir() if i.find(f'{cond}') != -1 and i.find('hf') != -1 and i.find('session') != -1  and i.find('bi') != -1])
+        n_trials = 1
 
     #### identify anat info
     prms = get_params(sujet, electrode_recording_type)
@@ -657,9 +464,6 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
     #### simulate AL data
     # mat_stretch = [np.random.rand( 2, len(pairs_to_compute), n_points_AL_interpolation ), np.random.rand( 2, len(pairs_to_compute), n_points_AL_interpolation ), np.random.rand( 2, len(pairs_to_compute), n_points_AL_interpolation )]
 
-    #### for dfc computation
-    wavelets, nfrex = get_wavelets(sujet, band_prep, freq, electrode_recording_type)
-
     #trial_i = 0
     for trial_i in range(n_trials):
         #mat_dfc_stretch_i, mat_dfc_mean_i = mat_stretch, mat_dfc_mean
@@ -671,15 +475,15 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
         for trial_i in range(n_trials):
             #mat_dfc_stretch_i, mat_dfc_mean_i = mat_stretch, mat_dfc_mean
             if cond == 'FR_CV':
-                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex, stretch_point_TF)
+                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF)
             if cond == 'AC':
                 stretch_point_TF_ac = int(np.abs(t_start_AC)*dw_srate_fc_AC +  t_stop_AC*dw_srate_fc_AC)
-                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex, stretch_point_TF_ac)
+                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_ac)
             if cond == 'SNIFF':
                 stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
-                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex, stretch_point_TF_sniff)
+                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_sniff)
             if cond == 'AL':
-                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex, n_points_AL_interpolation)
+                mat_dfc_stretch_i = np.random.rand(2, len(pairs_to_compute), nfrex_dfc, n_points_AL_interpolation)
             mat_stretch.append(mat_dfc_stretch_i)
     
 
@@ -726,7 +530,7 @@ def get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording
     print('SAVE')
     os.chdir(os.path.join(path_precompute, sujet, 'DFC'))
     
-    dict_xr = {'mat_type' : ['ispc', 'wpli'], 'pairs' : pairs_to_compute_anat, 'nfrex' : range(nfrex), 'times' : time_vec}
+    dict_xr = {'mat_type' : ['ispc', 'wpli'], 'pairs' : pairs_to_compute_anat, 'nfrex' : range(nfrex_dfc), 'times' : time_vec}
     
     xr_export = xr.DataArray(mat_stretch_mean, coords=dict_xr.values(), dims=dict_xr.keys())
     
@@ -759,37 +563,33 @@ if __name__ == '__main__':
     # sujet = 'pat_03146_1608'
     # sujet = 'pat_03174_1634'
 
+    band_prep = 'wb'
+
     #electrode_recording_type = 'monopolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
         for sujet in sujet_list:
 
-            prms = get_params(sujet, electrode_recording_type)
-
             print('######## PRECOMPUTE DFC ########') 
             #cond = cond_FC_DFC[1]
             for cond in cond_FC_DFC:
-                #band_prep = 'lf'
-                for band_prep in band_prep_list:
-                    #band, freq = 'theta', [4,8]
-                    for band, freq in freq_band_dict_FC_function[band_prep].items():
+                #band, freq = 'theta', [4,8]
+                for band, freq in freq_band_dict_FC_function[band_prep].items():
 
-                        if band in band_name_fc_dfc:
+                    if cond == 'AL':
 
-                            if cond == 'AL':
+                        # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
+                        execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '50G')
+                    
+                    elif cond == 'AC':
 
-                                # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
-                            
-                            elif cond == 'AC':
+                        # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
+                        execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
+                    
+                    else:
 
-                                # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
-                            
-                            else:
-
-                                # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                                execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
-                            
+                        # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
+                        execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
+                    
         
 

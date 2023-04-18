@@ -463,7 +463,7 @@ def execute_function_in_slurm_bash_mem_choice(name_script, name_function, params
 
 def get_params(sujet, electrode_recording_type):
 
-    conditions, chan_list, chan_list_ieeg, srate = extract_chanlist_srate_conditions(sujet, electrode_recording_type)
+    chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
     respi_ratio_allcond = get_all_respi_ratio(sujet)
     nwind, nfft, noverlap, hannw = get_params_spectral_analysis(srate)
 
@@ -477,56 +477,33 @@ def get_params(sujet, electrode_recording_type):
 
 
 
-def extract_chanlist_srate_conditions(sujet, electrode_recording_type):
+def get_chanlist(sujet, electrode_recording_type):
 
     path_source = os.getcwd()
     
-    #### select conditions to keep
+    #### extract data
     os.chdir(os.path.join(path_prep, sujet, 'sections'))
 
-    dirlist_subject = os.listdir()
-
-    conditions = []
-    for cond in conditions_allsubjects:
-
-        for file in dirlist_subject:
-
-            if file.find(cond) != -1 : 
-                conditions.append(cond)
-                break
-
-    #### extract data
-    band_prep = band_prep_list[0]
     if electrode_recording_type == 'monopolaire':
-        file_to_search = f'{sujet}_FR_CV_{band_prep}.fif'
+        file_to_load = f'{sujet}_FR_CV.fif'
     if electrode_recording_type == 'bipolaire':
-        file_to_search = f'{sujet}_FR_CV_{band_prep}_bi.fif'
+        file_to_load = f'{sujet}_FR_CV_bi.fif'
 
-    load_i = []
-    for session_i, session_name in enumerate(os.listdir()):
-        if ( session_name.find(file_to_search) != -1 ) :
-            load_i.append(session_i)
-        else:
-            continue
+    raw = mne.io.read_raw_fif(file_to_load, preload=True, verbose='critical')
 
-    load_name = [os.listdir()[i] for i in load_i][0]
-
-    raw = mne.io.read_raw_fif(load_name, preload=True, verbose='critical')
-
-    srate = int(raw.info['sfreq'])
     chan_list = raw.info['ch_names']
-    chan_list_ieeg = chan_list[:-4] # on enlève : nasal, ventral, ECG, ECG_cR
+    chan_list_ieeg = chan_list[:-4] # we remove : nasal, ventral, ECG, ECG_cR
 
     #### go back to path source
     os.chdir(path_source)
 
-    return conditions, chan_list, chan_list_ieeg, srate
+    return chan_list, chan_list_ieeg
 
 
 
 
 
-def load_data(sujet, cond, electrode_recording_type, band_prep=None):
+def load_data(sujet, cond, electrode_recording_type):
 
     path_source = os.getcwd()
     
@@ -537,10 +514,10 @@ def load_data(sujet, cond, electrode_recording_type, band_prep=None):
         load_i = []
         for i, session_name in enumerate(os.listdir()):
             if electrode_recording_type == 'bipolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') != -1 ):
                     load_i.append(i)
             elif electrode_recording_type == 'monopolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') == -1 ):
                     load_i.append(i)
             else:
                 continue
@@ -558,10 +535,10 @@ def load_data(sujet, cond, electrode_recording_type, band_prep=None):
         load_i = []
         for i, session_name in enumerate(os.listdir()):
             if electrode_recording_type == 'bipolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') != -1 ):
                     load_i.append(i)
             elif electrode_recording_type == 'monopolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') == -1 ):
                     load_i.append(i)
             else:
                 continue
@@ -580,10 +557,10 @@ def load_data(sujet, cond, electrode_recording_type, band_prep=None):
         load_i = []
         for i, session_name in enumerate(os.listdir()):
             if electrode_recording_type == 'bipolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') != -1 ):
                     load_i.append(i)
             elif electrode_recording_type == 'monopolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') == -1 ):
                     load_i.append(i)
             else:
                 continue
@@ -604,10 +581,10 @@ def load_data(sujet, cond, electrode_recording_type, band_prep=None):
         load_i = []
         for i, session_name in enumerate(os.listdir()):
             if electrode_recording_type == 'bipolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') != -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') != -1 ):
                     load_i.append(i)
             elif electrode_recording_type == 'monopolaire':
-                if ( session_name.find(cond) != -1 ) & ( session_name.find(band_prep) != -1 ) & ( session_name.find('bi') == -1 ):
+                if ( session_name.find(cond) != -1 ) & ( session_name.find('bi') == -1 ):
                     load_i.append(i)
             else:
                 continue
@@ -724,45 +701,64 @@ def get_sniff_starts_uncleaned(sujet):
 ################################
 
 
-def get_wavelets(sujet, band_prep, freq, electrode_recording_type):
-
-    #### get params
-    prms = get_params(sujet, electrode_recording_type)
-
-    #### select wavelet parameters
-    if band_prep == 'wb':
-        wavetime = np.arange(-2,2,1/prms['srate'])
-        nfrex = nfrex_lf
-        ncycle_list = np.linspace(ncycle_list_wb[0], ncycle_list_wb[1], nfrex) 
-
-    if band_prep == 'lf':
-        wavetime = np.arange(-2,2,1/prms['srate'])
-        nfrex = nfrex_lf
-        ncycle_list = np.linspace(ncycle_list_lf[0], ncycle_list_lf[1], nfrex) 
-
-    if band_prep == 'hf':
-        wavetime = np.arange(-.5,.5,1/prms['srate'])
-        nfrex = nfrex_hf
-        ncycle_list = np.linspace(ncycle_list_hf[0], ncycle_list_hf[1], nfrex)
+def get_wavelets():
 
     #### compute wavelets
-    frex  = np.linspace(freq[0],freq[1],nfrex)
-    wavelets = np.zeros((nfrex,len(wavetime)) ,dtype=complex)
+    wavelets = np.zeros((nfrex, len(wavetime)), dtype=complex)
 
     # create Morlet wavelet family
-    for fi in range(0,nfrex):
+    for fi in range(nfrex):
         
-        s = ncycle_list[fi] / (2*np.pi*frex[fi])
+        s = cycles[fi] / (2*np.pi*frex[fi])
         gw = np.exp(-wavetime**2/ (2*s**2)) 
         sw = np.exp(1j*(2*np.pi*frex[fi]*wavetime))
         mw =  gw * sw
 
         wavelets[fi,:] = mw
 
-    return wavelets, nfrex
+    if debug:
+
+        plt.plot(np.sum(np.abs(wavelets),axis=1))
+        plt.show()
+
+        plt.pcolormesh(np.real(wavelets))
+        plt.show()
+
+        plt.plot(np.real(wavelets)[0,:])
+        plt.show()
+
+    return wavelets
 
 
 
+def get_wavelets_dfc(freq):
+
+    #### compute wavelets
+    wavelets = np.zeros((nfrex_dfc, len(wavetime)), dtype=complex)
+    frex_dfc = np.linspace(freq[0], freq[-1], nfrex_dfc)
+
+    # create Morlet wavelet family
+    for fi in range(nfrex_dfc):
+        
+        s = cycles[fi] / (2*np.pi*frex_dfc[fi])
+        gw = np.exp(-wavetime**2/ (2*s**2)) 
+        sw = np.exp(1j*(2*np.pi*frex_dfc[fi]*wavetime))
+        mw =  gw * sw
+
+        wavelets[fi,:] = mw
+
+    if debug:
+
+        plt.plot(np.sum(np.abs(wavelets),axis=1))
+        plt.show()
+
+        plt.pcolormesh(np.real(wavelets))
+        plt.show()
+
+        plt.plot(np.real(wavelets)[0,:])
+        plt.show()
+
+    return wavelets
 
 
 
@@ -1261,14 +1257,15 @@ def print_advancement(i, i_final, steps=[25, 50, 75]):
     for step, step_i in steps_i.items():
 
         if i == step_i:
-            print(f'{step}%')
+            print(f'{step}%', flush=True)
+
 
 
 
 
 
 ################################
-######## MISCALLENOUS ########
+######## NORMALIZATION ########
 ################################
 
 
@@ -1283,11 +1280,7 @@ def zscore(x):
 
 def zscore_mat(x):
 
-    _zscore_mat = np.zeros(( x.shape[0], x.shape[1] ))
-    
-    for i in range(x.shape[0]):
-
-        _zscore_mat[i,:] = zscore(x[i,:])
+    _zscore_mat = (x - x.mean(axis=1).reshape(-1,1)) / x.std(axis=1).reshape(-1,1)
 
     return _zscore_mat
 
@@ -1295,9 +1288,9 @@ def zscore_mat(x):
 
 def rscore(x):
 
-    mad = np.median( np.abs(x-np.median(x)) ) * 1.4826 # median_absolute_deviation
+    mad = np.median( np.abs(x-np.median(x)) ) # median_absolute_deviation
 
-    rzscore_x = (x-np.median(x)) / mad
+    rzscore_x = (x-np.median(x)) * 0.6745 / mad
 
     return rzscore_x
     
@@ -1306,13 +1299,142 @@ def rscore(x):
 
 def rscore_mat(x):
 
-    _zscore_mat = np.zeros(( x.shape[0], x.shape[1] ))
-    
-    for i in range(x.shape[0]):
+    mad = np.median(np.abs(x-np.median(x, axis=1).reshape(-1,1)), axis=1) # median_absolute_deviation
 
-        _zscore_mat[i,:] = rscore(x[i,:])
+    _rscore_mat = (x-np.median(x, axis=1).reshape(-1,1)) * 0.6745 / mad.reshape(-1,1)
 
-    return _zscore_mat
+    return _rscore_mat
+
+
+
+
+
+
+#tf_conv = tf_median_cycle[nchan, :, :]
+def norm_tf(sujet, tf_conv, electrode_recording_type, norm_method):
+
+    path_source = os.getcwd()
+
+    chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
+
+    if norm_method not in ['rscore', 'zscore']:
+
+        #### load baseline
+        os.chdir(os.path.join(path_precompute, sujet, 'baselines'))
+
+        if electrode_recording_type == 'monopolaire':
+            baselines = xr.open_dataarray(f'{sujet}_baselines.nc')
+        if electrode_recording_type == 'bipolaire':
+            baselines = xr.open_dataarray(f'{sujet}_baselines_bi.nc')
+
+    if norm_method == 'dB':
+
+        for n_chan_i, n_chan in enumerate(chan_list_ieeg):
+
+            tf_conv[n_chan_i,:,:] = 10*np.log10(tf_conv[n_chan_i,:,:] / baselines.loc[n_chan, :, 'median'].values.reshape(-1,1))
+
+    if norm_method == 'zscore_baseline':
+
+        for n_chan_i, n_chan in enumerate(chan_list_ieeg):
+
+            tf_conv[n_chan_i,:,:] = (tf_conv[n_chan_i,:,:] - baselines.loc[n_chan,:,'mean'].values.reshape(-1,1)) / baselines.loc[n_chan,:,'std'].values.reshape(-1,1)
+                
+    if norm_method == 'rscore_baseline':
+
+        for n_chan_i, n_chan in enumerate(chan_list_ieeg):
+
+            tf_conv[n_chan_i,:,:] = (tf_conv[n_chan_i,:,:] - baselines.loc[n_chan,:,'median'].values.reshape(-1,1)) * 0.6745 / baselines.loc[n_chan,:,'mad'].values.reshape(-1,1)
+
+    if norm_method == 'zscore':
+
+        for n_chan_i, n_chan in enumerate(chan_list_ieeg):
+
+            tf_conv[n_chan_i,:,:] = zscore_mat(tf_conv[n_chan_i,:,:])
+                
+    if norm_method == 'rscore':
+
+        for n_chan_i, n_chan in enumerate(chan_list_ieeg):
+
+            tf_conv[n_chan_i,:,:] = rscore_mat(tf_conv[n_chan_i,:,:])
+
+
+    #### verify baseline
+    if debug:
+
+        nchan = 0
+        nchan_name = chan_list_ieeg[nchan]
+
+        fig, axs = plt.subplots(ncols=2)
+        axs[0].set_title('mean std')
+        axs[0].plot(baselines.loc[nchan_name,:,'mean'], label='mean')
+        axs[0].plot(baselines.loc[nchan_name,:,'std'], label='std')
+        axs[0].legend()
+        axs[0].set_yscale('log')
+        axs[1].set_title('median mad')
+        axs[1].plot(baselines.loc[nchan_name,:,'median'], label='median')
+        axs[1].plot(baselines.loc[nchan_name,:,'mad'], label='mad')
+        axs[1].legend()
+        axs[1].set_yscale('log')
+        plt.show()
+
+        tf_test = tf_conv[nchan,:,:int(tf_conv.shape[-1]/10)].copy()
+
+        fig, axs = plt.subplots(nrows=6)
+        fig.set_figheight(10)
+        fig.set_figwidth(15)
+
+        percentile_sel = 0
+
+        vmin = np.percentile(tf_test.reshape(-1),percentile_sel)
+        vmax = np.percentile(tf_test.reshape(-1),100-percentile_sel)
+        im = axs[0].pcolormesh(tf_test, vmin=vmin, vmax=vmax)
+        axs[0].set_title('raw')
+        fig.colorbar(im, ax=axs[0])
+
+        tf_baseline = 10*np.log10(tf_test / baselines.loc[chan_list_ieeg[nchan], :, 'median'].values.reshape(-1,1))
+        vmin = np.percentile(tf_baseline.reshape(-1),percentile_sel)
+        vmax = np.percentile(tf_baseline.reshape(-1),100-percentile_sel)
+        im = axs[1].pcolormesh(tf_baseline, vmin=vmin, vmax=vmax)
+        axs[1].set_title('db')
+        fig.colorbar(im, ax=axs[1])
+
+        tf_baseline = (tf_test - baselines.loc[chan_list_ieeg[nchan],:,'mean'].values.reshape(-1,1)) / baselines.loc[chan_list_ieeg[nchan],:,'std'].values.reshape(-1,1)
+        vmin = np.percentile(tf_baseline.reshape(-1),percentile_sel)
+        vmax = np.percentile(tf_baseline.reshape(-1),100-percentile_sel)
+        im = axs[2].pcolormesh(tf_baseline, vmin=vmin, vmax=vmax)
+        axs[2].set_title('zscore')
+        fig.colorbar(im, ax=axs[2])
+
+        tf_baseline = (tf_test - baselines.loc[chan_list_ieeg[nchan],:,'median'].values.reshape(-1,1)) / baselines.loc[chan_list_ieeg[nchan],:,'mad'].values.reshape(-1,1)
+        vmin = np.percentile(tf_baseline.reshape(-1),percentile_sel)
+        vmax = np.percentile(tf_baseline.reshape(-1),100-percentile_sel)
+        im = axs[3].pcolormesh(tf_baseline, vmin=vmin, vmax=vmax)
+        axs[3].set_title('rscore')
+        fig.colorbar(im, ax=axs[3])
+
+        tf_baseline = zscore_mat(tf_test)
+        vmin = np.percentile(tf_baseline.reshape(-1),percentile_sel)
+        vmax = np.percentile(tf_baseline.reshape(-1),100-percentile_sel)
+        im = axs[4].pcolormesh(tf_baseline, vmin=vmin, vmax=vmax)
+        axs[4].set_title('zscore_mat')
+        fig.colorbar(im, ax=axs[4])
+
+        tf_baseline = rscore_mat(tf_test)
+        vmin = np.percentile(tf_baseline.reshape(-1),percentile_sel)
+        vmax = np.percentile(tf_baseline.reshape(-1),100-percentile_sel)
+        im = axs[5].pcolormesh(tf_baseline, vmin=vmin, vmax=vmax)
+        axs[5].set_title('rscore_mat')
+        fig.colorbar(im, ax=axs[5])
+
+        plt.show()
+
+    os.chdir(path_source)
+
+    return tf_conv
+
+
+
+
 
 
 def get_mad(data, axis=0):

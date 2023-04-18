@@ -204,7 +204,7 @@ def compute_ERP(sujet, electrode_recording_type):
         for cond in ['FR_CV', 'AC', 'SNIFF']:
 
             #### select data without aux chan
-            data = load_data(sujet, cond, electrode_recording_type, band_prep=band_prep)
+            data = load_data(sujet, cond, electrode_recording_type)
             data = data[:-3,:]
 
             #### chunk
