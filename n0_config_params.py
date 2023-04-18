@@ -38,6 +38,7 @@ sujet = 'pat_03146_1608'
 
 #sujet = 'DEBUG'
 
+AL_n = 3
 srate = 500
 
 #### whole protocole
@@ -46,7 +47,7 @@ sujet_list = ['pat_03083_1527', 'pat_03105_1551', 'pat_03128_1591', 'pat_03138_1
 #### FR_CV
 sujet_list_FR_CV = ['CHEe', 'GOBc', 'MAZm', 'TREt', 'MUGa', 'BANc', 'KOFs', 'LEMl', 'pat_02459_0912', 'pat_02476_0929', 'pat_02495_0949']
 
-conditions_allsubjects = ['FR_CV', 'SNIFF', 'AL', 'AC']
+conditions = ['FR_CV', 'SNIFF', 'AL', 'AC']
 
 conditions_compute_TF = ['FR_CV', 'AC', 'SNIFF']
 
@@ -67,7 +68,8 @@ freq_band_dict_FC = {'wb' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40]
                 'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]} }
 
 freq_band_dict_FC_function = {'lf' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40]},
-                'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]} }
+                'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]},
+                'wb' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}}
 
 
 
@@ -84,10 +86,10 @@ PC_ID = socket.gethostname()
 
 if PC_ID == 'LAPTOP-EI7OSP7K':
 
-    PC_working = 'Jules_Home'
-    path_main_workdir = 'M:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\Script_Python_iEEG_Paris_git\\'
-    path_general = 'M:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\'
-    path_memmap = 'M:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\Mmap'
+    PC_working = 'Jules_VPN'
+    path_main_workdir = 'Z:\\multisite\\DATA_MANIP\\EEG_Paris_J\\Script_Python_iEEG_Paris_git'
+    path_general = 'Z:\\multisite\\DATA_MANIP\\iEEG_Paris_J'
+    path_memmap = 'Z:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\Mmap'
     n_core = 4
 
 elif PC_ID == 'DESKTOP-3IJUK7R':
@@ -98,7 +100,7 @@ elif PC_ID == 'DESKTOP-3IJUK7R':
     path_memmap = 'D:\\LPPR_CMO_PROJECT\\Lyon\\Mmap'
     n_core = 2
 
-elif PC_ID == 'pc-jules':
+elif PC_ID == 'pc-jules' or PC_ID == 'LAPTOP-EI7OSP7K':
 
     PC_working = 'Jules_Labo_Linux'
     path_main_workdir = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Script_Python_iEEG_Paris_git/'
@@ -141,7 +143,11 @@ path_slurm = os.path.join(path_general, 'Script_slurm')
 
 #### slurm params
 mem_crnl_cluster = '10G'
+mem_crnl_cluster_offset = int(10e9)
 n_core_slurms = 10
+
+
+
 
 ################################################
 ######## ELECTRODES REMOVED BEFORE LOCA ######## 
@@ -201,7 +207,13 @@ prep_step_hf = {
 'average_reref' : {'execute': True},
 }
 
-
+prep_step_wb = {
+'mean_centered' : {'execute': True},
+'line_noise_removing' : {'execute': True},
+'high_pass' : {'execute': False, 'params' : {'l_freq' : None, 'h_freq': None}},
+'low_pass' : {'execute': False, 'params' : {'l_freq' : None, 'h_freq': None}},
+'average_reref' : {'execute': True},
+}
 
 
 
@@ -317,17 +329,35 @@ ratio_stretch_TF = 0.5
 resampled_points_AL = 1000
 
 #### TF & ITPC
-nfrex_hf = 50
-nfrex_lf = 50
-nfrex_wb = 50
-ncycle_list_lf = [7, 15]
-ncycle_list_hf = [20, 30]
-ncycle_list_wb = [7, 30]
+nfrex = 150
+ncycle_list = [7, 41]
+freq_list = [2, 150]
 srate_dw = 10
+wavetime = np.arange(-3,3,1/srate)
+frex = np.logspace(np.log10(freq_list[0]), np.log10(freq_list[1]), nfrex) 
+cycles = np.logspace(np.log10(ncycle_list[0]), np.log10(ncycle_list[1]), nfrex).astype('int')
+Pxx_wavelet_norm = 1000
+
+stretch_point_TF_ac_resample = 1500
+stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
+stretch_point_TF_sniff_resampled = 1000
+
+#### AL chunk
+AL_chunk_pre_post_time = 5 #seconde
+
+#### plot
+tf_plot_percentile_scale = 1 #for one side
 
 #### STATS
 n_surrogates_tf = 1000
-
+norm_method = 'rscore'# 'zscore', 'dB'
+tf_percentile_sel_stats_dw = 5 
+tf_percentile_sel_stats_up = 95 
+tf_stats_percentile_cluster = 95
+tf_stats_percentile_cluster_allplot = 99
+phase_stats =   {'AC' : ['pre', 're', 'post'],
+                'SNIFF' : ['pre', 'post'],
+                'AL' : ['pre', 're_1', 're_2']}
 
 
 ################################
@@ -346,9 +376,15 @@ coh_computation_interval = .02 #Hz around respi
 ######## FC ANALYSIS ########
 ################################
 
+#### nfrex
+nfrex_dfc = 50
+
 #### ROI for DFC
 ROI_for_DFC_df =    ['orbitofrontal', 'cingulaire ant rostral', 'cingulaire ant caudal', 'cingulaire post',
                     'insula ant', 'insula post', 'parahippocampique', 'amygdala', 'hippocampus']
+ROI_for_DFC_plot =    ['orbitofrontal', 'cingulaire ant rostral', 'cingulaire ant caudal', 'cingulaire post',
+                    'insula ant', 'insula post', 'parahippocampique', 'amygdala', 'hippocampus', 'temporal inf',
+                    'temporal med', 'temporal sup']
 
 #### band to remove
 freq_band_fc_analysis = {'theta' : [4, 8], 'alpha' : [9,12], 'beta' : [15,40], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}
@@ -375,7 +411,7 @@ n_points_AL_interpolation = 10000
 n_points_AL_chunk = 1000
 
 #### for df computation
-percentile_graph_metric = 25
+percentile_graph_metric = 75
 
 
 
@@ -387,8 +423,8 @@ percentile_graph_metric = 25
 
 stretch_point_IE = [300, 500]
 stretch_point_EI = [900, 100]
-stretch_point_I = [100, 300]
-stretch_point_E = [600, 800]
+stretch_point_I = [0, int(stretch_point_TF/2)]
+stretch_point_E = [int(stretch_point_TF/2), stretch_point_TF]
 
 sniff_extract_pre = [-1, 0]
 sniff_extract_resp_evnmt = [0, 1]
@@ -400,7 +436,7 @@ AC_extract_resp_evnmt_2 = [AC_length/2, AC_length]
 AC_extract_post = [AC_length, AC_length*2]
 
 n_points_AL_interpolation = 10500
-n_phase_extraction_AL = 3
+n_phase_extraction_AL = 2
 n_points_AL_chunk = 1000
 
 srate_dw_stats = 100
@@ -408,11 +444,11 @@ srate_dw_stats = 100
 AL_extract_time = 5 
 
 
+
+
 ################################
 ######## HRV ANALYSIS ########
 ################################
-
-
 
 srate_resample_hrv = 10
 nwind_hrv = int( 128*srate_resample_hrv )
