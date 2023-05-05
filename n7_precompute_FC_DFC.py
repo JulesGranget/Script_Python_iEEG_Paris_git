@@ -185,7 +185,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
     win_sample = frites.conn.define_windows(times_conv, slwin_len=slwin_len, slwin_step=slwin_step)[0]
 
     os.chdir(path_memmap)
-    dfc_metrics = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_metrics.dat', dtype=np.float64, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, win_sample.shape[0]))
+    dfc_metrics = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_metrics.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, win_sample.shape[0]))
 
     print('COMPUTE')   
 
@@ -258,7 +258,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
     if cond == 'FR_CV':
         dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF))
     if cond == 'AC':
-        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_ac))
+        dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_ac_resample))
     if cond == 'SNIFF':
         dfc_data_resample = np.memmap(f'{sujet}_{cond}_{band_prep}_{band}_{trial_i}_{electrode_recording_type}_dfc_mat_resample.dat', dtype=np.float32, mode='w+', shape=(2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_sniff))    
     if cond == 'AL':
@@ -376,8 +376,6 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
 
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(resample_and_stretch_data_dfc)(pair_to_compute_i, pair_to_compute) for pair_to_compute_i, pair_to_compute in enumerate(pairs_to_compute))
 
-    mat_dfc_stretch = dfc_data_resample.copy()
-
     #### simulate data
     # mat_dfc_stretch = np.random.random((2, len(pairs_to_compute), nfrex_dfc, stretch_point_TF_ac)) 
 
@@ -396,7 +394,7 @@ def get_pli_ispc_fc_dfc_trial(sujet, cond, band_prep, band, freq, trial_i, elect
     except:
         pass
 
-    return mat_dfc_stretch
+    return dfc_data_resample
 
 
 
@@ -573,23 +571,22 @@ if __name__ == '__main__':
             print('######## PRECOMPUTE DFC ########') 
             #cond = cond_FC_DFC[1]
             for cond in cond_FC_DFC:
-                #band, freq = 'theta', [4,8]
+                #band, freq = 'alpha', [8,12]
                 for band, freq in freq_band_dict_FC_function[band_prep].items():
 
-                    if cond == 'AL':
+                    get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
 
-                        # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                        execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '50G')
+                    # if cond == 'AL':
+
+                    #     execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '50G')
                     
-                    elif cond == 'AC':
+                    # elif cond == 'AC':
 
-                        # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                        execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
+                    #     execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
                     
-                    else:
+                    # else:
 
-                        # get_wpli_ispc_fc_dfc(sujet, cond, band_prep, band, freq, electrode_recording_type)
-                        execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
+                    #     execute_function_in_slurm_bash_mem_choice('n7_precompute_FC_DFC', 'get_wpli_ispc_fc_dfc', [sujet, cond, band_prep, band, freq, electrode_recording_type], '30G')
                     
         
 

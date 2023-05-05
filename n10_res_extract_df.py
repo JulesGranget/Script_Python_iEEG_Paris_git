@@ -83,7 +83,7 @@ def chunk_AL(sujet, cond, freq, electrode_recording_type):
 
 
 
-def export_TF_in_df(sujet, prms, electrode_recording_type):
+def export_TF_in_df(sujet, electrode_recording_type):
 
     #### verif computation
     if electrode_recording_type == 'monopolaire':
@@ -96,6 +96,7 @@ def export_TF_in_df(sujet, prms, electrode_recording_type):
             return
 
     #### load prms
+    prms = get_params(sujet, electrode_recording_type)
     df_loca = get_loca_df(sujet, electrode_recording_type)
     band_prep = 'wb'
     
@@ -121,6 +122,15 @@ def export_TF_in_df(sujet, prms, electrode_recording_type):
         else:
             side_i = 'r' 
 
+        #### normalization params
+        if electrode_recording_type == 'monopolaire':
+            data = np.median(np.load(f'{sujet}_tf_raw_FR_CV.npy')[chan_i,:,:,:], axis=0)
+        else:
+            data = np.median(np.load(f'{sujet}_tf_raw_FR_CV_bi.npy')[chan_i,:,:,:], axis=0)
+
+        _mean = data.mean(axis=1).reshape(-1,1)
+        _std = data.std(axis=1).reshape(-1,1)
+
         #cond = 'AL'
         for cond in conditions:
             #band, freq = 'theta', [4, 8]
@@ -136,7 +146,10 @@ def export_TF_in_df(sujet, prms, electrode_recording_type):
                 mask_frex_band = (frex >= freq[0]) & (frex <= freq[-1])
                 Pxx = data[mask_frex_band,:]
 
-                if cond != 'AL':
+                #### normalize
+                Pxx = (Pxx - _mean[mask_frex_band,:]) / _std[mask_frex_band,:]
+
+                if cond == 'AL':
 
                     phase_list = ['re_1', 're_2']
 
@@ -157,7 +170,7 @@ def export_TF_in_df(sujet, prms, electrode_recording_type):
 
                 if cond == 'SNIFF':
 
-                    stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*prms['srate'] +  t_stop_SNIFF*prms['srate'])
+                    stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
                     time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff_resampled)
 
                     Pxx_pre = np.median(Pxx[:,(time_vec >= sniff_extract_pre[0]) & (time_vec <= sniff_extract_pre[1])])
@@ -169,7 +182,7 @@ def export_TF_in_df(sujet, prms, electrode_recording_type):
                 
                 if cond == 'AC':
 
-                    stretch_point_TF_ac = int(np.abs(t_start_AC)*prms['srate'] +  t_stop_AC*prms['srate'])
+                    stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
                     time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac_resample)
 
                     Pxx_pre = np.median(Pxx[:,(time_vec >= AC_extract_pre[0]) & (time_vec <= AC_extract_pre[1])])
@@ -779,9 +792,9 @@ def compute_dfc_values(sujet, electrode_recording_type):
     pairs_of_interest = generate_ROI_pairs()
 
     #### compute
-    #cond = 'AL'
+    #cond = 'AC'
     for cond in conditions:
-        #band, freq = 'l_gamma', [50,80]
+        #band, freq = 'theta', [4,8]
         for band, freq in freq_band_dict_FC_function[band_prep].items():
             #cf_metric_i, cf_metric = 0, 'ispc'
             for cf_metric_i, cf_metric in enumerate(['ispc', 'wpli']):
@@ -808,6 +821,12 @@ def compute_dfc_values(sujet, electrode_recording_type):
 
                     #pair_selected_i = pairs_of_interest_i_list[0]
                     for pair_selected_i in pairs_of_interest_i_list:
+
+                        if cond == 'FR_CV':
+
+                            phase_list = ['whole']
+
+                            value_list = [np.median(dfc_mean_pair[pair_selected_i, :, :])]
 
                         if cond == 'SNIFF':
 
@@ -886,18 +905,15 @@ def compilation_export_df(sujet, electrode_recording_type):
 
     print(sujet, flush=True)
 
-    #### load params
-    prms = get_params(sujet, electrode_recording_type)
-
     #### export
     print('COMPUTE TF', flush=True)
-    export_TF_in_df(sujet, prms, electrode_recording_type)
+    export_TF_in_df(sujet, electrode_recording_type)
     
     # print('COMPUTE ITPC')
     # export_ITPC_in_df(sujet, prms, electrode_recording_type)
     
-    print('COMPUTE GRAPH DFC', flush=True)
-    compute_graph_metric_dfc(sujet, prms, electrode_recording_type)
+    # print('COMPUTE GRAPH DFC', flush=True)
+    # compute_graph_metric_dfc(sujet, electrode_recording_type)
     
     print('COMPUTE DFC VALUES', flush=True)
     compute_dfc_values(sujet, electrode_recording_type)
@@ -919,6 +935,7 @@ if __name__ == '__main__':
         for sujet in sujet_list:
                     
             #### export df
+            # compilation_export_df(sujet, electrode_recording_type)
             execute_function_in_slurm_bash_mem_choice('n10_res_extract_df', 'compilation_export_df', [sujet, electrode_recording_type], '20G')
         
         

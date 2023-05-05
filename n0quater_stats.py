@@ -242,7 +242,7 @@ def auto_annotated_stats(df, predictor, outcome, test):
 
     order = list(set(df[predictor]))
 
-    ax = sns.boxplot(data=df, x=x, y=y, order=order)
+    ax = sns.boxplot(data=df, x=x, y=y, order=order, showfliers=False)
     pairs=[(order[0],order[1])]
     annotator = Annotator(ax, pairs, data=df, x=x, y=y, order=order)
     annotator.configure(test=test, text_format='star', loc='inside')
@@ -259,7 +259,7 @@ def custom_annotated_two(df, predictor, outcome, order, pval, ax=None, plot_mode
     order = order
     formatted_pvalues = [f"{stars}"]
     if plot_mode == 'box':
-        ax = sns.boxplot(data=df, x=x, y=y, order=order, ax=ax)
+        ax = sns.boxplot(data=df, x=x, y=y, order=order, ax=ax, showfliers=False)
     elif plot_mode == 'violin':
         ax = sns.violinplot(data=df, x=x, y=y, order=order, bw = 0.08)
     pairs=[(order[0],order[1])]
@@ -280,7 +280,7 @@ def custom_annotated_ngroups(df, predictor, outcome, post_hoc, order, ax=None, p
     pairs = [tuple(post_hoc.loc[i,['A','B']]) for i in range(post_hoc.shape[0])]
     formatted_pvalues = [f"{pval_stars(pval)}" for pval in pvalues]
     if plot_mode == 'box':
-        ax = sns.boxplot(data=df, x=x, y=y, order=order, ax=ax)
+        ax = sns.boxplot(data=df, x=x, y=y, order=order, ax=ax, showfliers=False)
     elif plot_mode == 'violin':
         ax = sns.violinplot(data=df, x=x, y=y, order=order, bw= 0.08)
     
@@ -576,7 +576,7 @@ def lmm(df, predictor, outcome, subject, order=None):
 
     fig, ax = plt.subplots()
     if isinstance(predictor, str):
-        sns.boxplot(data=df, x = predictor, y = outcome, ax=ax )
+        sns.boxplot(data=df, x = predictor, y = outcome, ax=ax, showfliers=False)
     elif isinstance(predictor, list):
         sns.pointplot(data=df, x = predictor[0], y = outcome, hue = predictor[1],ax=ax)
     ax.set_title(formula)

@@ -1402,7 +1402,7 @@ if __name__ == '__main__':
                     plt.show()
 
         #### save fig
-        #cond = 'AC'
+        #cond = 'AL'
         for cond in cond_to_plot:
             
             print(cond, electrode_recording_type)
