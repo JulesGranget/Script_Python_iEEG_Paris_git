@@ -105,7 +105,9 @@ def compute_and_save_baseline(sujet, electrode_recording_type):
             baseline_coeff[fi,0] = np.mean(fi_conv_chunked)
             baseline_coeff[fi,1] = np.std(fi_conv_chunked)
             baseline_coeff[fi,2] = np.median(fi_conv_chunked)
-            baseline_coeff[fi,3] = np.median(np.abs(x-np.median(fi_conv_chunked))) * 1.4826
+            baseline_coeff[fi,3] = np.median(np.abs(fi_conv_chunked-np.median(fi_conv_chunked)))
+
+        baseline_allchan[n_chan,:,:] = baseline_coeff
 
         if debug:
 
@@ -121,7 +123,6 @@ def compute_and_save_baseline(sujet, electrode_recording_type):
             axs[1].legend()
             axs[1].set_yscale('log')
             plt.show()
-    
 
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(baseline_convolutions)(n_chan) for n_chan in range(np.size(data,0)))
 
@@ -154,7 +155,7 @@ def compute_and_save_baseline(sujet, electrode_recording_type):
 if __name__== '__main__':
     
     #### slurm execution
-    #electrode_recording_type = 'monopolaire'
+    #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
         #sujet = sujet_list[0]

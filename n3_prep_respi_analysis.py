@@ -8,8 +8,10 @@ import scipy.signal
 import mne
 import pandas as pd
 import respirationtools
+import xarray as xr
 
 from n0_config_params import *
+from n0bis_config_analysis_functions import * 
 
 debug = False
 
@@ -616,4 +618,71 @@ if __name__ == '__main__':
     respi_allcond['FR_CV'][0][0].to_excel(sujet + '_FR_CV_respfeatures.xlsx')
     respi_allcond['FR_CV'][0][1].savefig(sujet + '_FR_CV_fig0.jpeg')
     respi_allcond['FR_CV'][0][2].savefig(sujet + '_FR_CV_fig1.jpeg')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+cond = 'AC'
+stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
+time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac_resample)
+
+xr_dict = {'sujet' : sujet_list, 'time' : time_vec}
+xr_data = np.zeros((len(sujet_list), time_vec.shape[0]))
+xr_respi = xr.DataArray(xr_data, dims=xr_dict.keys(), coords=xr_dict.values())
+
+respi = {}
+
+for sujet in sujet_list:
+
+    #### select data without aux chan
+    prms = get_params(sujet, electrode_recording_type)
+    data = load_data(sujet, cond, electrode_recording_type)
+    nasal_i = get_params(sujet, electrode_recording_type)['chan_list'].index('nasal')
+    data = data[nasal_i,:]
+
+    #### stretch or chunk
+    ac_starts = get_ac_starts_uncleaned(sujet)
+
+    srate = prms['srate']
+
+    #### chunk
+    data_stretch = np.zeros((len(ac_starts), int(stretch_point_TF_ac)))
+
+    for start_i, start_time in enumerate(ac_starts):
+
+        t_start = int(start_time + t_start_AC*srate)
+        t_stop = int(start_time + t_stop_AC*srate)
+
+        data_stretch[start_i, :] = data[t_start: t_stop]
+
+    # xr_respi.loc[sujet,:] = data_stretch.shape
+    respi[sujet] = data_stretch
+
+        
+
+        for sujet in sujet_list:
+
+            respi[sujet].shape
+            
+
+        if cond == 'SNIFF':
+            sniff_starts = get_sniff_starts_uncleaned(sujet)
+            data_stretch = compute_chunk_SNIFF(data, sniff_starts, prms)
+
+        data_stretch_allcond[band_prep][cond] = data_stretch
 

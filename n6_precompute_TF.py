@@ -23,7 +23,7 @@ debug = False
 
 
 
-#tf = tf_allchan.copy()
+#tf = tf_allchan
 def compute_stretch_tf(sujet, tf, cond, respfeatures_allcond, stretch_point_TF, srate, electrode_recording_type):
 
     #n_chan = 0
@@ -40,6 +40,11 @@ def compute_stretch_tf(sujet, tf, cond, respfeatures_allcond, stretch_point_TF, 
 
     for n_chan in range(tf.shape[0]):
         tf_mean_allchan[n_chan,:,:,:] = stretch_tf_db_nchan_res[n_chan]
+
+    if debug:
+
+        plt.pcolormesh(np.median(tf_mean_allchan[0,:,:,:], axis=0))
+        plt.show()
 
     print('SAVE RAW', flush=True)
     os.chdir(os.path.join(path_precompute, sujet, 'TF'))
@@ -107,13 +112,14 @@ def compute_stretch_tf_AC(sujet, tf, ac_starts, srate, electrode_recording_type)
 
     #### norm
     os.chdir(path_memmap)
-    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape), offset=mem_crnl_cluster_offset)
-    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], len(ac_starts),tf.shape[1],stretch_point_TF_ac_resample), offset=mem_crnl_cluster_offset)
 
     tf_norm[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
-    os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+    try:
+        os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+    except:
+        pass
 
     return tf_mean_allchan
 
@@ -161,13 +167,13 @@ def compute_stretch_tf_SNIFF(sujet, tf, sniff_starts, srate, electrode_recording
 
     #### norm
     os.chdir(path_memmap)
-    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape))
-    tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], len(sniff_starts), tf.shape[1], stretch_point_TF_sniff_resampled))
-
     tf_norm[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_db_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
-    os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+    try:
+        os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+    except:
+        pass
 
     return tf_mean_allchan
 
@@ -177,9 +183,8 @@ def compute_stretch_tf_SNIFF(sujet, tf, sniff_starts, srate, electrode_recording
 
 
 #tf = tf_allchan
-def compute_stretch_tf_AL(sujet, tf, AL_len_list, srate, electrode_recording_type):
+def compute_stretch_tf_AL(sujet, cond, tf, AL_len_list, srate, electrode_recording_type):
 
-    cond = 'AL'
     AL_chunk_time_raw = srate*AL_chunk_pre_post_time
 
     #n_chan = 0
@@ -196,23 +201,22 @@ def compute_stretch_tf_AL(sujet, tf, AL_len_list, srate, electrode_recording_typ
                 AL_pre, AL_post = AL_pre + AL_len_list[AL_i-1], AL_post + AL_len_list[AL_i]
 
             #### chunk pre
-            tf_chunk = tf_norm[n_chan,:,:AL_pre+AL_chunk_time_raw]
+            tf_chunk = tf_norm[n_chan,:,AL_pre:AL_pre+AL_chunk_time_raw]
 
             f = scipy.interpolate.interp1d(np.linspace(0, 1, tf_chunk.shape[-1]), tf_chunk, kind='linear')
             tf_mean_allchan[n_chan,AL_i,:,:int(resampled_points_AL/2)] = f(np.linspace(0, 1, int(resampled_points_AL/2)))
 
             #### chunk post
-            tf_chunk = tf_norm[n_chan,:,AL_post-AL_chunk_time_raw:]
+            tf_chunk = tf_norm[n_chan,:,AL_post-AL_chunk_time_raw:AL_post]
 
             f = scipy.interpolate.interp1d(np.linspace(0, 1, tf_chunk.shape[-1]), tf_chunk, kind='linear')
             tf_mean_allchan[n_chan,AL_i,:,int(resampled_points_AL/2):] = f(np.linspace(0, 1, int(resampled_points_AL/2)))
 
     #### raw
     os.chdir(path_memmap)
-    tf_norm = np.memmap(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape))
+    tf_norm = tf
     tf_mean_allchan = np.memmap(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(tf.shape[0], AL_n, tf.shape[1], resampled_points_AL))
 
-    tf_norm[:] = tf
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
     print('SAVE RAW', flush=True)
@@ -230,7 +234,10 @@ def compute_stretch_tf_AL(sujet, tf, AL_len_list, srate, electrode_recording_typ
     tf_norm[:] = norm_tf(sujet, tf, electrode_recording_type, norm_method)
     joblib.Parallel(n_jobs = n_core, prefer = 'processes')(joblib.delayed(chunk_tf_n_chan)(n_chan) for n_chan in range(tf.shape[0]))
 
-    os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+    try:
+        os.remove(f'{sujet}_tf_{cond}_norm_{electrode_recording_type}.dat')
+    except:
+        pass
 
     #### verif
     if debug:
@@ -409,7 +416,12 @@ def precompute_tf_allconv(sujet, cond, electrode_recording_type):
         tf_allband_stretched = np.memmap(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', shape=(len(chan_list_ieeg), AL_n, nfrex, resampled_points_AL))
 
         print('CHUNK_AL', flush=True)
-        tf_allband_stretched[:] = compute_stretch_tf_AL(sujet, tf_allchan, AL_len_list, srate, electrode_recording_type)
+        tf_allband_stretched[:] = compute_stretch_tf_AL(sujet, cond, tf_allchan, AL_len_list, srate, electrode_recording_type)
+
+    if debug:
+
+        plt.pcolormesh(np.median(tf_allband_stretched[0,:,:,:], axis=0))
+        plt.show()
     
     #### save
     print('SAVE', flush=True)
@@ -420,11 +432,22 @@ def precompute_tf_allconv(sujet, cond, electrode_recording_type):
         np.save(f'{sujet}_tf_{cond}_bi.npy', tf_allband_stretched)
     
     os.chdir(path_memmap)
-    os.remove(f'{sujet}_tf_{cond}_precompute_convolutions_{electrode_recording_type}.dat')
-    os.remove(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat')
+    try:
+        os.remove(f'{sujet}_tf_{cond}_precompute_convolutions_{electrode_recording_type}.dat')
+    except:
+        pass
 
-    if cond != 'FR_CV':
+    try:
+        os.remove(f'{sujet}_{cond}_tf_allband_stretched_{electrode_recording_type}.dat')
+    except:
+        pass
+
+    try:
         os.remove(f'{sujet}_tf_{cond}_resample_{electrode_recording_type}.dat')
+    except:
+        pass
+
+    print('done', flush=True)
 
 
 
@@ -540,7 +563,7 @@ def precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type):
             
             del itpc_allchan
 
-
+    print('done')
 
 
 
@@ -564,11 +587,11 @@ if __name__ == '__main__':
     #sujet = sujet_list[0]
     for sujet in sujet_list:
 
-        #electrode_recording_type = 'monopolaire'
+        #electrode_recording_type = 'bipolaire'
         for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
             #### compute and save tf
-            #cond = 'FR_CV'
+            #cond = 'AL'
             for cond in conditions:
 
                 print(cond, flush=True)
@@ -576,11 +599,11 @@ if __name__ == '__main__':
                 if cond == 'SNIFF':
                     precompute_tf_allconv(sujet, cond, electrode_recording_type)
                     # execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '60G')
-                if cond == 'AC':
-                    # precompute_tf_allconv(sujet, cond, electrode_recording_type)
-                    execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '50G')
+                elif cond == 'AC':
+                    precompute_tf_allconv(sujet, cond, electrode_recording_type)
+                    # execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '50G')
                 else:
-                    #precompute_tf_allconv(sujet, cond, electrode_recording_type)
+                    # precompute_tf_allconv(sujet, cond, electrode_recording_type)
                     execute_function_in_slurm_bash_mem_choice('n6_precompute_TF', 'precompute_tf_allconv', [sujet, cond, electrode_recording_type], '30G')
                     
                 #precompute_itpc(sujet, cond, band_prep_list, electrode_recording_type)

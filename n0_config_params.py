@@ -343,10 +343,11 @@ stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
 stretch_point_TF_sniff_resampled = 1000
 
 #### AL chunk
-AL_chunk_pre_post_time = 5 #seconde
+AL_chunk_pre_post_time = 12 #seconde
 
 #### plot
 tf_plot_percentile_scale = 1 #for one side
+tf_plot_percentile_scale_AL = 5
 
 #### STATS
 n_surrogates_tf = 1000
@@ -357,7 +358,7 @@ tf_stats_percentile_cluster = 95
 tf_stats_percentile_cluster_allplot = 99
 phase_stats =   {'AC' : ['pre', 're', 'post'],
                 'SNIFF' : ['pre', 'post'],
-                'AL' : ['pre', 're_1', 're_2']}
+                'AL' : ['pre', 'post']}
 
 
 ################################
@@ -441,7 +442,7 @@ n_points_AL_chunk = 1000
 
 srate_dw_stats = 100
 
-AL_extract_time = 5 
+AL_extract_time = 12
 
 
 

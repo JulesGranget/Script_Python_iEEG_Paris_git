@@ -12,7 +12,6 @@ import sys
 import stat
 import xarray as xr
 import joblib
-import frites
 
 from n0_config_params import *
 
@@ -1309,8 +1308,7 @@ def rscore_mat(x):
 
 
 
-
-#tf_conv = tf_median_cycle[nchan, :, :]
+#tf_conv = tf
 def norm_tf(sujet, tf_conv, electrode_recording_type, norm_method):
 
     path_source = os.getcwd()
@@ -1326,6 +1324,18 @@ def norm_tf(sujet, tf_conv, electrode_recording_type, norm_method):
             baselines = xr.open_dataarray(f'{sujet}_baselines.nc')
         if electrode_recording_type == 'bipolaire':
             baselines = xr.open_dataarray(f'{sujet}_baselines_bi.nc')
+
+        if debug:
+
+            plt.plot(baselines.values[0,:,0], label='mean')
+            plt.plot(baselines.values[0,:,2], label='median')
+            plt.legend()
+            plt.show()
+
+            plt.plot(baselines.values[0,:,1], label='std')
+            plt.plot(baselines.values[0,:,3], label='mad')
+            plt.legend()
+            plt.show()
 
     if norm_method == 'dB':
 
@@ -1361,8 +1371,15 @@ def norm_tf(sujet, tf_conv, electrode_recording_type, norm_method):
     #### verify baseline
     if debug:
 
+        plt.pcolormesh(tf_conv[0,:,:], vmin=np.percentile(tf_conv[0,:,:], 1), vmax=np.percentile(tf_conv[0,:,:], 99))
+        plt.show()
+
         nchan = 0
         nchan_name = chan_list_ieeg[nchan]
+
+        data_plot = tf_conv[nchan,:,:]
+        plt.pcolormesh(data_plot, vmin=np.percentile(data_plot, 1), vmax=np.percentile(data_plot, 99))
+        plt.show()
 
         fig, axs = plt.subplots(ncols=2)
         axs[0].set_title('mean std')
@@ -1440,6 +1457,6 @@ def norm_tf(sujet, tf_conv, electrode_recording_type, norm_method):
 def get_mad(data, axis=0):
 
     med = np.median(data, axis=axis)
-    mad = np.median(np.abs(data - med), axis=axis) / 0.6744897501960817
+    mad = np.median(np.abs(data - med), axis=axis)
 
     return mad

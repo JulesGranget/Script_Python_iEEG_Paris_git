@@ -182,7 +182,7 @@ def get_tf_stats(tf, pixel_based_distrib):
 #     return tf_thresh
 
 
-#cond = 'RD_SV'
+#cond = 'AL'
 def precompute_tf_ROI_STATS(ROI, cond, electrode_recording_type):
 
     print(f'#### COMPUTE TF STATS {ROI} ####', flush=True)
@@ -195,7 +195,9 @@ def precompute_tf_ROI_STATS(ROI, cond, electrode_recording_type):
         stretch_point = stretch_point_TF_ac_resample
     if cond == 'SNIFF':
         stretch_point = stretch_point_TF_sniff_resampled
-
+    if cond == 'AL':
+        stretch_point = resampled_points_AL
+    
     phase_list = phase_stats[cond]
 
     #### identify if already computed for all
@@ -218,7 +220,21 @@ def precompute_tf_ROI_STATS(ROI, cond, electrode_recording_type):
     #sujet_i, sujet, chan_name = 1, site_list[1][0], site_list[1][1] 
     for sujet_i, (sujet, chan_name) in enumerate(site_list):
 
-        cycle_baseline_tot += load_respfeatures(sujet)['FR_CV'][0]['select'].sum()
+        print_advancement(sujet_i, len(site_list), steps=[25, 50, 75])
+
+        os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+
+        chan_list, chan_list_ieeg = get_chanlist(sujet, electrode_recording_type)
+        chan_i = chan_list_ieeg.index(chan_name)
+
+        if electrode_recording_type == 'monopolaire':
+            tf_load = np.load(f'{sujet}_tf_FR_CV.npy')[chan_i,:,:,:]
+        else:
+            tf_load = np.load(f'{sujet}_tf_FR_CV_bi.npy')[chan_i,:,:,:]
+
+        tf_load_cycle_n = tf_load.shape[0]
+
+        cycle_baseline_tot += tf_load_cycle_n
 
     os.chdir(path_memmap)
     tf_stretch_baselines = np.memmap(f'{ROI}_{cond}_tf_STATS_baseline_{electrode_recording_type}.dat', dtype=np.float32, mode='w+', 
@@ -263,6 +279,8 @@ def precompute_tf_ROI_STATS(ROI, cond, electrode_recording_type):
             re_count = get_ac_starts(sujet).shape[0]
         if cond == 'SNIFF':
             re_count = get_sniff_starts(sujet).shape[0]
+        if cond == 'AL':
+            re_count = 3
 
         cycle_cond_tot += re_count
 
@@ -396,13 +414,13 @@ def precompute_tf_ROI_STATS(ROI, cond, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #cond = 'SNIFF'
-    for cond in ['AC', 'SNIFF']:
+    #cond = 'AL'
+    for cond in ['AC', 'SNIFF', 'AL']:
 
         #### load anat
         ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots(cond, electrode_recording_type)    
 
-        #electrode_recording_type = 'monopolaire'
+        #electrode_recording_type = 'bipolaire'
         for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
             #ROI = ROI_to_include[1]

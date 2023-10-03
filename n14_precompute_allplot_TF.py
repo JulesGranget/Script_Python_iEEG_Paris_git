@@ -337,7 +337,9 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
         stretch_point = stretch_point_TF_ac_resample
     if cond == 'SNIFF':
         stretch_point = stretch_point_TF_sniff_resampled
-    if cond in ['AL', 'AL_long']:
+    if cond == 'AL':
+        stretch_point = resampled_points_AL
+    if cond == 'AL_long':
         stretch_point = resampled_points_AL
 
     #### generate xr
@@ -350,7 +352,7 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
 
         print(ROI_to_process)
 
-        if cond == 'AL_long':
+        if cond in ['AL_long', 'AL']:
             tf_allplot = np.zeros((len(ROI_dict_plots[ROI_to_process]),AL_n,nfrex,stretch_point), dtype=np.float32)
         else:
             tf_allplot = np.zeros((len(ROI_dict_plots[ROI_to_process]),nfrex,stretch_point), dtype=np.float32)
@@ -369,13 +371,20 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
                     else:
                         tf_allplot[site_i,session_i,:,:] = np.load(f'{sujet}_tf_AL_{session_i+1}_bi.npy')[chan_list_ieeg.index(site),:,:]
 
+            elif cond == 'AL':
+                for session_i in range(AL_n):
+                    if electrode_recording_type == 'monopolaire':
+                        tf_allplot[site_i,session_i,:,:] = np.load(f'{sujet}_tf_AL.npy')[chan_list_ieeg.index(site),session_i,:,:]
+                    else:
+                        tf_allplot[site_i,session_i,:,:] = np.load(f'{sujet}_tf_AL_bi.npy')[chan_list_ieeg.index(site),session_i,:,:]
+
             else:
                 if electrode_recording_type == 'monopolaire':
                     tf_allplot[site_i,:,:] = np.median(np.load(f'{sujet}_tf_{cond}.npy')[chan_list_ieeg.index(site),:,:,:], axis=0)
                 else:
                     tf_allplot[site_i,:,:] = np.median(np.load(f'{sujet}_tf_{cond}_bi.npy')[chan_list_ieeg.index(site),:,:,:], axis=0)
 
-        if cond == 'AL_long':
+        if cond in ['AL_long', 'AL']:
             ROI_data_xr[ROI_to_include.index(ROI_to_process),:,:] = np.median(np.median(tf_allplot, axis=1), axis=0)
         else:
             ROI_data_xr[ROI_to_include.index(ROI_to_process),:,:] = np.median(tf_allplot, axis=0)
@@ -401,9 +410,13 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
         xr_export.to_netcdf(f'allsujet_{cond}_ROI_bi.nc')
 
     os.chdir(path_memmap)
-    os.remove(f'allsujet_{cond}_ROI_reduction.dat')
+    
+    try:
+        os.remove(f'allsujet_{cond}_ROI_reduction.dat')
+    except:
+        pass
 
-    return
+    print('done')
 
 
         
@@ -422,10 +435,10 @@ def compilation_allplot_analysis(cond, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
+    #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
-        #cond = 'AL_long'
+        #cond = 'AL'
         for cond in ['FR_CV', 'SNIFF', 'AC', 'AL', 'AL_long']:
 
             # compilation_allplot_analysis(cond, electrode_recording_type)

@@ -86,15 +86,20 @@ def precompute_tf_AL(sujet, session_i, electrode_recording_type):
         plt.show()
 
     #### export TF AL
-    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
+    
     if electrode_recording_type == 'monopolaire':
         np.save(f'{sujet}_tf_{cond}_{str(session_i+1)}.npy', tf_resampled)
     if electrode_recording_type == 'bipolaire':
         np.save(f'{sujet}_tf_{cond}_{str(session_i+1)}_bi.npy', tf_resampled)    
 
     os.chdir(path_memmap)
-    os.remove(f'{sujet}_{cond}_{session_i}_tf_conv_{electrode_recording_type}.dat')
+    
+    try:
+        os.remove(f'{sujet}_{cond}_{session_i}_tf_conv_{electrode_recording_type}.dat')
+    except:
+        pass
 
+    print('done')
 
 
 
@@ -109,11 +114,11 @@ def precompute_tf_AL(sujet, session_i, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
-    for electrode_recording_type in ['monopolaire', 'bipolaire']:
-
-        #sujet = sujet_list[0]
-        for sujet in sujet_list:
+    #sujet = sujet_list[0]
+    for sujet in sujet_list:
+            
+        #electrode_recording_type = 'monopolaire'
+        for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
             #### load n_session
             n_session = 3

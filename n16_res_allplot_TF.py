@@ -112,6 +112,8 @@ def get_tf_stats(cond, tf_plot, pixel_based_distrib, nfrex):
         stretch_point = stretch_point_TF_ac_resample
     if cond == 'SNIFF':
         stretch_point = stretch_point_TF_sniff_resampled
+    if cond == 'AL':
+        stretch_point = resampled_points_AL
     
     phase_list = phase_stats[cond]
     phase_point = int(stretch_point/len(phase_list))
@@ -288,7 +290,8 @@ def save_TF_ITPC_ROI(ROI_i, ROI):
 #n_chan, chan_name = 0, prms['chan_list_ieeg'][0]
 def save_TF_ITPC_ROI_AL(ROI_i, ROI):
 
-    cond_to_plot = ['AL', 'AL_long']
+    # cond_to_plot = ['AL', 'AL_long']
+    cond_to_plot = ['AL']
 
     ROI_list, lobe_list, ROI_to_include, lobe_to_include, ROI_dict_plots, lobe_dict_plots = get_ROI_Lobes_list_and_Plots('FR_CV', electrode_recording_type)
 
@@ -321,7 +324,7 @@ def save_TF_ITPC_ROI_AL(ROI_i, ROI):
     del vals
 
     #### plot 
-    fig, axs = plt.subplots(nrows=len(cond_to_plot))
+    fig, ax = plt.subplots()
 
     if electrode_recording_type == 'monopolaire':
         plt.suptitle(f'{ROI} count : {ROI_count[ROI_i]}')
@@ -333,21 +336,24 @@ def save_TF_ITPC_ROI_AL(ROI_i, ROI):
 
     time_vec = np.linspace(0, AL_chunk_pre_post_time*2, resampled_points_AL)
 
-    #### for plotting l_gamma down
-    #c, cond = 1, cond_to_plot[1]
-    for c, cond in enumerate(cond_to_plot):
+    ax.set_title(cond, fontweight='bold', rotation=0)
 
-        ax = axs[c]
-        ax.set_title(cond, fontweight='bold', rotation=0)
+    #### plot
+    ax.pcolormesh(time_vec, frex, data_allcond[cond].values, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+    ax.set_yscale('log')
 
-        #### plot
-        ax.pcolormesh(time_vec, frex, data_allcond[cond].values, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
-        ax.set_yscale('log')
+    #### stats
+    if electrode_recording_type == 'monopolaire':
+        pixel_based_distrib = np.load(f'allsujet_{ROI}_tf_STATS_{cond}.npy')
+    else:
+        pixel_based_distrib = np.load(f'allsujet_{ROI}_tf_STATS_{cond}_bi.npy')
 
-        if cond == 'AL':
-            ax.vlines(AL_chunk_pre_post_time, ymin=frex[0], ymax=frex[-1], colors='g')
+    if get_tf_stats(cond, data_allcond[cond].values, pixel_based_distrib, nfrex).sum() != 0:
+        ax.contour(time_vec, frex, get_tf_stats(cond, data_allcond[cond].values, pixel_based_distrib, nfrex), levels=0, colors='g')
 
-        ax.set_yticks([2,8,10,30,50,100,150], labels=[2,8,10,30,50,100,150])
+    ax.vlines(AL_chunk_pre_post_time, ymin=frex[0], ymax=frex[-1], colors='g')
+
+    ax.set_yticks([2,8,10,30,50,100,150], labels=[2,8,10,30,50,100,150])
 
     #plt.show()
 
@@ -408,7 +414,7 @@ def compilation_compute_TF_ITPC(electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
+    #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
         #### TF & ITPC

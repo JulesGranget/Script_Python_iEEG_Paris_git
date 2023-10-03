@@ -158,22 +158,26 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
     
     chan_loca = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
 
-    if electrode_recording_type == 'monopolaire':
-        if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', f'{sujet}_{chan_name}_{chan_loca}.jpeg')):
-            return
-    else:
-        if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', f'{sujet}_{chan_name}_{chan_loca}_bi.jpeg')):
-            return
+    # if electrode_recording_type == 'monopolaire':
+    #     if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', f'{sujet}_{chan_name}_{chan_loca}.jpeg')):
+    #         print('ALREADY COMPUTED')
+    #         return
+    # else:
+    #     if os.path.exists(os.path.join(path_results, sujet, 'TF', 'summary', f'{sujet}_{chan_name}_{chan_loca}_bi.jpeg')):
+    #         print('ALREADY COMPUTED')
+    #         return
 
     print_advancement(n_chan, len(chan_list_ieeg), steps=[25, 50, 75])
 
-    #### scale
+    conditions_plot = ['FR_CV', 'SNIFF', 'AC']
+
+    #### plot allcond except AL
     os.chdir(os.path.join(path_precompute, sujet, 'TF'))
 
     vals = np.array([])
 
-    #cond = conditions[0]
-    for cond in conditions:
+    #cond = conditions_plot[0]
+    for cond in conditions_plot:
 
         if electrode_recording_type == 'monopolaire':
             data = np.median(np.load(f'{sujet}_tf_{cond}.npy')[n_chan,:,:,:], axis=0)
@@ -189,8 +193,7 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
 
     del vals
 
-    #### plot
-    fig, axs = plt.subplots(ncols=len(conditions))
+    fig, axs = plt.subplots(ncols=len(conditions_plot))
 
     if electrode_recording_type == 'monopolaire':
         plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}')
@@ -200,8 +203,8 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
     fig.set_figheight(5)
     fig.set_figwidth(15)
 
-    #c, cond = 1, conditions[1]
-    for c, cond in enumerate(conditions):
+    #c, cond = 1, conditions_plot[1]
+    for c, cond in enumerate(conditions_plot):
 
         if electrode_recording_type == 'monopolaire':
             tf_plot = np.median(np.load(f'{sujet}_tf_{cond}.npy')[n_chan,:,:,:], axis=0)
@@ -220,9 +223,6 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
 
         if cond == 'SNIFF':
             time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff_resampled)
-
-        if cond == 'AL':
-            time_vec = np.linspace(0, AL_chunk_pre_post_time*2, resampled_points_AL)
 
         #### plot
         ax.pcolormesh(time_vec, frex, tf_plot, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
@@ -245,8 +245,6 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
             ax.vlines([0, AC_length], ymin=frex[0], ymax=frex[-1], colors='g')
         if cond == 'SNIFF':
             ax.vlines(0, ymin=frex[0], ymax=frex[-1], colors='g')
-        if cond == 'AL':
-            ax.vlines(AL_chunk_pre_post_time, ymin=frex[0], ymax=frex[-1], colors='g')
 
         ax.set_yticks([2,8,10,30,50,100,150], labels=[2,8,10,30,50,100,150])
 
@@ -268,7 +266,75 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
     del tf_plot
     gc.collect()
 
+    #### plot AL
+    os.chdir(os.path.join(path_precompute, sujet, 'TF'))
 
+    if electrode_recording_type == 'monopolaire':
+        data = np.load(f'{sujet}_tf_FR_CV.npy')[n_chan,:,:]
+    if electrode_recording_type == 'bipolaire':
+        data = np.load(f'{sujet}_tf_FR_CV_bi.npy')[n_chan,:,:]
+
+    vals = data
+
+    median_diff = np.percentile(np.abs(vals - np.median(vals)), 100-tf_plot_percentile_scale_AL)
+
+    vmin = np.median(vals) - median_diff
+    vmax = np.median(vals) + median_diff
+
+    del vals
+
+    fig, axs = plt.subplots(nrows=3)
+
+    if electrode_recording_type == 'monopolaire':
+        plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}_AL_chunk')
+    if electrode_recording_type == 'bipolaire':
+        plt.suptitle(f'{sujet}_{chan_name}_{chan_loca}_AL_chunk_bi')
+
+    fig.set_figheight(10)
+    fig.set_figwidth(15)
+
+    for AL_i in range(3):
+
+        ax = axs[AL_i]
+
+        if electrode_recording_type == 'monopolaire':
+            tf_plot = np.load(f'{sujet}_tf_AL.npy')[n_chan,AL_i,:,:]
+        if electrode_recording_type == 'bipolaire':
+            tf_plot = np.load(f'{sujet}_tf_AL_bi.npy')[n_chan,AL_i,:,:]
+
+        #### generate time vec
+        time_vec = np.linspace(0, AL_chunk_pre_post_time*2, resampled_points_AL)
+
+        #### plot
+        ax.pcolormesh(time_vec, frex, tf_plot, vmin=vmin, vmax=vmax, shading='gouraud', cmap=plt.get_cmap('seismic'))
+        ax.set_yscale('log')
+
+        ax.vlines(AL_chunk_pre_post_time, ymin=frex[0], ymax=frex[-1], colors='g')
+
+        ax.set_yticks([2,8,10,30,50,100,150], labels=[2,8,10,30,50,100,150])
+
+    #plt.show()
+
+    #### save
+    if tf_mode == 'TF':
+        os.chdir(os.path.join(path_results, sujet, 'TF', 'summary', 'AL'))
+    elif tf_mode == 'ITPC':
+        os.chdir(os.path.join(path_results, sujet, 'ITPC', 'summary', 'AL'))
+
+    if electrode_recording_type == 'monopolaire':
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AL_chunk.jpeg', dpi=150)
+    if electrode_recording_type == 'bipolaire':
+        fig.savefig(f'{sujet}_{chan_name}_{chan_loca}_AL_chunk_bi.jpeg', dpi=150)
+
+    fig.clf()
+    plt.close('all')
+    del tf_plot
+    gc.collect()
+
+
+
+
+        
 
 
 
@@ -276,8 +342,6 @@ def save_TF_ITPC_n_chan(sujet, n_chan, chan_name, tf_mode):
 
 #n_chan, chan_name = 0, prms['chan_list_ieeg'][0]
 def save_TF_ITPC_n_chan_AL(sujet, n_chan, chan_name, tf_mode):
-
-    cond = 'AL_long'
 
     #### load prms
     prms = get_params(sujet, electrode_recording_type)
@@ -306,17 +370,14 @@ def save_TF_ITPC_n_chan_AL(sujet, n_chan, chan_name, tf_mode):
 
     vals = np.array([])
 
-    #session_i = 0
-    for session_i in range(AL_n):
+    if electrode_recording_type == 'monopolaire':
+        data = np.load(f'{sujet}_tf_FR_CV.npy')[n_chan,:,:]
+    if electrode_recording_type == 'bipolaire':
+        data = np.load(f'{sujet}_tf_FR_CV_bi.npy')[n_chan,:,:]
 
-        if electrode_recording_type == 'monopolaire':
-            data = np.load(f'{sujet}_tf_AL_{session_i+1}.npy')[n_chan,:,:]
-        if electrode_recording_type == 'bipolaire':
-            data = np.load(f'{sujet}_tf_AL_{session_i+1}_bi.npy')[n_chan,:,:]
+    vals = np.append(vals, data.reshape(-1))
 
-        vals = np.append(vals, data.reshape(-1))
-
-    median_diff = np.percentile(np.abs(vals - np.median(vals)), 100-tf_plot_percentile_scale)
+    median_diff = np.percentile(np.abs(vals - np.median(vals)), 100-tf_plot_percentile_scale_AL)
 
     vmin = np.median(vals) - median_diff
     vmax = np.median(vals) + median_diff
@@ -419,7 +480,7 @@ if __name__ == '__main__':
     #sujet = sujet_list[0]
     for sujet in sujet_list:
 
-        #electrode_recording_type = 'monopolaire'
+        #electrode_recording_type = 'bipolaire'
         for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
             print(sujet, electrode_recording_type)

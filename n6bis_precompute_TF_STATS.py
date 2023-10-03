@@ -167,7 +167,7 @@ def precompute_tf_STATS(sujet, cond, electrode_recording_type):
 
                 #### random selection
                 draw_indicator = np.random.randint(low=0, high=2, size=n_trial_cond)
-                sel_baseline = np.random.randint(low=0, high=n_trial_baselines, size=(draw_indicator == 1).sum())
+                sel_baseline = np.random.randint(low=0, high=n_trial_baselines, size=(draw_indicator == 1).sum()) #change for choice
                 sel_cond = np.random.randint(low=0, high=n_trial_cond, size=(draw_indicator == 0).sum())
 
                 #### extract max min
