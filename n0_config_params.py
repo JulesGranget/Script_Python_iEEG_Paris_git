@@ -103,32 +103,32 @@ elif PC_ID == 'DESKTOP-3IJUK7R':
 elif PC_ID == 'pc-jules' or PC_ID == 'LAPTOP-EI7OSP7K':
 
     PC_working = 'Jules_Labo_Linux'
-    path_main_workdir = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Script_Python_iEEG_Paris_git/'
-    path_general = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/'
-    path_memmap = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Mmap'
+    path_main_workdir = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J/Script_Python_iEEG_Paris_git/'
+    path_general = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J/'
+    path_memmap = '/home/jules/smb4k/CRNLDATA/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J/Mmap'
     n_core = 6
 
 elif PC_ID == 'pc-valentin':
 
     PC_working = 'Valentin_Labo_Linux'
-    path_main_workdir = '/home/valentin/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/Script_Python_iEEG_Lyon/'
-    path_general = '/home/valentin/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/'
-    path_memmap = '/home/valentin/smb4k/CRNLDATA/crnldata/cmo/multisite/DATA_MANIP/iEEG_Lyon_VJ/Mmap'
+    path_main_workdir = '/home/valentin/smb4k/CRNLDATA/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Lyon_VJ/Script_Python_iEEG_Lyon/'
+    path_general = '/home/valentin/smb4k/CRNLDATA/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Lyon_VJ/'
+    path_memmap = '/home/valentin/smb4k/CRNLDATA/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Lyon_VJ/Mmap'
     n_core = 10
 
 elif PC_ID == 'nodeGPU':
 
     PC_working = 'nodeGPU'
-    path_main_workdir = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Script_Python_iEEG_Lyon'
-    path_general = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J'
+    path_main_workdir = '/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J/Script_Python_iEEG_Lyon'
+    path_general = '/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J'
     path_memmap = '/mnt/data/julesgranget'
     n_core = 10
 
 else:
 
     PC_working = 'crnl_cluster'
-    path_main_workdir = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J/Script_Python_iEEG_Paris_git'
-    path_general = '/crnldata/cmo/multisite/DATA_MANIP/iEEG_Paris_J'
+    path_main_workdir = '/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J/Script_Python_iEEG_Paris_git'
+    path_general = '/crnldata/cmo/Projets/IntraEEG_Respi_Cardiaque/NBuonviso202001_ieeg_respi_nrec_jules/iEEG_Paris_J'
     path_memmap = '/mnt/data/julesgranget'
     n_core = 10
 
