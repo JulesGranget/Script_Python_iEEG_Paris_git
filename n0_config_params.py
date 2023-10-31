@@ -71,7 +71,9 @@ freq_band_dict_FC_function = {'lf' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' 
                 'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]},
                 'wb' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40], 'l_gamma' : [50, 80], 'h_gamma' : [80, 120]}}
 
-
+freq_band_dict_df_extraction = {'lf' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40]},
+                'hf' : {'l_gamma' : [50, 80], 'h_gamma' : [80, 120]},
+                'wb' : {'theta' : [4,8], 'alpha' : [8,12], 'beta' : [12,40], 'gamma' : [50, 120]}}
 
 ########################################
 ######## PATH DEFINITION ########
@@ -87,9 +89,9 @@ PC_ID = socket.gethostname()
 if PC_ID == 'LAPTOP-EI7OSP7K':
 
     PC_working = 'Jules_VPN'
-    path_main_workdir = 'Z:\\multisite\\DATA_MANIP\\EEG_Paris_J\\Script_Python_iEEG_Paris_git'
-    path_general = 'Z:\\multisite\\DATA_MANIP\\iEEG_Paris_J'
-    path_memmap = 'Z:\\multisite\\DATA_MANIP\\iEEG_Paris_J\\Mmap'
+    path_main_workdir = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Script_Python_iEEG_Paris_git'
+    path_general = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J'
+    path_memmap = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Mmap'
     n_core = 4
 
 elif PC_ID == 'DESKTOP-3IJUK7R':
@@ -427,14 +429,23 @@ stretch_point_EI = [900, 100]
 stretch_point_I = [0, int(stretch_point_TF/2)]
 stretch_point_E = [int(stretch_point_TF/2), stretch_point_TF]
 
+sniff_extract_prepre = [-2, -1]
 sniff_extract_pre = [-1, 0]
 sniff_extract_resp_evnmt = [0, 1]
 sniff_extract_post = [1, 2]
 
-AC_extract_pre = [-AC_length, 0]
-AC_extract_resp_evnmt_1 = [0, AC_length/2]
-AC_extract_resp_evnmt_2 = [AC_length/2, AC_length]
-AC_extract_post = [AC_length, AC_length*2]
+AC_extract_pre_1 = [-12, -9]
+AC_extract_pre_2 = [-9, -6]
+AC_extract_pre_3 = [-6, -3]
+AC_extract_pre_4 = [-3, 0]
+AC_extract_resp_evnmt_1 = [0, 3]
+AC_extract_resp_evnmt_2 = [3, 6]
+AC_extract_resp_evnmt_3 = [6, 9]
+AC_extract_resp_evnmt_4 = [9, 12]
+AC_extract_post_1 = [12, 15]
+AC_extract_post_2 = [15, 18]
+AC_extract_post_3 = [18, 21]
+AC_extract_post_4 = [21, 24]
 
 n_points_AL_interpolation = 10500
 n_phase_extraction_AL = 2

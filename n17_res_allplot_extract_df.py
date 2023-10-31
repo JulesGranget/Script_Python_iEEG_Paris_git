@@ -51,7 +51,6 @@ def compilation_export_df_allplot(electrode_recording_type):
             # df_export_HRV_i = pd.read_excel(f'{sujet}_df_HRV_bi.xlsx')
             df_export_DFC_i = pd.read_excel(f'{sujet}_df_DFC_bi.xlsx')
 
-
         df_export_TF = pd.concat([df_export_TF, df_export_TF_i])
         # df_export_ITPC = pd.concat([df_export_ITPC, df_export_ITPC_i])
         # df_export_graph_DFC = pd.concat([df_export_graph_DFC, df_export_graph_DFC_i])
@@ -131,7 +130,7 @@ def compilation_export_df_allplot(electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
+    #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
         print(electrode_recording_type)

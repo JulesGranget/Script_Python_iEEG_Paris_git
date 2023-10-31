@@ -112,6 +112,8 @@ def export_TF_in_df(sujet, electrode_recording_type):
     #chan_i, chan_name = 0, chan_list[0]
     for chan_i, chan_name in enumerate(chan_list):
 
+        print(chan_name, flush=True)
+
         print_advancement(chan_i, len(chan_list), steps=[25, 50, 75])
 
         ROI_i = df_loca['ROI'][df_loca['name'] == chan_name].values[0]
@@ -122,32 +124,20 @@ def export_TF_in_df(sujet, electrode_recording_type):
         else:
             side_i = 'r' 
 
-        #### normalization params
-        if electrode_recording_type == 'monopolaire':
-            data = np.median(np.load(f'{sujet}_tf_raw_FR_CV.npy')[chan_i,:,:,:], axis=0)
-        else:
-            data = np.median(np.load(f'{sujet}_tf_raw_FR_CV_bi.npy')[chan_i,:,:,:], axis=0)
-
-        _mean = data.mean(axis=1).reshape(-1,1)
-        _std = data.std(axis=1).reshape(-1,1)
-
-        #cond = 'AL'
+        #cond = 'SNIFF'
         for cond in conditions:
             #band, freq = 'theta', [4, 8]
-            for band, freq in freq_band_dict_FC_function[band_prep].items():  
+            for band, freq in freq_band_dict_df_extraction[band_prep].items():  
 
                 #### load
                 if electrode_recording_type == 'monopolaire':
-                    data = np.median(np.load(f'{sujet}_tf_raw_{cond}.npy')[chan_i,:,:,:], axis=0)
+                    data = np.median(np.load(f'{sujet}_tf_{cond}.npy')[chan_i,:,:,:], axis=0)
                 else:
-                    data = np.median(np.load(f'{sujet}_tf_raw_{cond}_bi.npy')[chan_i,:,:,:], axis=0)
+                    data = np.median(np.load(f'{sujet}_tf_{cond}_bi.npy')[chan_i,:,:,:], axis=0)
 
                 #### sel freq
                 mask_frex_band = (frex >= freq[0]) & (frex <= freq[-1])
                 Pxx = data[mask_frex_band,:]
-
-                #### normalize
-                Pxx = (Pxx - _mean[mask_frex_band,:]) / _std[mask_frex_band,:]
 
                 if cond == 'AL':
 
@@ -173,25 +163,34 @@ def export_TF_in_df(sujet, electrode_recording_type):
                     stretch_point_TF_sniff = int(np.abs(t_start_SNIFF)*srate +  t_stop_SNIFF*srate)
                     time_vec = np.linspace(t_start_SNIFF, t_stop_SNIFF, stretch_point_TF_sniff_resampled)
 
+                    Pxx_prepre = np.median(Pxx[:,(time_vec >= sniff_extract_prepre[0]) & (time_vec <= sniff_extract_prepre[1])])
                     Pxx_pre = np.median(Pxx[:,(time_vec >= sniff_extract_pre[0]) & (time_vec <= sniff_extract_pre[1])])
                     Pxx_resp_evnmt = np.median(Pxx[:,(time_vec >= sniff_extract_resp_evnmt[0]) & (time_vec <= sniff_extract_resp_evnmt[1])])
                     Pxx_post = np.median(Pxx[:,(time_vec >= sniff_extract_post[0]) & (time_vec <= sniff_extract_post[1])])
 
-                    phase_list = ['SNIFF_pre', 'SNIFF_resp_evnmt', 'SNIFF_post']
-                    Pxx_list = [Pxx_pre, Pxx_resp_evnmt, Pxx_post]
+                    phase_list = ['SNIFF_pre_01', 'SNIFF_pre_02', 'SNIFF_resp_evnmt', 'SNIFF_post']
+                    Pxx_list = [Pxx_prepre, Pxx_pre, Pxx_resp_evnmt, Pxx_post]
                 
                 if cond == 'AC':
 
                     stretch_point_TF_ac = int(np.abs(t_start_AC)*srate +  t_stop_AC*srate)
                     time_vec = np.linspace(t_start_AC, t_stop_AC, stretch_point_TF_ac_resample)
 
-                    Pxx_pre = np.median(Pxx[:,(time_vec >= AC_extract_pre[0]) & (time_vec <= AC_extract_pre[1])])
+                    Pxx_pre_1 = np.median(Pxx[:,(time_vec >= AC_extract_pre_1[0]) & (time_vec <= AC_extract_pre_1[1])])
+                    Pxx_pre_2 = np.median(Pxx[:,(time_vec >= AC_extract_pre_2[0]) & (time_vec <= AC_extract_pre_2[1])])
+                    Pxx_pre_3 = np.median(Pxx[:,(time_vec >= AC_extract_pre_3[0]) & (time_vec <= AC_extract_pre_3[1])])
+                    Pxx_pre_4 = np.median(Pxx[:,(time_vec >= AC_extract_pre_4[0]) & (time_vec <= AC_extract_pre_4[1])])
                     Pxx_resp_evnmt_1 = np.median(Pxx[:,(time_vec >= AC_extract_resp_evnmt_1[0]) & (time_vec <= AC_extract_resp_evnmt_1[1])])
                     Pxx_resp_evnmt_2 = np.median(Pxx[:,(time_vec >= AC_extract_resp_evnmt_2[0]) & (time_vec <= AC_extract_resp_evnmt_2[1])])
-                    Pxx_post = np.median(Pxx[:,(time_vec >= AC_extract_post[0]) & (time_vec <= AC_extract_post[1])])
+                    Pxx_resp_evnmt_3 = np.median(Pxx[:,(time_vec >= AC_extract_resp_evnmt_3[0]) & (time_vec <= AC_extract_resp_evnmt_3[1])])
+                    Pxx_resp_evnmt_4 = np.median(Pxx[:,(time_vec >= AC_extract_resp_evnmt_4[0]) & (time_vec <= AC_extract_resp_evnmt_4[1])])
+                    Pxx_post_1 = np.median(Pxx[:,(time_vec >= AC_extract_post_1[0]) & (time_vec <= AC_extract_post_1[1])])
+                    Pxx_post_2 = np.median(Pxx[:,(time_vec >= AC_extract_post_2[0]) & (time_vec <= AC_extract_post_2[1])])
+                    Pxx_post_3 = np.median(Pxx[:,(time_vec >= AC_extract_post_3[0]) & (time_vec <= AC_extract_post_3[1])])
+                    Pxx_post_4 = np.median(Pxx[:,(time_vec >= AC_extract_post_4[0]) & (time_vec <= AC_extract_post_4[1])])
 
-                    phase_list = ['AC_pre', 'AC_resp_evnmt_1', 'AC_resp_evnmt_2', 'AC_post']
-                    Pxx_list = [Pxx_pre, Pxx_resp_evnmt_1, Pxx_resp_evnmt_2, Pxx_post]
+                    phase_list = ['AC_pre_01', 'AC_pre_02', 'AC_pre_03', 'AC_pre_04', 'AC_resp_evnmt_01', 'AC_resp_evnmt_02', 'AC_resp_evnmt_03', 'AC_resp_evnmt_04', 'AC_post_01', 'AC_post_02', 'AC_post_03', 'AC_post_04']
+                    Pxx_list = [Pxx_pre_1, Pxx_pre_2, Pxx_pre_3, Pxx_pre_4, Pxx_resp_evnmt_1, Pxx_resp_evnmt_2, Pxx_resp_evnmt_3, Pxx_resp_evnmt_4, Pxx_post_1, Pxx_post_2, Pxx_post_3, Pxx_post_4]
 
                 data_export_i =   {'sujet' : [sujet]*len(phase_list), 'cond' : [cond]*len(phase_list), 'chan' : [chan_name]*len(phase_list), 
                                     'ROI' : [ROI_i]*len(phase_list), 'Lobe' : [Lobe_i]*len(phase_list), 'side' : [side_i]*len(phase_list), 
@@ -928,7 +927,7 @@ def compilation_export_df(sujet, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
+    #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
         #sujet = sujet_list[0]
@@ -936,6 +935,9 @@ if __name__ == '__main__':
                     
             #### export df
             # compilation_export_df(sujet, electrode_recording_type)
-            execute_function_in_slurm_bash_mem_choice('n10_res_extract_df', 'compilation_export_df', [sujet, electrode_recording_type], '20G')
+            # execute_function_in_slurm_bash_mem_choice('n10_res_extract_df', 'compilation_export_df', [sujet, electrode_recording_type], '20G')
+
+            # export_TF_in_df(sujet, electrode_recording_type)
+            execute_function_in_slurm_bash_mem_choice('n10_res_extract_df', 'export_TF_in_df', [sujet, electrode_recording_type], '20G')
         
         
