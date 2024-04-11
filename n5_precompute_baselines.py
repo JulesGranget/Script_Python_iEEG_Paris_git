@@ -29,17 +29,14 @@ def compute_and_save_baseline(sujet, electrode_recording_type):
     print('#### COMPUTE BASELINES ####')
 
     #### verify if already computed
-    verif_band_compute = []
     if electrode_recording_type == 'monopolaire':
         if os.path.exists(os.path.join(path_precompute, sujet, 'baselines', f'{sujet}_baselines.npy')):
-            verif_band_compute.append(True)
+            print(f'{sujet} : BASELINES ALREADY COMPUTED')
+            return
     if electrode_recording_type == 'bipolaire':
         if os.path.exists(os.path.join(path_precompute, sujet, 'baselines', f'{sujet}_baselines_bi.npy')):
-            verif_band_compute.append(True)
-
-    if np.sum(verif_band_compute) > 0:
-        print(f'{sujet} : BASELINES ALREADY COMPUTED')
-        return
+            print(f'{sujet} : BASELINES ALREADY COMPUTED')
+            return
             
     #### open data
     os.chdir(os.path.join(path_prep, sujet, 'sections'))

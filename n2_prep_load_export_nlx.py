@@ -587,7 +587,7 @@ def generate_final_raw(data_preproc, chan_list_ieeg, data_aux, chan_list_aux, sr
 
 if __name__ == '__main__':
 
-    #electrode_recording_type = 'monopolaire'
+    #electrode_recording_type = 'bipolaire'
     for electrode_recording_type in ['monopolaire', 'bipolaire']:
 
         #sujet = sujet_list[0]
@@ -811,6 +811,15 @@ if __name__ == '__main__':
             #### save folder
             os.chdir(os.path.join(path_prep, sujet, 'sections'))
             
+            #### check signal
+            if debug:
+
+                raw_test = mne.io.read_raw_fif(f'{sujet}_allcond_bi.fif')
+                plt.plot(raw_all.get_data()[0,:srate*300], label='no_reref')
+                plt.plot(raw_test.get_data()[0,:srate*300], label='with_reref')
+                plt.legend()
+                plt.show()
+
             #### Export all preproc
             if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_allcond.fif')) == False or os.path.exists(os.path.join(os.getcwd(), f'{sujet}_allcond_bi.fif')) == False:
                 raw_vs_ieeg = raw_all.copy()
@@ -922,47 +931,47 @@ if __name__ == '__main__':
                 count_session['AC'].append(len(ac_starts))
 
                 del raw_ac_ieeg
-
-            if electrode_recording_type == 'monopolaire':
                     
-                #### export count session
-                os.chdir(os.path.join(path_prep, sujet, 'info'))
-                if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_session.xlsx")) == False:
+            #### export count session
+            os.chdir(os.path.join(path_prep, sujet, 'info'))
+            if os.path.exists(os.path.join(os.getcwd(), f"{sujet}_count_session.xlsx")) == False:
 
-                    df = pd.DataFrame(count_session)
-                    df.to_excel(f'{sujet}_count_session.xlsx')
+                df = pd.DataFrame(count_session)
+                df.to_excel(f'{sujet}_count_session.xlsx')
 
-                #### export AC starts
-                len_ac_session = (ac_allsession[1] - ac_allsession[0])*srate
+            #### export AC starts
+            len_ac_session = (ac_allsession[1] - ac_allsession[0])*srate
 
-                if ac_starts[-1]+t_stop_AC*srate >= len_ac_session:
-                    ac_starts = ac_starts[:-1]
+            if ac_starts[-1]+t_stop_AC*srate >= len_ac_session:
+                ac_starts = ac_starts[:-1]
 
-                if ac_starts[0]+t_start_AC*srate <= 0:
-                    ac_starts = ac_starts[1:]
+            if ac_starts[0]+t_start_AC*srate <= 0:
+                ac_starts = ac_starts[1:]
 
+            if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_AC_starts.txt')) == False:
                 ac_starts = [str(i) for i in ac_starts]
                 with open(f'{sujet}_AC_starts.txt', 'w') as f:
                     f.write('\n'.join(ac_starts))
                     f.close()
 
-                #### export SNIFF starts
-                len_sniff_session = (sniff_allsession[1] - sniff_allsession[0])*srate
+            #### export SNIFF starts
+            len_sniff_session = (sniff_allsession[1] - sniff_allsession[0])*srate
 
-                if int(sniff_peaks[-1])+int(t_stop_SNIFF)*srate >= len_sniff_session:
-                    sniff_peaks = sniff_peaks[:-1]
+            if int(sniff_peaks[-1])+int(t_stop_SNIFF)*srate >= len_sniff_session:
+                sniff_peaks = sniff_peaks[:-1]
 
-                if int(sniff_peaks[0])+int(t_start_SNIFF)*srate <= 0:
-                    sniff_peaks = sniff_peaks[1:]
+            if int(sniff_peaks[0])+int(t_start_SNIFF)*srate <= 0:
+                sniff_peaks = sniff_peaks[1:]
 
+            if os.path.exists(os.path.join(os.getcwd(), f'{sujet}_SNIFF_starts.txt')) == False:
                 sniff_peaks = [str(i) for i in sniff_peaks]
                 with open(f'{sujet}_SNIFF_starts.txt', 'w') as f:
                     f.write('\n'.join(sniff_peaks))
                     f.close()
 
-                #### for next iteration change to int
-                ac_starts = [int(i) for i in ac_starts]
-                sniff_peaks = [int(i) for i in sniff_peaks]
+            #### for next iteration change to int
+            ac_starts = [int(i) for i in ac_starts]
+            sniff_peaks = [int(i) for i in sniff_peaks]
 
 
             

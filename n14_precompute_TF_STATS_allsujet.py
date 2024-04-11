@@ -414,7 +414,7 @@ def precompute_tf_ROI_STATS(ROI, cond, electrode_recording_type):
 
 if __name__ == '__main__':
 
-    #cond = 'AL'
+    #cond = 'SNIFF'
     for cond in ['AC', 'SNIFF', 'AL']:
 
         #### load anat

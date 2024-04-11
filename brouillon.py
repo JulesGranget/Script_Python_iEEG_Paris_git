@@ -328,3 +328,20 @@ plt.show()
 plt.plot(time_vec, data[-3,:])
 plt.vlines(erp_times/prms['srate'], ymax=data[-3,:].max(), ymin=data[-3,:].min(), color='r')
 plt.show()
+
+
+
+
+
+n_question = 25
+n_sujet = 30
+n_cond = 2
+
+alldata = np.random.randint(low=0, high=2, size=n_question*n_sujet*n_cond).reshape(n_cond, n_sujet, n_question)
+alldata_mean = alldata.mean(axis=-1)
+
+plt.hist(alldata_mean[0])
+plt.show()
+
+
+

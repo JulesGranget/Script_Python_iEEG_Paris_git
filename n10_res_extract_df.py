@@ -209,6 +209,8 @@ def export_TF_in_df(sujet, electrode_recording_type):
     if electrode_recording_type == 'bipolaire':
         df_export.to_excel(f'{sujet}_df_TF_bi.xlsx')
 
+    print('done')
+
 
 
 

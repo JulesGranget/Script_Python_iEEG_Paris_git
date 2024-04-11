@@ -86,13 +86,26 @@ import platform
 PC_OS = platform.system()
 PC_ID = socket.gethostname()
 
+VPN = False
+
 if PC_ID == 'LAPTOP-EI7OSP7K':
 
-    PC_working = 'Jules_VPN'
-    path_main_workdir = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Script_Python_iEEG_Paris_git'
-    path_general = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J'
-    path_memmap = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Mmap'
-    n_core = 4
+    if VPN == True:
+
+        PC_working = 'Jules_VPN'
+        path_main_workdir = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Script_Python_iEEG_Paris_git'
+        path_general = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J'
+        path_memmap = 'Z:\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Mmap'
+        n_core = 4
+
+    else:
+
+        PC_working = 'Jules_VPN'
+        path_main_workdir = 'N:\\cmo\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Script_Python_iEEG_Paris_git'
+        path_general = 'N:\\cmo\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J'
+        path_memmap = 'N:\\cmo\\Projets\\IntraEEG_Respi_Cardiaque\\NBuonviso202001_ieeg_respi_nrec_jules\\iEEG_Paris_J\\Mmap'
+        n_core = 4
+
 
 elif PC_ID == 'DESKTOP-3IJUK7R':
 
@@ -198,7 +211,7 @@ prep_step_lf = {
 'line_noise_removing' : {'execute': True},
 'high_pass' : {'execute': False, 'params' : {'l_freq' : None, 'h_freq': None}},
 'low_pass' : {'execute': True, 'params' : {'l_freq' : 0, 'h_freq': 45}},
-'average_reref' : {'execute': True},
+'average_reref' : {'execute': False},
 }
 
 prep_step_hf = {
@@ -206,7 +219,7 @@ prep_step_hf = {
 'line_noise_removing' : {'execute': True},
 'high_pass' : {'execute': True, 'params' : {'l_freq' : 55, 'h_freq': None}},
 'low_pass' : {'execute': False, 'params' : {'l_freq' : 0, 'h_freq': 45}},
-'average_reref' : {'execute': True},
+'average_reref' : {'execute': False},
 }
 
 prep_step_wb = {
@@ -214,7 +227,7 @@ prep_step_wb = {
 'line_noise_removing' : {'execute': True},
 'high_pass' : {'execute': False, 'params' : {'l_freq' : None, 'h_freq': None}},
 'low_pass' : {'execute': False, 'params' : {'l_freq' : None, 'h_freq': None}},
-'average_reref' : {'execute': True},
+'average_reref' : {'execute': False},
 }
 
 
